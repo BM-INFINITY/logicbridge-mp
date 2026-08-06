@@ -9,12 +9,12 @@ LogicBridge is a visual workflow automation platform inspired by Activepieces an
 
 ## 👥 Team Members
 
-| Sr. | Name | Enrollment No. | Role |
-|:---:|:---|:---:|:---|
-| 1 | **MODI BHAVY HARSHADKUMAR** | 23012011036 | Full Stack & Engine Architecture |
-| 2 | **PATEL DHRUV KANUBHAI** | 23012011055 | Backend APIs & Integrations |
-| 3 | **PATEL NAISARG DINESHKUMAR** | 23012011066 | UI/UX & Flow Canvas |
-| 4 | **DHAIRYA MANISHBHAI THAKER** | 23012021007 | Database & Deployment |
+| Sr. | Name | Enrollment No. |
+|:---:|:---|:---:|
+| 1 | MODI BHAVY HARSHADKUMAR | 23012011036 |
+| 2 | PATEL DHRUV KANUBHAI | 23012011055 |
+| 3 | PATEL NAISARG DINESHKUMAR | 23012011066 |
+| 4 | DHAIRYA MANISHBHAI THAKER | 23012021007 |
 
 ---
 

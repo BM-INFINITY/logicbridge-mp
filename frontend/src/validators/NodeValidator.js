@@ -1,7 +1,7 @@
 import { NodeTypes } from '../constants/NodeTypes';
 
 /**
- * Frontend validation rules for step configuration
+ * Frontend validation rules for step configuration and branch connection logic
  */
 export class NodeValidator {
   /**
@@ -35,6 +35,27 @@ export class NodeValidator {
       }
     }
 
+    return { valid: true };
+  }
+
+  /**
+   * Validates if a new condition edge connection is allowed
+   * @param {object} params - Connection parameters { source, target, sourceHandle }
+   * @param {Array} edges - Existing edge list
+   * @returns {{ valid: boolean, error?: string }}
+   */
+  static validateConditionConnection(params, edges) {
+    if (params.sourceHandle === 'true' || params.sourceHandle === 'false') {
+      const duplicate = edges.find(
+        (e) => e.source === params.source && e.sourceHandle === params.sourceHandle
+      );
+      if (duplicate) {
+        return {
+          valid: false,
+          error: `Condition node already has a ${params.sourceHandle.toUpperCase()} branch connection`,
+        };
+      }
+    }
     return { valid: true };
   }
 }

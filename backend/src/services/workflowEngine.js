@@ -1,9 +1,11 @@
 const Execution = require('../models/Execution');
 const Workflow = require('../models/Workflow');
 const { registry } = require('../nodes');
-const { logError, ExecutionContext } = require('../utils');
-const { ExecutionStatus } = require('../constants');
-const { ValidationError, NodeExecutionError } = require('../errors');
+const { logError, ExecutionContext, ExecutionPath, TriggerContext } = require('../utils');
+const { ExecutionStatus, NodeTypes, ExecutionEvents } = require('../constants');
+const { ValidationError } = require('../errors');
+const BranchTraversal = require('./BranchTraversal');
+const { validateConditionBranches } = require('../validators/workflowValidator');
 
 /**
  * Topological Sort via edges (Kahn's Algorithm with x-position fallback)
@@ -13,7 +15,6 @@ const { ValidationError, NodeExecutionError } = require('../errors');
  */
 function buildExecutionOrder(nodes, edges) {
   if (!edges || edges.length === 0) {
-    // Fallback: sort by x position
     return [...nodes].sort((a, b) => (a.position?.x ?? 0) - (b.position?.x ?? 0));
   }
 
@@ -45,17 +46,30 @@ function buildExecutionOrder(nodes, edges) {
 }
 
 /**
- * Executes a complete workflow graph sequentially
+ * Executes a complete workflow graph sequentially with branch-aware pruning
  * @param {object} workflow - Mongoose Workflow document or workflow object
  * @param {string} ownerId - Owner user ID
- * @param {string} trigger - Execution trigger type ('manual' | 'schedule' | 'webhook')
+ * @param {string} trigger - Execution trigger source ('manual' | 'schedule' | 'webhook')
+ * @param {any} [triggerPayload] - Optional payload for webhook or scheduled execution
  * @returns {Promise<object>} - Execution Mongoose document
  */
-async function run(workflow, ownerId, trigger = 'manual') {
+async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null) {
   const startedAt = Date.now();
   const steps = [];
   let executionStatus = ExecutionStatus.SUCCESS;
   let executionError = null;
+
+  const triggerContext = new TriggerContext({
+    triggerType: trigger,
+    payload: triggerPayload,
+    headers: triggerPayload?.headers || {},
+    query: triggerPayload?.query || {},
+  });
+
+  const branchWarnings = validateConditionBranches(workflow.nodes, workflow.edges);
+  if (branchWarnings.length > 0) {
+    console.warn(`[WorkflowEngine] Branch Warnings for workflow ${workflow._id}:`, branchWarnings);
+  }
 
   const orderedNodes = buildExecutionOrder(workflow.nodes, workflow.edges);
   const context = new ExecutionContext({
@@ -63,6 +77,11 @@ async function run(workflow, ownerId, trigger = 'manual') {
     ownerId,
     trigger,
   });
+  context.triggerPayload = triggerPayload;
+  context.triggerContext = triggerContext;
+
+  const executionPath = new ExecutionPath();
+  const executedOutputs = {};
 
   for (const node of orderedNodes) {
     const stepStart = Date.now();
@@ -73,15 +92,48 @@ async function run(workflow, ownerId, trigger = 'manual') {
       continue;
     }
 
+    // Check branch reachability
+    const canExecute = BranchTraversal.isNodeExecutable(
+      node,
+      workflow.nodes,
+      workflow.edges,
+      executedOutputs,
+      executionPath.skippedNodes
+    );
+
+    if (!canExecute) {
+      executionPath.recordSkipped(node.id);
+      executionPath.emitEvent(ExecutionEvents.NODE_SKIPPED, { nodeId: node.id, nodeType: node.type });
+
+      steps.push({
+        nodeId: node.id,
+        nodeName: node.data?.label || node.type,
+        nodeType: node.type,
+        status: ExecutionStatus.SKIPPED,
+        input: { ...node.data, _previousOutput: context.lastOutput },
+        output: { skippedReason: 'Branch not selected' },
+        error: null,
+        duration: 0,
+        startedAt: new Date(stepStart),
+        finishedAt: new Date(stepStart),
+      });
+      continue;
+    }
+
+    executionPath.recordVisited(node.id);
+    executionPath.emitEvent(ExecutionEvents.NODE_STARTED, { nodeId: node.id, nodeType: node.type });
+
     const step = {
       nodeId: node.id,
       nodeName: node.data?.label || node.type,
       nodeType: node.type,
       status: ExecutionStatus.SUCCESS,
-      input: { ...node.data, _previousOutput: context.lastOutput },
+      input: { ...node.data, _previousOutput: context.lastOutput, _triggerContext: triggerContext },
       output: null,
       error: null,
       duration: 0,
+      startedAt: new Date(stepStart),
+      finishedAt: null,
     };
 
     try {
@@ -94,12 +146,22 @@ async function run(workflow, ownerId, trigger = 'manual') {
 
       const output = await handler.execute(node, context);
       step.output = output;
+      executedOutputs[node.id] = output;
       context.setResult(node.id, output);
+
+      if (node.type === NodeTypes.LOGIC_CONDITION && output?.selectedBranch) {
+        executionPath.recordBranch(node.id, output.selectedBranch);
+        executionPath.emitEvent(ExecutionEvents.CONDITION_EVALUATED, { nodeId: node.id, passed: output.passed });
+        executionPath.emitEvent(ExecutionEvents.BRANCH_SELECTED, { nodeId: node.id, selectedBranch: output.selectedBranch });
+      }
+
+      executionPath.emitEvent(ExecutionEvents.NODE_COMPLETED, { nodeId: node.id, nodeType: node.type });
     } catch (err) {
       step.status = ExecutionStatus.FAILED;
       step.error = err.message;
       executionStatus = ExecutionStatus.FAILED;
       executionError = `Node "${step.nodeName}" failed: ${err.message}`;
+      step.finishedAt = new Date();
       step.duration = Date.now() - stepStart;
       steps.push(step);
 
@@ -112,6 +174,7 @@ async function run(workflow, ownerId, trigger = 'manual') {
       break;
     }
 
+    step.finishedAt = new Date();
     step.duration = Date.now() - stepStart;
     steps.push(step);
   }

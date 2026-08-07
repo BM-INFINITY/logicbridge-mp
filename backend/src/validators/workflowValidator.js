@@ -1,3 +1,5 @@
+const { NodeTypes, BranchTypes } = require('../constants');
+
 /**
  * Validation rules for workflows
  */
@@ -24,8 +26,38 @@ function validateGenerateWorkflow(body) {
   return { valid: true };
 }
 
+/**
+ * Validates condition nodes in a workflow graph prior to execution
+ * Returns non-blocking warnings if True or False branches are missing
+ * @param {Array} nodes
+ * @param {Array} edges
+ * @returns {Array<string>} - Warning messages list
+ */
+function validateConditionBranches(nodes = [], edges = []) {
+  const warnings = [];
+  const conditionNodes = nodes.filter((n) => n.type === NodeTypes.LOGIC_CONDITION);
+
+  for (const condNode of conditionNodes) {
+    const nodeName = condNode.data?.label || condNode.id;
+    const outgoingEdges = edges.filter((e) => e.source === condNode.id);
+
+    const hasTrueBranch = outgoingEdges.some((e) => e.sourceHandle === BranchTypes.TRUE || !e.sourceHandle);
+    const hasFalseBranch = outgoingEdges.some((e) => e.sourceHandle === BranchTypes.FALSE);
+
+    if (!hasTrueBranch) {
+      warnings.push(`Condition node "${nodeName}" is missing a True branch connection`);
+    }
+    if (!hasFalseBranch) {
+      warnings.push(`Condition node "${nodeName}" is missing a False branch connection`);
+    }
+  }
+
+  return warnings;
+}
+
 module.exports = {
   validateCreateWorkflow,
   validateUpdateWorkflow,
   validateGenerateWorkflow,
+  validateConditionBranches,
 };

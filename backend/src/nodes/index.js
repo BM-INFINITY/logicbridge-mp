@@ -8,6 +8,7 @@ const DelayNode = require('./DelayNode');
 const TransformNode = require('./TransformNode');
 const ConditionNode = require('./ConditionNode');
 const CsvNode = require('./CsvNode');
+const EmailNode = require('./EmailNode');
 const registry = require('./registry');
 
 // Auto-register default node handlers into registry singleton
@@ -21,6 +22,7 @@ const defaultNodes = [
   new TransformNode(),
   new ConditionNode(),
   new CsvNode(),
+  new EmailNode(),
 ];
 
 defaultNodes.forEach(nodeInstance => registry.register(nodeInstance));
@@ -37,4 +39,5 @@ module.exports = {
   TransformNode,
   ConditionNode,
   CsvNode,
+  EmailNode,
 };

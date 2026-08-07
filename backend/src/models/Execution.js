@@ -9,6 +9,8 @@ const stepLogSchema = new mongoose.Schema({
   output: mongoose.Schema.Types.Mixed,
   error: { type: String, default: null },
   duration: { type: Number, default: 0 }, // ms
+  startedAt: { type: Date, default: Date.now },
+  finishedAt: { type: Date, default: null },
 });
 
 const executionSchema = new mongoose.Schema(

@@ -93,14 +93,16 @@ export const TEMPLATES = [
     icon: '🔀',
     nodes: [
       { id: 'n1', type: 'trigger-manual', position: { x: 80, y: 200 }, data: { label: 'Start' } },
-      { id: 'n2', type: 'action-http', position: { x: 320, y: 200 }, data: { label: 'Get Post', url: 'https://jsonplaceholder.typicode.com/posts/1', method: 'GET' } },
-      { id: 'n3', type: 'logic-condition', position: { x: 560, y: 200 }, data: { label: 'Check ID', leftValue: '{{prev.id}}', operator: 'equals', rightValue: '1' } },
-      { id: 'n4', type: 'action-log', position: { x: 800, y: 200 }, data: { label: 'Confirmed', message: 'Post ID matched condition!' } },
+      { id: 'n2', type: 'action-http', position: { x: 300, y: 200 }, data: { label: 'Get Post', url: 'https://jsonplaceholder.typicode.com/posts/1', method: 'GET' } },
+      { id: 'n3', type: 'logic-condition', position: { x: 540, y: 200 }, data: { label: 'Check ID', leftValue: '{{prev.id}}', operator: 'equals', rightValue: '1' } },
+      { id: 'n4', type: 'action-log', position: { x: 800, y: 140 }, data: { label: 'True Branch Log', message: 'Post ID matched condition!' } },
+      { id: 'n5', type: 'action-log', position: { x: 800, y: 260 }, data: { label: 'False Branch Log', message: 'Condition failed!' } },
     ],
     edges: [
       { id: 'e1', source: 'n1', target: 'n2', animated: true },
       { id: 'e2', source: 'n2', target: 'n3', animated: true },
-      { id: 'e3', source: 'n3', target: 'n4', animated: true },
+      { id: 'e3', source: 'n3', target: 'n4', sourceHandle: 'true', animated: true, label: 'True', style: { stroke: '#22c55e', strokeWidth: 2 }, labelStyle: { fill: '#22c55e', fontWeight: 700 } },
+      { id: 'e4', source: 'n3', target: 'n5', sourceHandle: 'false', animated: true, label: 'False', style: { stroke: '#ef4444', strokeWidth: 2 }, labelStyle: { fill: '#ef4444', fontWeight: 700 } },
     ],
   },
   {

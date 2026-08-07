@@ -1,5 +1,5 @@
 const BaseNode = require('./BaseNode');
-const { NodeTypes } = require('../constants');
+const { NodeTypes, BranchTypes } = require('../constants');
 
 class ConditionNode extends BaseNode {
   constructor() {
@@ -33,12 +33,21 @@ class ConditionNode extends BaseNode {
       default:             passed = Boolean(leftValue);
     }
 
+    const branch = passed ? BranchTypes.TRUE : BranchTypes.FALSE;
+    const reason = `Condition evaluated to ${passed ? 'TRUE' : 'FALSE'} (${leftValue} ${operator} ${rightValue})`;
+
     return {
       passed,
-      leftValue,
-      operator,
-      rightValue,
-      result: passed ? 'TRUE — continuing' : 'FALSE — condition not met',
+      branch,
+      selectedBranch: branch,
+      reason,
+      evaluation: {
+        leftValue,
+        operator,
+        rightValue,
+      },
+      timestamp: new Date().toISOString(),
+      result: reason,
     };
   }
 }

@@ -1,6 +1,8 @@
-import React from 'react';
-import { ArrowLeft, LayoutTemplate, Sparkles, Play } from 'lucide-react';
+import React, { useRef } from 'react';
+import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload } from 'lucide-react';
+import toast from 'react-hot-toast';
 import useCanvasStore from '../../../store/canvasStore';
+import { WorkflowSerializer } from '../../../utils';
 
 export default function Toolbar({
   workflowName,
@@ -9,7 +11,51 @@ export default function Toolbar({
   onSave,
   onRun,
 }) {
-  const { nodes, running, saving, showAI, setShowAI, showTemplates, setShowTemplates } = useCanvasStore();
+  const { nodes, edges, setNodes, setEdges, running, saving, showAI, setShowAI, showTemplates, setShowTemplates } = useCanvasStore();
+  const fileInputRef = useRef(null);
+
+  const handleExport = () => {
+    try {
+      const packageData = WorkflowSerializer.serialize(
+        { name: workflowName, nodes, edges },
+        { exportedBy: 'builder' }
+      );
+      const jsonStr = JSON.stringify(packageData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${workflowName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_workflow.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Workflow exported successfully!');
+    } catch (err) {
+      toast.error(`Export failed: ${err.message}`);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target.result);
+        const deserialized = WorkflowSerializer.deserialize(parsed);
+
+        setWorkflowName(deserialized.name || workflowName);
+        setNodes(deserialized.nodes || []);
+        setEdges(deserialized.edges || []);
+        toast.success(`Imported workflow "${deserialized.name}" successfully!`);
+      } catch (err) {
+        toast.error(`Import error: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   return (
     <div className="builder-toolbar">
@@ -37,7 +83,24 @@ export default function Toolbar({
           </span>
         )}
       </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".json"
+        style={{ display: 'none' }}
+      />
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button className="btn btn-secondary btn-sm" onClick={handleExport} title="Export Workflow JSON">
+          <Download size={14} /> Export
+        </button>
+
+        <button className="btn btn-secondary btn-sm" onClick={() => fileInputRef.current?.click()} title="Import Workflow JSON">
+          <Upload size={14} /> Import
+        </button>
+
         <button
           className="btn btn-secondary btn-sm"
           onClick={() => {

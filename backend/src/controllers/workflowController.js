@@ -1,6 +1,8 @@
-const { workflowService, workflowEngine, aiGenerator } = require('../services');
+const { workflowService, workflowEngine, aiGenerator, WorkflowSerializer } = require('../services');
 const { workflowValidator } = require('../validators');
 const { success, error } = require('../utils/ResponseHelper');
+const { WebhookPayload } = require('../utils');
+const Workflow = require('../models/Workflow');
 
 /**
  * Get all workflows for user
@@ -125,6 +127,64 @@ const runWorkflow = async (req, res, next) => {
   }
 };
 
+/**
+ * Trigger workflow via incoming Webhook POST
+ * POST /api/workflows/:id/webhook
+ */
+const handleWebhook = async (req, res, next) => {
+  try {
+    const workflow = await Workflow.findById(req.params.id);
+    if (!workflow) {
+      return error(res, 'Workflow not found', 404);
+    }
+
+    const webhookPayload = WebhookPayload.fromRequest(req);
+    const execution = await workflowEngine.run(workflow, workflow.owner, 'webhook', webhookPayload);
+    return success(res, {
+      message: 'Webhook received and workflow executed successfully',
+      executionId: execution._id,
+      status: execution.status,
+      duration: execution.duration,
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+/**
+ * Export workflow as serialized JSON package
+ * GET /api/workflows/:id/export
+ */
+const exportWorkflow = async (req, res, next) => {
+  try {
+    const workflow = await workflowService.getWorkflowByIdAndOwner(req.params.id, req.user._id);
+    const serialized = WorkflowSerializer.serialize(workflow, { exportedBy: req.user?.email || 'user' });
+    return success(res, serialized);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
+/**
+ * Import workflow from serialized JSON package
+ * POST /api/workflows/import
+ */
+const importWorkflow = async (req, res, next) => {
+  try {
+    const deserialized = WorkflowSerializer.deserialize(req.body);
+    const workflow = await workflowService.createWorkflow({
+      ...deserialized,
+      ownerId: req.user._id,
+    });
+    return success(res, workflow, 201);
+  } catch (err) {
+    return error(res, err.message, 400);
+  }
+};
+
 module.exports = {
   getWorkflows,
   generateWorkflow,
@@ -133,4 +193,7 @@ module.exports = {
   updateWorkflow,
   deleteWorkflow,
   runWorkflow,
+  handleWebhook,
+  exportWorkflow,
+  importWorkflow,
 };

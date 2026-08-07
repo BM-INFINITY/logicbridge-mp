@@ -1,22 +1,25 @@
 import React from 'react';
 import ReactFlow, { Background, Controls, MiniMap, Handle, Position } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { NODE_DEFS } from '../../../data/templates';
 import useCanvasStore from '../../../store/canvasStore';
+import { BranchColors } from '../../../constants';
 
 // ─── Custom Node Renderer ───────────────────────────────────────────────────
 function CustomNode({ data, selected, type }) {
   const def = NODE_DEFS[type] || { label: type, icon: '⚙️', color: '#6c63ff', category: 'action' };
   const isFirst = def.category === 'trigger';
+  const isCondition = type === 'logic-condition';
   const execStatus = data._execStatus;
 
   return (
     <div
       className={`flow-node node-${def.category}`}
       style={{
-        borderColor: execStatus === 'success' ? '#22c55e' : execStatus === 'failed' ? '#ef4444' : selected ? def.color : undefined,
+        borderColor: execStatus === 'success' ? BranchColors.TRUE : execStatus === 'failed' ? BranchColors.FALSE : execStatus === 'skipped' ? BranchColors.SKIPPED : selected ? def.color : undefined,
         boxShadow: execStatus === 'success' ? '0 0 16px rgba(34,197,94,0.35)' : execStatus === 'failed' ? '0 0 16px rgba(239,68,68,0.35)' : selected ? `0 0 20px ${def.color}40` : undefined,
+        opacity: execStatus === 'skipped' ? 0.6 : 1,
       }}
     >
       {!isFirst && (
@@ -36,8 +39,9 @@ function CustomNode({ data, selected, type }) {
         </div>
         {execStatus && (
           <div style={{ marginLeft: 4 }}>
-            {execStatus === 'success' && <CheckCircle2 size={14} color="#22c55e" />}
-            {execStatus === 'failed' && <XCircle size={14} color="#ef4444" />}
+            {execStatus === 'success' && <CheckCircle2 size={14} color={BranchColors.TRUE} />}
+            {execStatus === 'failed' && <XCircle size={14} color={BranchColors.FALSE} />}
+            {execStatus === 'skipped' && <AlertCircle size={14} color={BranchColors.SKIPPED} />}
             {execStatus === 'running' && <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />}
           </div>
         )}
@@ -52,11 +56,38 @@ function CustomNode({ data, selected, type }) {
           {data.message}
         </div>
       )}
-      <Handle
-        type="source"
-        position={Position.Right}
-        style={{ background: def.color, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-      />
+
+      {isCondition ? (
+        <>
+          {/* True Handle */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="true"
+            style={{ top: '30%', background: BranchColors.TRUE, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+          />
+          <div style={{ position: 'absolute', right: -36, top: '22%', fontSize: '0.65rem', fontWeight: 700, color: BranchColors.TRUE }}>
+            TRUE
+          </div>
+
+          {/* False Handle */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="false"
+            style={{ top: '70%', background: BranchColors.FALSE, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+          />
+          <div style={{ position: 'absolute', right: -42, top: '62%', fontSize: '0.65rem', fontWeight: 700, color: BranchColors.FALSE }}>
+            FALSE
+          </div>
+        </>
+      ) : (
+        <Handle
+          type="source"
+          position={Position.Right}
+          style={{ background: def.color, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+        />
+      )}
     </div>
   );
 }

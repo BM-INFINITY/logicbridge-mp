@@ -4,6 +4,7 @@ import CsvConfig from './CsvConfig';
 import ConditionConfig from './ConditionConfig';
 import TransformConfig from './TransformConfig';
 import GeneralConfig from './GeneralConfig';
+import EmailConfig from './EmailConfig';
 
 export default function SidebarFactory({
   nodeType,
@@ -43,6 +44,14 @@ export default function SidebarFactory({
     case 'action-transform':
       return (
         <TransformConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-email':
+      return (
+        <EmailConfig
           data={data}
           onChange={onChange}
           onOpenVariablePicker={onOpenVariablePicker}

@@ -4,6 +4,9 @@ const TemplateResolver = require('./TemplateResolver');
 const ExecutionLogger = require('./ExecutionLogger');
 const ExecutionContext = require('./ExecutionContext');
 const ResponseHelper = require('./ResponseHelper');
+const ExecutionPath = require('./ExecutionPath');
+const TriggerContext = require('./TriggerContext');
+const WebhookPayload = require('./WebhookPayload');
 
 module.exports = {
   VariableResolver,
@@ -12,6 +15,9 @@ module.exports = {
   ExecutionLogger,
   ExecutionContext,
   ResponseHelper,
+  ExecutionPath,
+  TriggerContext,
+  WebhookPayload,
   resolveVariable: VariableResolver.resolveVariable,
   generateCsvFile: CsvGenerator.generateFile,
   transformTemplate: TemplateResolver.transformTemplate,

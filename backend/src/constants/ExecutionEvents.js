@@ -1,0 +1,9 @@
+const ExecutionEvents = Object.freeze({
+  NODE_STARTED: 'NODE_STARTED',
+  CONDITION_EVALUATED: 'CONDITION_EVALUATED',
+  BRANCH_SELECTED: 'BRANCH_SELECTED',
+  NODE_SKIPPED: 'NODE_SKIPPED',
+  NODE_COMPLETED: 'NODE_COMPLETED',
+});
+
+module.exports = ExecutionEvents;

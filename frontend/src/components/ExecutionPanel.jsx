@@ -1,23 +1,32 @@
 import React, { useState } from 'react';
-import { X, ChevronDown, ChevronRight, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 
 function StepResult({ step, index }) {
   const [open, setOpen] = useState(index === 0);
-  const ok = step.status === 'success';
-  const color = ok ? '#22c55e' : '#ef4444';
+  const isOk = step.status === 'success';
+  const isSkipped = step.status === 'skipped';
+  const isFailed = step.status === 'failed';
+
+  const statusColor = isOk ? '#22c55e' : isSkipped ? '#f59e0b' : '#ef4444';
+  const statusBg = isOk ? 'rgba(34,197,94,0.05)' : isSkipped ? 'rgba(245,158,11,0.05)' : 'rgba(239,68,68,0.05)';
+  const borderClr = isOk ? 'rgba(34,197,94,0.2)' : isSkipped ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.2)';
 
   return (
-    <div style={{ marginBottom: 8, border: `1px solid ${ok ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`, borderRadius: 10, overflow: 'hidden' }}>
-      <div onClick={() => setOpen(!open)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: ok ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.05)', cursor: 'pointer' }}>
-        {ok ? <CheckCircle2 size={16} color="#22c55e" /> : <XCircle size={16} color="#ef4444" />}
-        <span style={{ fontWeight: 600, fontSize: '0.83rem', flex: 1 }}>{step.nodeName}</span>
+    <div style={{ marginBottom: 8, border: `1px solid ${borderClr}`, borderRadius: 10, overflow: 'hidden' }}>
+      <div onClick={() => setOpen(!open)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: statusBg, cursor: 'pointer' }}>
+        {isOk && <CheckCircle2 size={16} color="#22c55e" />}
+        {isSkipped && <AlertCircle size={16} color="#f59e0b" />}
+        {isFailed && <XCircle size={16} color="#ef4444" />}
+        <span style={{ fontWeight: 600, fontSize: '0.83rem', flex: 1, color: isSkipped ? 'var(--text-muted)' : 'inherit' }}>
+          {step.nodeName} {isSkipped && '(Skipped)'}
+        </span>
         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 4, padding: '1px 6px' }}>{step.nodeType}</span>
         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{step.duration}ms</span>
         {open ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
       </div>
 
       {open && (
-        <div style={{ padding: '12px 14px', background: 'var(--bg-card)', borderTop: `1px solid ${ok ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'}` }}>
+        <div style={{ padding: '12px 14px', background: 'var(--bg-card)', borderTop: `1px solid ${borderClr}` }}>
           {step.error && (
             <div style={{ color: '#ef4444', fontSize: '0.8rem', marginBottom: 8, padding: '6px 10px', background: 'rgba(239,68,68,0.08)', borderRadius: 6 }}>
               ❌ {step.error}
@@ -26,7 +35,7 @@ function StepResult({ step, index }) {
           {step.output && (
             <div>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Output</div>
-              <pre style={{ fontSize: '0.75rem', color: '#22d3ee', background: 'var(--bg-elevated)', borderRadius: 6, padding: '10px 12px', overflow: 'auto', maxHeight: 200, lineHeight: 1.5, margin: 0 }}>
+              <pre style={{ fontSize: '0.75rem', color: isSkipped ? '#f59e0b' : '#22d3ee', background: 'var(--bg-elevated)', borderRadius: 6, padding: '10px 12px', overflow: 'auto', maxHeight: 200, lineHeight: 1.5, margin: 0 }}>
                 {JSON.stringify(step.output, null, 2)}
               </pre>
             </div>
@@ -70,12 +79,12 @@ export default function ExecutionPanel({ execution, onClose }) {
           <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Passed</div>
         </div>
         <div style={{ textAlign: 'center', flex: 1 }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#ef4444' }}>{steps.filter(s => s.status === 'failed').length}</div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Failed</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f59e0b' }}>{steps.filter(s => s.status === 'skipped').length}</div>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Skipped</div>
         </div>
         <div style={{ textAlign: 'center', flex: 1 }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--accent-primary)' }}>{dur}</div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Duration</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#ef4444' }}>{steps.filter(s => s.status === 'failed').length}</div>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Failed</div>
         </div>
       </div>
 

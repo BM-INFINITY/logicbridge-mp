@@ -4,9 +4,28 @@ const { serializationRegistry } = require('../serializers');
 const WorkflowImportValidator = require('../validators/WorkflowImportValidator');
 
 /**
+ * Migration transforms keyed by schema version for future-proof schema evolution
+ */
+const MIGRATION_MAP = {
+  '1.0.0': (payload) => payload,
+};
+
+/**
  * WorkflowSerializer acts as the single source of truth for workflow export, import, versioning, and replay.
  */
 class WorkflowSerializer {
+  /**
+   * Generates a descriptive filename: <workflow-name>_v<version>_<YYYY-MM-DD>.json
+   * @param {string} name
+   * @param {number|string} [version=1]
+   * @returns {string}
+   */
+  static generateExportFilename(name = 'workflow', version = 1) {
+    const cleanName = String(name).toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const dateStr = new Date().toISOString().split('T')[0];
+    return `${cleanName}_v${version}_${dateStr}.json`;
+  }
+
   /**
    * Serializes a workflow Mongoose document or plain JS object into portable JSON format
    * @param {object} workflow - Input workflow object or document
@@ -19,11 +38,13 @@ class WorkflowSerializer {
     const nodes = serializationRegistry.serializeNodes(rawWorkflow.nodes || []);
     const edges = serializationRegistry.serializeEdges(rawWorkflow.edges || []);
     const statistics = serializationRegistry.serializeStatistics(nodes, edges);
+    const version = rawWorkflow.version || 1;
 
     const workflowContent = {
       name: rawWorkflow.name || 'Untitled Workflow',
       description: rawWorkflow.description || '',
       status: rawWorkflow.status || 'draft',
+      version,
       nodes,
       edges,
       schedule: rawWorkflow.schedule || { enabled: false, cron: '' },
@@ -55,17 +76,32 @@ class WorkflowSerializer {
   }
 
   /**
+   * Applies schema migrations using compatibility map
+   * @param {object} payload
+   * @returns {object} - Migrated payload
+   */
+  static migrate(payload) {
+    const version = payload?.manifest?.schemaVersion || payload?.schemaVersion || '1.0.0';
+    const migrationFn = MIGRATION_MAP[version];
+    if (typeof migrationFn === 'function') {
+      return migrationFn(payload);
+    }
+    return payload;
+  }
+
+  /**
    * Deserializes and validates a serialized JSON package back into a normalized workflow object
    * @param {object} serializedData - Serialized package
    * @returns {object} - Normalized workflow object
    */
   static deserialize(serializedData) {
-    const validation = WorkflowImportValidator.validate(serializedData);
+    const migrated = this.migrate(serializedData);
+    const validation = WorkflowImportValidator.validate(migrated);
     if (!validation.valid) {
       throw new Error(`Workflow deserialization failed: ${validation.errors.join('; ')}`);
     }
 
-    const wfData = serializedData.workflow || (serializedData.nodes ? serializedData : {});
+    const wfData = migrated.workflow || (migrated.nodes ? migrated : {});
 
     const nodes = serializationRegistry.deserializeNodes(wfData.nodes || []);
     const edges = serializationRegistry.deserializeEdges(wfData.edges || []);
@@ -74,9 +110,11 @@ class WorkflowSerializer {
       name: wfData.name || 'Untitled Workflow',
       description: wfData.description || '',
       status: wfData.status || 'draft',
+      version: wfData.version || 1,
       nodes,
       edges,
       schedule: wfData.schedule || { enabled: false, cron: '' },
+      warnings: validation.warnings || [],
     };
   }
 

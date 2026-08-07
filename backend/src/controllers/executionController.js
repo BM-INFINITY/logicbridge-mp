@@ -43,8 +43,25 @@ const getExecutions = async (req, res, next) => {
   }
 };
 
+/**
+ * Replay past execution
+ * POST /api/executions/:id/replay
+ */
+const replayExecution = async (req, res, next) => {
+  try {
+    const replayed = await executionService.replayExecution(req.params.id, req.user._id);
+    return success(res, replayed, 201);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
 module.exports = {
   getWorkflowExecutions,
   getExecutionDetail,
   getExecutions,
+  replayExecution,
 };

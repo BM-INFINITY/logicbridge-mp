@@ -13,4 +13,7 @@ router.get('/detail/:id', protect, executionController.getExecutionDetail);
 // GET /api/executions/:workflowId — get execution history for a workflow
 router.get('/:workflowId', protect, executionController.getWorkflowExecutions);
 
+// POST /api/executions/:id/replay — replay a past execution
+router.post('/:id/replay', protect, executionController.replayExecution);
+
 module.exports = router;

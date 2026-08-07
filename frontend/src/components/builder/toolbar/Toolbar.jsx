@@ -1,8 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useCanvasStore from '../../../store/canvasStore';
 import { WorkflowSerializer } from '../../../utils';
+import ImportModal from '../../ImportModal';
 
 export default function Toolbar({
   workflowName,
@@ -13,6 +14,7 @@ export default function Toolbar({
 }) {
   const { nodes, edges, setNodes, setEdges, running, saving, showAI, setShowAI, showTemplates, setShowTemplates } = useCanvasStore();
   const fileInputRef = useRef(null);
+  const [importPreview, setImportPreview] = useState(null);
 
   const handleExport = () => {
     try {
@@ -24,9 +26,13 @@ export default function Toolbar({
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
 
+      const filename = WorkflowSerializer.generateExportFilename ?
+        WorkflowSerializer.generateExportFilename(workflowName, 1) :
+        `${workflowName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_v1.json`;
+
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${workflowName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_workflow.json`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
       toast.success('Workflow exported successfully!');
@@ -43,18 +49,34 @@ export default function Toolbar({
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target.result);
-        const deserialized = WorkflowSerializer.deserialize(parsed);
+        const validation = WorkflowSerializer.validate(parsed);
+        if (!validation.valid) {
+          toast.error(`Invalid import package: ${validation.error}`);
+          return;
+        }
 
-        setWorkflowName(deserialized.name || workflowName);
-        setNodes(deserialized.nodes || []);
-        setEdges(deserialized.edges || []);
-        toast.success(`Imported workflow "${deserialized.name}" successfully!`);
+        // Open preview modal
+        setImportPreview(parsed);
       } catch (err) {
-        toast.error(`Import error: ${err.message}`);
+        toast.error(`Import parse error: ${err.message}`);
       }
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const handleConfirmImport = (mode) => {
+    if (!importPreview) return;
+    try {
+      const deserialized = WorkflowSerializer.deserialize(importPreview);
+      setWorkflowName(deserialized.name || workflowName);
+      setNodes(deserialized.nodes || []);
+      setEdges(deserialized.edges || []);
+      setImportPreview(null);
+      toast.success(`Successfully imported "${deserialized.name}" (${mode === 'overwrite' ? 'Overwritten' : 'Loaded'})!`);
+    } catch (err) {
+      toast.error(`Import failed: ${err.message}`);
+    }
   };
 
   return (
@@ -131,6 +153,14 @@ export default function Toolbar({
           {running ? <><span className="spinner" /> Running...</> : <><Play size={14} /> Run</>}
         </button>
       </div>
+
+      {importPreview && (
+        <ImportModal
+          previewData={importPreview}
+          onConfirm={handleConfirmImport}
+          onClose={() => setImportPreview(null)}
+        />
+      )}
     </div>
   );
 }

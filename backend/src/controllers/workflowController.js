@@ -159,7 +159,10 @@ const exportWorkflow = async (req, res, next) => {
   try {
     const workflow = await workflowService.getWorkflowByIdAndOwner(req.params.id, req.user._id);
     const serialized = WorkflowSerializer.serialize(workflow, { exportedBy: req.user?.email || 'user' });
-    return success(res, serialized);
+    const filename = WorkflowSerializer.generateExportFilename(workflow.name, workflow.version || 1);
+
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return success(res, { ...serialized, filename });
   } catch (err) {
     if (err.statusCode) {
       return error(res, err.message, err.statusCode);
@@ -169,19 +172,55 @@ const exportWorkflow = async (req, res, next) => {
 };
 
 /**
- * Import workflow from serialized JSON package
+ * Import workflow from serialized JSON package with structured result
  * POST /api/workflows/import
  */
 const importWorkflow = async (req, res, next) => {
+  const startTime = Date.now();
   try {
-    const deserialized = WorkflowSerializer.deserialize(req.body);
-    const workflow = await workflowService.createWorkflow({
-      ...deserialized,
-      ownerId: req.user._id,
-    });
-    return success(res, workflow, 201);
+    const { packageData, mode = 'new', targetWorkflowId } = req.body;
+    const payload = packageData || req.body;
+
+    const deserialized = WorkflowSerializer.deserialize(payload);
+    let workflow;
+
+    if (mode === 'overwrite' && targetWorkflowId) {
+      workflow = await workflowService.updateWorkflow(targetWorkflowId, req.user._id, deserialized);
+    } else {
+      workflow = await workflowService.createWorkflow({
+        ...deserialized,
+        ownerId: req.user._id,
+      });
+    }
+
+    const result = {
+      success: true,
+      workflowId: workflow._id,
+      importedNodes: (workflow.nodes || []).length,
+      importedEdges: (workflow.edges || []).length,
+      warnings: deserialized.warnings || [],
+      durationMs: Date.now() - startTime,
+    };
+
+    return success(res, result, 201);
   } catch (err) {
     return error(res, err.message, 400);
+  }
+};
+
+/**
+ * Revert workflow to target version
+ * POST /api/workflows/:id/revert/:version
+ */
+const revertWorkflowVersion = async (req, res, next) => {
+  try {
+    const workflow = await workflowService.revertToVersion(req.params.id, req.user._id, req.params.version);
+    return success(res, workflow);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
   }
 };
 
@@ -196,4 +235,5 @@ module.exports = {
   handleWebhook,
   exportWorkflow,
   importWorkflow,
+  revertWorkflowVersion,
 };

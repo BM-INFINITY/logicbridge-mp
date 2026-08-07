@@ -6,6 +6,7 @@ const scheduler = require('./scheduler');
 const aiGenerator = require('./aiGenerator');
 const BranchTraversal = require('./BranchTraversal');
 const WorkflowSerializer = require('./WorkflowSerializer');
+const WorkflowDiffService = require('./WorkflowDiffService');
 
 module.exports = {
   userService,
@@ -16,4 +17,5 @@ module.exports = {
   aiGenerator,
   BranchTraversal,
   WorkflowSerializer,
+  WorkflowDiffService,
 };

@@ -31,6 +31,9 @@ router.delete('/:id', protect, workflowController.deleteWorkflow);
 // POST /api/workflows/:id/run — execute workflow manually
 router.post('/:id/run', protect, workflowController.runWorkflow);
 
+// POST /api/workflows/:id/revert/:version — revert workflow to version
+router.post('/:id/revert/:version', protect, workflowController.revertWorkflowVersion);
+
 // POST /api/workflows/:id/webhook — public webhook trigger endpoint
 router.post('/:id/webhook', workflowController.handleWebhook);
 router.get('/:id/webhook', workflowController.handleWebhook);

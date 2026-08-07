@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload } from 'lucide-react';
+import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useCanvasStore from '../../../store/canvasStore';
 import { WorkflowSerializer } from '../../../utils';
@@ -142,7 +142,7 @@ export default function Toolbar({
           <Sparkles size={14} color="#22d3ee" /> AI Generate
         </button>
         <button className="btn btn-secondary btn-sm" onClick={onSave} disabled={saving}>
-          {saving ? <span className="spinner" /> : '💾'} Save
+          {saving ? <span className="spinner" /> : <Save size={14} />} Save
         </button>
         <button
           id="run-workflow-btn"

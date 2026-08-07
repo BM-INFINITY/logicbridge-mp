@@ -1,5 +1,6 @@
 import React from 'react';
 import { NODE_DEFS } from '../../../data/templates';
+import { getNodeIcon } from '../../../constants/Icons';
 
 export default function NodePalette() {
   const onDragStart = (e, type) => {
@@ -30,7 +31,7 @@ export default function NodePalette() {
                 onDragStart={(e) => onDragStart(e, type)}
               >
                 <div className="palette-node-icon" style={{ background: `${def.color}20`, color: def.color }}>
-                  <span style={{ fontSize: 12 }}>{def.icon}</span>
+                  {React.createElement(getNodeIcon(type), { size: 13 })}
                 </div>
                 <span style={{ fontSize: '0.78rem' }}>{def.label}</span>
               </div>

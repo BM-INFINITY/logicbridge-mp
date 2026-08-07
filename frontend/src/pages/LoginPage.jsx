@@ -16,7 +16,7 @@ export default function LoginPage() {
     clearError();
     const ok = await login(email, password);
     if (ok) {
-      toast.success('Welcome back! 👋');
+      toast.success('Welcome back!');
       navigate('/dashboard');
     }
   };

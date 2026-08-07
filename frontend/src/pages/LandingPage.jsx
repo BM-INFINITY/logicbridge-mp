@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, GitBranch, Brain, Clock, BarChart2, Shield, ChevronRight } from 'lucide-react';
+import { Zap, GitBranch, Brain, Clock, BarChart2, Shield, ChevronRight, Rocket } from 'lucide-react';
+import { getNodeIcon } from '../constants/Icons';
 
 const features = [
   {
@@ -85,8 +86,8 @@ export default function LandingPage() {
         }} />
         <div className="animate-fade-in" style={{ position: 'relative', zIndex: 1 }}>
           <div className="flex items-center justify-center gap-2 mb-6">
-            <span className="badge badge-primary" style={{ fontSize: '0.8rem', padding: '5px 14px' }}>
-              🚀 Team MP_022 · Minor Project
+            <span className="badge badge-primary" style={{ fontSize: '0.8rem', padding: '5px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Rocket size={13} /> Team MP_022 · Minor Project
             </span>
           </div>
           <h1 className="font-display" style={{ fontSize: 'clamp(2.5rem, 6vw, 4.5rem)', fontWeight: 800, lineHeight: 1.1, marginBottom: 20 }}>
@@ -115,35 +116,40 @@ export default function LandingPage() {
           }}>
             <div style={{ background: 'var(--bg-surface)', borderRadius: 14, height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
               {[
-                { icon: '⚡', label: 'Manual Trigger', color: '#22c55e', type: 'Trigger' },
-                { icon: '🌐', label: 'HTTP Request', color: '#6c63ff', type: 'Action' },
-                { icon: '🔀', label: 'Condition', color: '#f59e0b', type: 'Logic' },
-                { icon: '📧', label: 'Send Email', color: '#22d3ee', type: 'Action' },
-              ].map((node, i) => (
-                <React.Fragment key={node.label}>
-                  <div style={{
-                    background: 'var(--bg-card)', border: `1.5px solid ${node.color}40`,
-                    borderRadius: 12, padding: '12px 16px', minWidth: 140,
-                    boxShadow: `0 0 20px ${node.color}20`,
-                    transition: 'transform 0.3s',
-                    animationDelay: `${i * 0.1}s`,
-                  }} className="animate-fade-in">
+                { type: 'trigger-manual', label: 'Manual Trigger', color: '#22c55e', typeName: 'Trigger' },
+                { type: 'action-http',    label: 'HTTP Request',   color: '#6c63ff', typeName: 'Action'  },
+                { type: 'logic-condition',label: 'Condition',      color: '#f59e0b', typeName: 'Logic'   },
+                { type: 'action-email',   label: 'Send Email',     color: '#22d3ee', typeName: 'Action'  },
+              ].map((node, i) => {
+                const HeroIcon = getNodeIcon(node.type);
+                return (
+                  <React.Fragment key={node.label}>
                     <div style={{
-                      width: 36, height: 36, borderRadius: 8,
-                      background: `${node.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 18, marginBottom: 8,
-                    }}>{node.icon}</div>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>{node.label}</div>
-                    <div style={{ fontSize: '0.7rem', color: node.color, marginTop: 2 }}>{node.type}</div>
-                  </div>
-                  {i < 3 && (
-                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
-                      <div style={{ width: 30, height: 2, background: `linear-gradient(90deg, ${['#22c55e','#6c63ff','#f59e0b'][i]}, ${['#6c63ff','#f59e0b','#22d3ee'][i]})`, borderRadius: 1 }} />
-                      <div style={{ width: 0, height: 0, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderLeft: `7px solid ${['#6c63ff','#f59e0b','#22d3ee'][i]}` }} />
+                      background: 'var(--bg-card)', border: `1.5px solid ${node.color}40`,
+                      borderRadius: 12, padding: '12px 16px', minWidth: 140,
+                      boxShadow: `0 0 20px ${node.color}20`,
+                      transition: 'transform 0.3s',
+                      animationDelay: `${i * 0.1}s`,
+                    }} className="animate-fade-in">
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 8,
+                        background: `${node.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: node.color, marginBottom: 8,
+                      }}>
+                        <HeroIcon size={18} />
+                      </div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>{node.label}</div>
+                      <div style={{ fontSize: '0.7rem', color: node.color, marginTop: 2 }}>{node.typeName}</div>
                     </div>
-                  )}
-                </React.Fragment>
-              ))}
+                    {i < 3 && (
+                      <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
+                        <div style={{ width: 30, height: 2, background: `linear-gradient(90deg, ${['#22c55e','#6c63ff','#f59e0b'][i]}, ${['#6c63ff','#f59e0b','#22d3ee'][i]})`, borderRadius: 1 }} />
+                        <div style={{ width: 0, height: 0, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderLeft: `7px solid ${['#6c63ff','#f59e0b','#22d3ee'][i]}` }} />
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
           </div>
         </div>

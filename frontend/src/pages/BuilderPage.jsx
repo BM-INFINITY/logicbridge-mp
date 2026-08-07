@@ -138,7 +138,7 @@ function BuilderContent() {
       const stepMap = {};
       (result.steps || []).forEach((s) => { stepMap[s.nodeId] = s.status; });
       setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: stepMap[n.id] || undefined } })));
-      toast.success(result.status === 'success' ? '✅ Workflow succeeded!' : '❌ Workflow failed', { id: 'run' });
+      toast.success(result.status === 'success' ? 'Workflow succeeded!' : 'Workflow failed', { id: 'run' });
     } catch {
       setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })));
       toast.error('Execution error', { id: 'run' });

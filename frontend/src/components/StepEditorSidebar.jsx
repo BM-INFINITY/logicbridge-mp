@@ -29,7 +29,7 @@ export default function StepEditorSidebar({
   }, [node?.id]);
 
   if (!node) return null;
-  const def = NODE_DEFS[node.type] || { label: node.type, icon: '⚙️', color: '#6c63ff', category: 'action' };
+  const def = NODE_DEFS[node.type] || { label: node.type, icon: 'Settings', color: '#6c63ff', category: 'action' };
 
   const handleDataChange = (updatedData) => {
     setData(updatedData);
@@ -145,7 +145,7 @@ export default function StepEditorSidebar({
     >
       <SidebarHeader
         title={data.label || def.label}
-        icon={def.icon}
+        nodeType={node.type}
         color={def.color}
         onDelete={() => onDelete(node.id)}
         onClose={onClose}

@@ -4,7 +4,7 @@ export const TEMPLATES = [
     id: 'student-attendance-csv',
     name: 'Student Attendance → CSV Report',
     description: 'Fetch student attendance from Google Apps Script API and export Name, Enrollment No, Team ID & Attendance as CSV',
-    icon: '🎓',
+    icon: 'GraduationCap',
     nodes: [
       { id: 'n1', type: 'trigger-manual', position: { x: 80, y: 200 }, data: { label: 'Manual Start' } },
       {
@@ -43,7 +43,7 @@ export const TEMPLATES = [
     id: 'imd-weather-csv',
     name: 'IMD Weather → CSV (Daily 8AM)',
     description: 'Fetch all India weather from IMD API every 8 AM and save Station + Temperature as CSV',
-    icon: '🌦️',
+    icon: 'CloudRain',
     nodes: [
       { id: 'n1', type: 'trigger-schedule', position: { x: 80, y: 200 }, data: { label: 'Every 8 AM', cron: '0 8 * * *' } },
       { id: 'n2', type: 'action-http', position: { x: 320, y: 200 }, data: { label: 'Fetch IMD Weather', url: 'https://api.imd.gov.in/api/v1/current_wx', method: 'GET' } },
@@ -58,7 +58,7 @@ export const TEMPLATES = [
     id: 'fetch-api',
     name: 'Fetch API Data',
     description: 'Fetch public JSON data and log the result',
-    icon: '🌐',
+    icon: 'Globe',
     nodes: [
       { id: 'n1', type: 'trigger-manual', position: { x: 80, y: 200 }, data: { label: 'Start' } },
       { id: 'n2', type: 'action-http', position: { x: 320, y: 200 }, data: { label: 'Fetch Todo', url: 'https://jsonplaceholder.typicode.com/todos/1', method: 'GET' } },
@@ -73,7 +73,7 @@ export const TEMPLATES = [
     id: 'weather-check',
     name: 'Fetch & Transform',
     description: 'Fetch user data, transform fields, log output',
-    icon: '🔄',
+    icon: 'Shuffle',
     nodes: [
       { id: 'n1', type: 'trigger-manual', position: { x: 80, y: 200 }, data: { label: 'Start' } },
       { id: 'n2', type: 'action-http', position: { x: 320, y: 200 }, data: { label: 'Fetch User', url: 'https://jsonplaceholder.typicode.com/users/1', method: 'GET' } },
@@ -90,7 +90,7 @@ export const TEMPLATES = [
     id: 'condition-flow',
     name: 'Conditional Flow',
     description: 'Fetch post, check condition, branch output',
-    icon: '🔀',
+    icon: 'GitBranch',
     nodes: [
       { id: 'n1', type: 'trigger-manual', position: { x: 80, y: 200 }, data: { label: 'Start' } },
       { id: 'n2', type: 'action-http', position: { x: 300, y: 200 }, data: { label: 'Get Post', url: 'https://jsonplaceholder.typicode.com/posts/1', method: 'GET' } },
@@ -109,7 +109,7 @@ export const TEMPLATES = [
     id: 'multi-api',
     name: 'Multi-Step Pipeline',
     description: 'Fetch data → delay → transform → log',
-    icon: '⚡',
+    icon: 'Zap',
     nodes: [
       { id: 'n1', type: 'trigger-manual', position: { x: 80, y: 200 }, data: { label: 'Start' } },
       { id: 'n2', type: 'action-http', position: { x: 300, y: 200 }, data: { label: 'Fetch Posts', url: 'https://jsonplaceholder.typicode.com/posts/5', method: 'GET' } },
@@ -128,26 +128,26 @@ export const TEMPLATES = [
 
 export const NODE_DEFS = {
   'trigger-manual': {
-    label: 'Manual Trigger', icon: '⚡', color: '#22c55e', category: 'trigger',
+    label: 'Manual Trigger', icon: 'Zap', color: '#22c55e', category: 'trigger',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
     ],
   },
   'trigger-schedule': {
-    label: 'Schedule Trigger', icon: '🕐', color: '#22c55e', category: 'trigger',
+    label: 'Schedule Trigger', icon: 'Clock', color: '#22c55e', category: 'trigger',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'cron', type: 'text', label: 'Cron Expression' },
     ],
   },
   'trigger-webhook': {
-    label: 'Webhook', icon: '🔗', color: '#22c55e', category: 'trigger',
+    label: 'Webhook', icon: 'Webhook', color: '#22c55e', category: 'trigger',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
     ],
   },
   'action-http': {
-    label: 'HTTP Request', icon: '🌐', color: '#6c63ff', category: 'action',
+    label: 'HTTP Request', icon: 'Globe', color: '#6c63ff', category: 'action',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'url', type: 'text', label: 'URL' },
@@ -158,28 +158,28 @@ export const NODE_DEFS = {
     ],
   },
   'action-log': {
-    label: 'Log Output', icon: '📋', color: '#6c63ff', category: 'action',
+    label: 'Log Output', icon: 'FileText', color: '#6c63ff', category: 'action',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'message', type: 'text', label: 'Message' },
     ],
   },
   'action-delay': {
-    label: 'Delay', icon: '⏱️', color: '#6c63ff', category: 'action',
+    label: 'Delay', icon: 'Timer', color: '#6c63ff', category: 'action',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'seconds', type: 'number', label: 'Wait Seconds' },
     ],
   },
   'action-transform': {
-    label: 'Transform Data', icon: '🔄', color: '#6c63ff', category: 'action',
+    label: 'Transform Data', icon: 'Shuffle', color: '#6c63ff', category: 'action',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'template', type: 'code', label: 'JSON Template' },
     ],
   },
   'action-email': {
-    label: 'Send Email', icon: '📧', color: '#6c63ff', category: 'action',
+    label: 'Send Email', icon: 'Mail', color: '#6c63ff', category: 'action',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'to', type: 'text', label: 'Recipient Email' },
@@ -188,7 +188,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-csv': {
-    label: 'Generate CSV', icon: '📊', color: '#10b981', category: 'action',
+    label: 'Generate CSV', icon: 'Table', color: '#10b981', category: 'action',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'columns', type: 'columns', label: 'CSV Columns' },
@@ -198,7 +198,7 @@ export const NODE_DEFS = {
     ],
   },
   'logic-condition': {
-    label: 'If / Condition', icon: '🔀', color: '#f59e0b', category: 'logic',
+    label: 'If / Condition', icon: 'GitBranch', color: '#f59e0b', category: 'logic',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'leftValue', type: 'text', label: 'Left Field' },

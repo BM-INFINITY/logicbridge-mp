@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ChevronDown, ChevronRight, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, CheckCircle2, XCircle, AlertCircle, Play } from 'lucide-react';
 
 function StepResult({ step, index }) {
   const [open, setOpen] = useState(index === 0);
@@ -28,8 +28,8 @@ function StepResult({ step, index }) {
       {open && (
         <div style={{ padding: '12px 14px', background: 'var(--bg-card)', borderTop: `1px solid ${borderClr}` }}>
           {step.error && (
-            <div style={{ color: '#ef4444', fontSize: '0.8rem', marginBottom: 8, padding: '6px 10px', background: 'rgba(239,68,68,0.08)', borderRadius: 6 }}>
-              ❌ {step.error}
+            <div style={{ color: '#ef4444', fontSize: '0.8rem', marginBottom: 8, padding: '6px 10px', background: 'rgba(239,68,68,0.08)', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <XCircle size={13} /> {step.error}
             </div>
           )}
           {step.output && (
@@ -77,7 +77,7 @@ export default function ExecutionPanel({ execution, onClose, onStartReplay }) {
               onClick={() => onStartReplay(execution)}
               style={{ fontSize: '0.75rem', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
             >
-              <span>▶</span> Replay
+              <Play size={12} /> Replay
             </button>
           )}
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>

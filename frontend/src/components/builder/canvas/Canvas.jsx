@@ -1,14 +1,16 @@
 import React from 'react';
 import ReactFlow, { Background, Controls, MiniMap, Handle, Position } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, GitBranch } from 'lucide-react';
 import { NODE_DEFS } from '../../../data/templates';
+import { getNodeIcon } from '../../../constants/Icons';
 import useCanvasStore from '../../../store/canvasStore';
 import { BranchColors } from '../../../constants';
 
 // ─── Custom Node Renderer ───────────────────────────────────────────────────
 function CustomNode({ data, selected, type }) {
-  const def = NODE_DEFS[type] || { label: type, icon: '⚙️', color: '#6c63ff', category: 'action' };
+  const def = NODE_DEFS[type] || { label: type, icon: 'Settings', color: '#6c63ff', category: 'action' };
+  const NodeIcon = getNodeIcon(type);
   const isFirst = def.category === 'trigger';
   const isCondition = type === 'logic-condition';
   const execStatus = data._execStatus;
@@ -34,7 +36,7 @@ function CustomNode({ data, selected, type }) {
       )}
       <div className="flow-node-header">
         <div className="flow-node-icon" style={{ background: `${def.color}22`, color: def.color }}>
-          <span style={{ fontSize: 14 }}>{def.icon}</span>
+          <NodeIcon size={14} />
         </div>
         <div style={{ flex: 1 }}>
           <div className="flow-node-label">{data.label || def.label}</div>
@@ -143,7 +145,9 @@ export default function Canvas({
 
       {activeNodes.length === 0 && (
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none', zIndex: 5 }}>
-          <div style={{ fontSize: '3rem', marginBottom: 12 }}>🔗</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)', opacity: 0.5 }}>
+            <GitBranch size={48} strokeWidth={1.2} />
+          </div>
           <div style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Start building your workflow</div>
           <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
             Drag nodes from the palette · or load a <strong style={{ color: 'var(--accent-primary)' }}>Template</strong> · or use <strong style={{ color: '#22d3ee' }}>AI Generate</strong>

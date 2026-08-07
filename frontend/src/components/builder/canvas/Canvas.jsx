@@ -1,10 +1,9 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import ReactFlow, { Background, Controls, MiniMap, Handle, Position } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { NODE_DEFS } from '../../../data/templates';
 import useCanvasStore from '../../../store/canvasStore';
-import ReactFlowAdapter from '../../../adapters/ReactFlowAdapter';
 
 // ─── Custom Node Renderer ───────────────────────────────────────────────────
 function CustomNode({ data, selected, type }) {

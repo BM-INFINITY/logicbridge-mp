@@ -125,14 +125,83 @@ export const TEMPLATES = [
 ];
 
 export const NODE_DEFS = {
-  'trigger-manual':   { label: 'Manual Trigger',  icon: '⚡', color: '#22c55e', category: 'trigger' },
-  'trigger-schedule': { label: 'Schedule Trigger', icon: '🕐', color: '#22c55e', category: 'trigger' },
-  'trigger-webhook':  { label: 'Webhook',          icon: '🔗', color: '#22c55e', category: 'trigger' },
-  'action-http':      { label: 'HTTP Request',     icon: '🌐', color: '#6c63ff', category: 'action'  },
-  'action-log':       { label: 'Log Output',       icon: '📋', color: '#6c63ff', category: 'action'  },
-  'action-delay':     { label: 'Delay',            icon: '⏱️',  color: '#6c63ff', category: 'action'  },
-  'action-transform': { label: 'Transform Data',   icon: '🔄', color: '#6c63ff', category: 'action'  },
-  'action-email':     { label: 'Send Email',       icon: '📧', color: '#6c63ff', category: 'action'  },
-  'action-csv':       { label: 'Generate CSV',     icon: '📊', color: '#10b981', category: 'action'  },
-  'logic-condition':  { label: 'If / Condition',   icon: '🔀', color: '#f59e0b', category: 'logic'   },
+  'trigger-manual': {
+    label: 'Manual Trigger', icon: '⚡', color: '#22c55e', category: 'trigger',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+    ],
+  },
+  'trigger-schedule': {
+    label: 'Schedule Trigger', icon: '🕐', color: '#22c55e', category: 'trigger',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'cron', type: 'text', label: 'Cron Expression' },
+    ],
+  },
+  'trigger-webhook': {
+    label: 'Webhook', icon: '🔗', color: '#22c55e', category: 'trigger',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+    ],
+  },
+  'action-http': {
+    label: 'HTTP Request', icon: '🌐', color: '#6c63ff', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'url', type: 'text', label: 'URL' },
+      { name: 'method', type: 'select', label: 'Method', options: ['GET', 'POST', 'PUT', 'DELETE'] },
+      { name: 'queryParamsList', type: 'keyvalue', label: 'Query Parameters' },
+      { name: 'headersList', type: 'keyvalue', label: 'Headers' },
+      { name: 'body', type: 'code', label: 'Body (JSON)' },
+    ],
+  },
+  'action-log': {
+    label: 'Log Output', icon: '📋', color: '#6c63ff', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'message', type: 'text', label: 'Message' },
+    ],
+  },
+  'action-delay': {
+    label: 'Delay', icon: '⏱️', color: '#6c63ff', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'seconds', type: 'number', label: 'Wait Seconds' },
+    ],
+  },
+  'action-transform': {
+    label: 'Transform Data', icon: '🔄', color: '#6c63ff', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'template', type: 'code', label: 'JSON Template' },
+    ],
+  },
+  'action-email': {
+    label: 'Send Email', icon: '📧', color: '#6c63ff', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'to', type: 'text', label: 'Recipient Email' },
+      { name: 'subject', type: 'text', label: 'Subject' },
+      { name: 'body', type: 'code', label: 'Email Content' },
+    ],
+  },
+  'action-csv': {
+    label: 'Generate CSV', icon: '📊', color: '#10b981', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'columns', type: 'columns', label: 'CSV Columns' },
+      { name: 'delimiter', type: 'select', label: 'Delimiter', options: [',', ';', '\t', '|'] },
+      { name: 'includeHeaders', type: 'select', label: 'Include Headers', options: ['true', 'false'] },
+      { name: 'filename', type: 'text', label: 'Filename' },
+    ],
+  },
+  'logic-condition': {
+    label: 'If / Condition', icon: '🔀', color: '#f59e0b', category: 'logic',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'leftValue', type: 'text', label: 'Left Field' },
+      { name: 'operator', type: 'select', label: 'Operator', options: ['equals', 'not-equals', 'contains', 'greater-than', 'less-than'] },
+      { name: 'rightValue', type: 'text', label: 'Right Value' },
+    ],
+  },
 };

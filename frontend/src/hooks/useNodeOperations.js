@@ -6,7 +6,7 @@ import { NODE_DEFS } from '../data/templates';
  * Custom hook providing node addition, connection, and drag-and-drop handles
  */
 export function useNodeOperations(rfInstance, wrapperRef) {
-  const { setNodes, setEdges, addNode, updateNodeData, deleteNode } = useCanvasStore();
+  const { addNode, updateNodeData, deleteNode } = useCanvasStore();
 
   const handleDrop = useCallback(
     (e) => {

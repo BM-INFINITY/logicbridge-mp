@@ -1,0 +1,61 @@
+import React from 'react';
+import HttpConfig from './HttpConfig';
+import CsvConfig from './CsvConfig';
+import ConditionConfig from './ConditionConfig';
+import TransformConfig from './TransformConfig';
+import GeneralConfig from './GeneralConfig';
+
+export default function SidebarFactory({
+  nodeType,
+  data,
+  onChange,
+  onAutoDetectCsv,
+  autoDetectingCsv,
+  onOpenVariablePicker,
+}) {
+  switch (nodeType) {
+    case 'action-http':
+      return (
+        <HttpConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-csv':
+      return (
+        <CsvConfig
+          data={data}
+          onChange={onChange}
+          onAutoDetect={onAutoDetectCsv}
+          autoDetecting={autoDetectingCsv}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'logic-condition':
+      return (
+        <ConditionConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-transform':
+      return (
+        <TransformConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    default:
+      return (
+        <GeneralConfig
+          nodeType={nodeType}
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+  }
+}

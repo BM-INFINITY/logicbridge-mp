@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Zap, LayoutDashboard, GitBranch, Activity, LogOut, Plus, ChevronRight } from 'lucide-react';
+import { Zap, LayoutDashboard, GitBranch, Activity, LogOut, Plus, ChevronRight, Link2 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import useWorkflowStore from '../store/workflowStore';
 import toast from 'react-hot-toast';
@@ -15,6 +15,7 @@ function Sidebar() {
     { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/dashboard' },
     { icon: <GitBranch size={18} />, label: 'Workflows', path: '/dashboard' },
     { icon: <Activity size={18} />, label: 'Execution Logs', path: '/logs' },
+    { icon: <Link2 size={18} />, label: 'Connections', path: '/connections' },
   ];
 
   return (

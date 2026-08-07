@@ -46,7 +46,7 @@ function StepResult({ step, index }) {
   );
 }
 
-export default function ExecutionPanel({ execution, onClose }) {
+export default function ExecutionPanel({ execution, onClose, onStartReplay }) {
   if (!execution) return null;
   const ok = execution.status === 'success';
   const dur = execution.duration ? `${(execution.duration / 1000).toFixed(2)}s` : '—';
@@ -59,7 +59,7 @@ export default function ExecutionPanel({ execution, onClose }) {
       display: 'flex', flexDirection: 'column', zIndex: 50, animation: 'fadeInLeft 0.25s ease',
     }}>
       {/* Header */}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 8 }}>
             {ok ? <CheckCircle2 size={18} color="#22c55e" /> : <XCircle size={18} color="#ef4444" />}
@@ -69,7 +69,21 @@ export default function ExecutionPanel({ execution, onClose }) {
             {steps.length} steps · {dur} total
           </div>
         </div>
-        <button onClick={onClose} style={{ background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={18} /></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {onStartReplay && (
+            <button
+              id="exec-panel-replay-btn"
+              className="btn btn-sm btn-primary"
+              onClick={() => onStartReplay(execution)}
+              style={{ fontSize: '0.75rem', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <span>▶</span> Replay
+            </button>
+          )}
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
       </div>
 
       {/* Summary bar */}

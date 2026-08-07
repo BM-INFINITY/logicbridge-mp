@@ -12,14 +12,17 @@ function CustomNode({ data, selected, type }) {
   const isFirst = def.category === 'trigger';
   const isCondition = type === 'logic-condition';
   const execStatus = data._execStatus;
+  const isActive = data._isActive;
 
   return (
     <div
       className={`flow-node node-${def.category}`}
       style={{
-        borderColor: execStatus === 'success' ? BranchColors.TRUE : execStatus === 'failed' ? BranchColors.FALSE : execStatus === 'skipped' ? BranchColors.SKIPPED : selected ? def.color : undefined,
-        boxShadow: execStatus === 'success' ? '0 0 16px rgba(34,197,94,0.35)' : execStatus === 'failed' ? '0 0 16px rgba(239,68,68,0.35)' : selected ? `0 0 20px ${def.color}40` : undefined,
-        opacity: execStatus === 'skipped' ? 0.6 : 1,
+        borderColor: isActive ? '#22d3ee' : execStatus === 'success' ? BranchColors.TRUE : execStatus === 'failed' ? BranchColors.FALSE : execStatus === 'skipped' ? BranchColors.SKIPPED : selected ? def.color : undefined,
+        boxShadow: isActive ? '0 0 24px rgba(34,211,238,0.75)' : execStatus === 'success' ? '0 0 16px rgba(34,197,94,0.35)' : execStatus === 'failed' ? '0 0 16px rgba(239,68,68,0.35)' : selected ? `0 0 20px ${def.color}40` : undefined,
+        opacity: execStatus === 'skipped' ? 0.45 : 1,
+        transform: isActive ? 'scale(1.03)' : 'scale(1)',
+        transition: 'all 0.2s ease',
       }}
     >
       {!isFirst && (
@@ -103,8 +106,12 @@ export default function Canvas({
   onPaneClick,
   onDrop,
   wrapperRef,
+  displayNodes,
+  displayEdges,
 }) {
-  const { nodes, edges } = useCanvasStore();
+  const storeState = useCanvasStore();
+  const activeNodes = displayNodes || storeState.nodes;
+  const activeEdges = displayEdges || storeState.edges;
 
   const onDragOver = (e) => {
     e.preventDefault();
@@ -114,8 +121,8 @@ export default function Canvas({
   return (
     <div ref={wrapperRef} style={{ flex: 1, position: 'relative' }}>
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={activeNodes}
+        edges={activeEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -134,7 +141,7 @@ export default function Canvas({
         <MiniMap style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8 }} nodeColor="#6c63ff" />
       </ReactFlow>
 
-      {nodes.length === 0 && (
+      {activeNodes.length === 0 && (
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none', zIndex: 5 }}>
           <div style={{ fontSize: '3rem', marginBottom: 12 }}>🔗</div>
           <div style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Start building your workflow</div>

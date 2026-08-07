@@ -1,20 +1,24 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useNodesState, useEdgesState } from 'reactflow';
 import toast from 'react-hot-toast';
 import useWorkflowStore from '../store/workflowStore';
 import useCanvasStore from '../store/canvasStore';
+import useReplayStore from '../store/replayStore';
 import { NODE_DEFS } from '../data/templates';
 import ReactFlowAdapter from '../adapters/ReactFlowAdapter';
+import ReplayCanvasAdapter from '../adapters/ReplayCanvasAdapter';
 import { BuilderProvider } from '../context/BuilderContext';
 import { Toolbar, Canvas, NodePalette, AIPanel } from '../components/builder';
 import TemplatesModal from '../components/TemplatesModal';
 import ExecutionPanel from '../components/ExecutionPanel';
 import StepEditorSidebar from '../components/StepEditorSidebar';
+import { ExecutionTimeline } from '../components/execution';
 
 function BuilderContent() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { fetchWorkflow, updateWorkflow, runWorkflow } = useWorkflowStore();
 
   const {
@@ -35,6 +39,14 @@ function BuilderContent() {
     deleteNode,
   } = useCanvasStore();
 
+  const {
+    isReplayActive,
+    snapshots,
+    timelineCursor,
+    startReplay,
+    stopReplay,
+  } = useReplayStore();
+
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
   const wrapperRef = useRef(null);
   const [rfInstance, setRfInstance] = useState(null);
@@ -47,10 +59,15 @@ function BuilderContent() {
           setWorkflowName(wf.name);
           setNodes(wf.nodes || []);
           setEdges(wf.edges || []);
+
+          // If navigation requested a replay for a specific execution
+          if (location.state?.replayExecution) {
+            startReplay(location.state.replayExecution, wf.nodes || []);
+          }
         }
       });
     }
-  }, [id]);
+  }, [id, location.state]);
 
   const [, , onNodesChange] = useNodesState([]);
   const [, , onEdgesChange] = useEdgesState([]);
@@ -103,6 +120,8 @@ function BuilderContent() {
 
   const handleRun = async () => {
     if (!id) return;
+    if (isReplayActive) stopReplay();
+
     setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: 'running' } })));
     setExecutionResult(null);
     setRunning(true);
@@ -134,8 +153,20 @@ function BuilderContent() {
     setEdges(t.edges);
     setExecutionResult(null);
     setSelectedNode(null);
+    if (isReplayActive) stopReplay();
     toast.success(`Template "${t.name}" loaded! Click Run to see results.`);
   };
+
+  // ── Compute Replay Canvas Transformation via ReplayCanvasAdapter ───────────
+  let displayNodes = nodes;
+  let displayEdges = edges;
+
+  if (isReplayActive && snapshots.length > 0) {
+    const currentSnapshot = snapshots[timelineCursor.index];
+    const transformed = ReplayCanvasAdapter.applySnapshotToCanvas(nodes, edges, currentSnapshot);
+    displayNodes = transformed.nodes;
+    displayEdges = transformed.edges;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
@@ -149,6 +180,8 @@ function BuilderContent() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
         <NodePalette />
+
+        {/* Canvas displaying adapter-transformed nodes & edges */}
         <Canvas
           onInit={setRfInstance}
           onNodesChange={handleNodesChange}
@@ -158,6 +191,8 @@ function BuilderContent() {
           onPaneClick={() => setSelectedNode(null)}
           onDrop={onDrop}
           wrapperRef={wrapperRef}
+          displayNodes={displayNodes}
+          displayEdges={displayEdges}
         />
 
         {showAI && (
@@ -182,15 +217,19 @@ function BuilderContent() {
           />
         )}
 
-        {executionResult && (
+        {executionResult && !isReplayActive && (
           <ExecutionPanel
             execution={executionResult}
             onClose={() => {
               setExecutionResult(null);
               setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })));
             }}
+            onStartReplay={(exec) => startReplay(exec, nodes)}
           />
         )}
+
+        {/* Replay Timeline Overlay */}
+        <ExecutionTimeline />
       </div>
 
       {showTemplates && <TemplatesModal onClose={() => setShowTemplates(false)} onLoad={loadTemplate} />}

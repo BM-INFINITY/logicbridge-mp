@@ -7,6 +7,8 @@ const aiGenerator = require('./aiGenerator');
 const BranchTraversal = require('./BranchTraversal');
 const WorkflowSerializer = require('./WorkflowSerializer');
 const WorkflowDiffService = require('./WorkflowDiffService');
+const ConnectionService = require('./ConnectionService');
+const CredentialService = require('./CredentialService');
 
 module.exports = {
   userService,
@@ -18,4 +20,6 @@ module.exports = {
   BranchTraversal,
   WorkflowSerializer,
   WorkflowDiffService,
+  ConnectionService,
+  CredentialService,
 };

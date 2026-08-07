@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Activity, Zap, LayoutDashboard, GitBranch, LogOut, ChevronDown, ChevronRight } from 'lucide-react';
+import { Activity, Zap, LayoutDashboard, GitBranch, LogOut, ChevronDown, ChevronRight, Link2 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import API from '../api/client';
 import toast from 'react-hot-toast';
@@ -10,9 +10,10 @@ function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const navItems = [
-    { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/dashboard' },
-    { icon: <GitBranch size={18} />, label: 'Workflows', path: '/dashboard' },
-    { icon: <Activity size={18} />, label: 'Execution Logs', path: '/logs' },
+    { icon: <LayoutDashboard size={18} />, label: 'Dashboard',      path: '/dashboard' },
+    { icon: <GitBranch size={18} />,       label: 'Workflows',      path: '/dashboard' },
+    { icon: <Activity size={18} />,        label: 'Execution Logs', path: '/logs' },
+    { icon: <Link2 size={18} />,           label: 'Connections',    path: '/connections' },
   ];
   return (
     <aside className="sidebar">
@@ -54,9 +55,12 @@ const statusClass = { success: 'badge-success', failed: 'badge-danger', running:
 const statusEmoji = { success: '✅', failed: '❌', running: '🔄' };
 
 function ExecutionRow({ exec }) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const dur = exec.duration ? `${(exec.duration / 1000).toFixed(2)}s` : '—';
   const time = new Date(exec.startedAt).toLocaleString();
+  const wfId = exec.workflow?._id || exec.workflow;
+
   return (
     <div className="step-log" style={{ cursor: 'pointer' }} onClick={() => setOpen(!open)}>
       <div className="step-log-header">
@@ -67,6 +71,18 @@ function ExecutionRow({ exec }) {
           <span className="badge badge-muted">{exec.trigger}</span>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted">
+          {wfId && (
+            <button
+              className="btn btn-sm btn-secondary"
+              style={{ fontSize: '0.72rem', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/builder/${wfId}`, { state: { replayExecution: exec } });
+              }}
+            >
+              <span>▶</span> Visual Replay
+            </button>
+          )}
           <span>⏱ {dur}</span>
           <span>🕐 {time}</span>
         </div>

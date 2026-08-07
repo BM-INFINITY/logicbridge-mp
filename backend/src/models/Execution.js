@@ -26,4 +26,8 @@ const executionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Indexes for fast execution log queries
+executionSchema.index({ workflow: 1, startedAt: -1 });
+executionSchema.index({ owner: 1, startedAt: -1 });
+
 module.exports = mongoose.model('Execution', executionSchema);

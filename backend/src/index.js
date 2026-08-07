@@ -25,11 +25,10 @@ app.use('/api/executions', executionRoutes);
 // 404 handler
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
 
+const errorHandler = require('./middleware/errorHandler');
+
 // Error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Internal server error' });
-});
+app.use(errorHandler);
 
 // Connect DB + Start server
 const PORT = process.env.PORT || 3001;

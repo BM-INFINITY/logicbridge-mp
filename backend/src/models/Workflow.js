@@ -19,4 +19,7 @@ const workflowSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Indexes for fast dashboard query resolution
+workflowSchema.index({ owner: 1, updatedAt: -1 });
+
 module.exports = mongoose.model('Workflow', workflowSchema);

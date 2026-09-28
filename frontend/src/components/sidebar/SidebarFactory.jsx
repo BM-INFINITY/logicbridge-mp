@@ -5,6 +5,10 @@ import ConditionConfig from './ConditionConfig';
 import TransformConfig from './TransformConfig';
 import GeneralConfig from './GeneralConfig';
 import EmailConfig from './EmailConfig';
+import JsonConfig from './JsonConfig';
+import TextConfig from './TextConfig';
+import MathConfig from './MathConfig';
+import DateConfig from './DateConfig';
 
 export default function SidebarFactory({
   nodeType,
@@ -52,6 +56,38 @@ export default function SidebarFactory({
     case 'action-email':
       return (
         <EmailConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-json':
+      return (
+        <JsonConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-text':
+      return (
+        <TextConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-math':
+      return (
+        <MathConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-date':
+      return (
+        <DateConfig
           data={data}
           onChange={onChange}
           onOpenVariablePicker={onOpenVariablePicker}

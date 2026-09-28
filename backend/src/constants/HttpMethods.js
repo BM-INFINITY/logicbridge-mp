@@ -7,6 +7,8 @@ const HttpMethods = Object.freeze({
   PUT: 'PUT',
   DELETE: 'DELETE',
   PATCH: 'PATCH',
+  HEAD: 'HEAD',
+  OPTIONS: 'OPTIONS',
 });
 
 module.exports = HttpMethods;

@@ -1,0 +1,47 @@
+feat: Iteration 23 - JSON, Text, Math, and Date utility nodes
+
+Adds four production-ready utility nodes to LogicBridge.
+
+JSON Node (action-json):
+  parse, stringify with pretty-print, get, set, remove
+  Dot-notation nested property access and mutation
+  Immutable operations, variable resolution, clear errors
+
+Text Node (action-text):
+  uppercase, lowercase, trim, replace all occurrences,
+  contains, startsWith, endsWith, split, join, length, substring
+  JSON-serialized array support for join and length
+
+Math Node (action-math):
+  add, subtract, multiply, divide, modulo,
+  round, floor, ceil, absolute, min, max, percentage
+  Division by zero and modulo by zero explicit errors
+  Rejects NaN and non-finite values
+
+Date and Time Node (action-date):
+  now, parse, format, add, subtract, compare, difference
+  Format tokens YYYY MM DD HH mm ss SSS
+  Time units from milliseconds to years
+  Compare returns before or equal or after
+  ISO-8601 compliant, no external library added
+
+Infrastructure:
+  backend and frontend NodeTypes updated with 4 utility types
+  Nodes auto-registered via existing registry
+  NODE_DEFS added to templates for palette
+  Lucide icons Braces Type Calculator Calendar registered
+  NodeValidator extended for all 4 nodes
+  SidebarFactory routes to new config components
+  JsonConfig TextConfig MathConfig DateConfig added
+
+Tests (all passing):
+  jsonNode.test.js: 34 tests
+  textNode.test.js: 32 tests
+  mathNode.test.js: 30 tests
+  dateNode.test.js: 36 tests
+  utilityIntegration.test.js: 14 tests
+  Transform regression: 42 tests
+  HTTP regression: 23 tests
+  Serialization regression: 6 tests
+
+Frontend build: zero errors

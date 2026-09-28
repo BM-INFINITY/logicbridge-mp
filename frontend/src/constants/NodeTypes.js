@@ -8,6 +8,10 @@ export const NodeTypes = Object.freeze({
   ACTION_TRANSFORM: 'action-transform',
   ACTION_EMAIL: 'action-email',
   ACTION_CSV: 'action-csv',
+  ACTION_JSON: 'action-json',
+  ACTION_TEXT: 'action-text',
+  ACTION_MATH: 'action-math',
+  ACTION_DATE: 'action-date',
   LOGIC_CONDITION: 'logic-condition',
 });
 

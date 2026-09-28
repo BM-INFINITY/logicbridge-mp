@@ -1,5 +1,6 @@
 const SMTPConnectionProvider = require('./SMTPConnectionProvider');
 const GmailConnectionProvider = require('./GmailConnectionProvider');
+const HttpConnectionProvider = require('./HttpConnectionProvider');
 
 /**
  * ConnectionRegistry — central registry for all connection providers.
@@ -58,7 +59,8 @@ class ConnectionRegistry {
 const connectionRegistry = new ConnectionRegistry();
 connectionRegistry
   .register(new SMTPConnectionProvider())
-  .register(new GmailConnectionProvider());
+  .register(new GmailConnectionProvider())
+  .register(new HttpConnectionProvider());
 
 module.exports = {
   ConnectionRegistry,

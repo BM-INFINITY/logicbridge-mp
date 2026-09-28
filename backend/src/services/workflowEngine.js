@@ -1,7 +1,7 @@
 const Execution = require('../models/Execution');
 const Workflow = require('../models/Workflow');
 const { registry } = require('../nodes');
-const { logError, ExecutionContext, ExecutionPath, TriggerContext } = require('../utils');
+const { logError, ExecutionContext, ExecutionPath, TriggerContext, redactSecrets } = require('../utils');
 const { ExecutionStatus, NodeTypes, ExecutionEvents } = require('../constants');
 const { ValidationError } = require('../errors');
 const BranchTraversal = require('./BranchTraversal');
@@ -128,7 +128,7 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
       nodeName: node.data?.label || node.type,
       nodeType: node.type,
       status: ExecutionStatus.SUCCESS,
-      input: { ...node.data, _previousOutput: context.lastOutput, _triggerContext: triggerContext },
+      input: redactSecrets({ ...node.data, _previousOutput: context.lastOutput, _triggerContext: triggerContext }),
       output: null,
       error: null,
       duration: 0,
@@ -145,7 +145,7 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
       }
 
       const output = await handler.execute(node, context);
-      step.output = output;
+      step.output = redactSecrets(output);
       executedOutputs[node.id] = output;
       context.setResult(node.id, output);
 

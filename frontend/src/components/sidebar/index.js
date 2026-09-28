@@ -8,6 +8,10 @@ import TransformConfig from './TransformConfig';
 import GeneralConfig from './GeneralConfig';
 import EmailConfig from './EmailConfig';
 import TestPanel from './TestPanel';
+import JsonConfig from './JsonConfig';
+import TextConfig from './TextConfig';
+import MathConfig from './MathConfig';
+import DateConfig from './DateConfig';
 
 export {
   SidebarHeader,
@@ -20,4 +24,9 @@ export {
   GeneralConfig,
   EmailConfig,
   TestPanel,
+  JsonConfig,
+  TextConfig,
+  MathConfig,
+  DateConfig,
 };
+

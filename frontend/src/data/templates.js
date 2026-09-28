@@ -151,7 +151,7 @@ export const NODE_DEFS = {
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'url', type: 'text', label: 'URL' },
-      { name: 'method', type: 'select', label: 'Method', options: ['GET', 'POST', 'PUT', 'DELETE'] },
+      { name: 'method', type: 'select', label: 'Method', options: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] },
       { name: 'queryParamsList', type: 'keyvalue', label: 'Query Parameters' },
       { name: 'headersList', type: 'keyvalue', label: 'Headers' },
       { name: 'body', type: 'code', label: 'Body (JSON)' },
@@ -172,10 +172,13 @@ export const NODE_DEFS = {
     ],
   },
   'action-transform': {
-    label: 'Transform Data', icon: 'Shuffle', color: '#6c63ff', category: 'action',
+    label: 'Transform Data', icon: 'Shuffle', color: '#8b5cf6', category: 'action',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
-      { name: 'template', type: 'code', label: 'JSON Template' },
+      { name: 'operation', type: 'select', label: 'Operation', options: ['map', 'pick', 'omit', 'set', 'remove', 'array-map', 'array-filter', 'array-find', 'array-first', 'array-last', 'array-length'] },
+      { name: 'source', type: 'text', label: 'Input Source (optional)' },
+      { name: 'mappings', type: 'mappings', label: 'Field Mappings' },
+      { name: 'fields', type: 'fields', label: 'Field Names' },
     ],
   },
   'action-email': {
@@ -195,6 +198,45 @@ export const NODE_DEFS = {
       { name: 'delimiter', type: 'select', label: 'Delimiter', options: [',', ';', '\t', '|'] },
       { name: 'includeHeaders', type: 'select', label: 'Include Headers', options: ['true', 'false'] },
       { name: 'filename', type: 'text', label: 'Filename' },
+    ],
+  },
+  'action-json': {
+    label: 'JSON', icon: 'Braces', color: '#f59e0b', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'operation', type: 'select', label: 'Operation', options: ['parse', 'stringify', 'get', 'set', 'remove'] },
+      { name: 'input', type: 'text', label: 'Input' },
+      { name: 'path', type: 'text', label: 'Property Path' },
+      { name: 'value', type: 'text', label: 'Value' },
+      { name: 'pretty', type: 'select', label: 'Pretty Print', options: ['false', 'true'] },
+    ],
+  },
+  'action-text': {
+    label: 'Text', icon: 'Type', color: '#06b6d4', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'operation', type: 'select', label: 'Operation', options: ['uppercase', 'lowercase', 'trim', 'replace', 'contains', 'startsWith', 'endsWith', 'split', 'join', 'length', 'substring'] },
+      { name: 'input', type: 'text', label: 'Input' },
+    ],
+  },
+  'action-math': {
+    label: 'Math', icon: 'Calculator', color: '#8b5cf6', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'operation', type: 'select', label: 'Operation', options: ['add', 'subtract', 'multiply', 'divide', 'modulo', 'round', 'floor', 'ceil', 'absolute', 'min', 'max', 'percentage'] },
+      { name: 'valueA', type: 'text', label: 'Value A' },
+      { name: 'valueB', type: 'text', label: 'Value B' },
+    ],
+  },
+  'action-date': {
+    label: 'Date & Time', icon: 'Calendar', color: '#ec4899', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'operation', type: 'select', label: 'Operation', options: ['now', 'parse', 'format', 'add', 'subtract', 'compare', 'difference'] },
+      { name: 'dateInput', type: 'text', label: 'Date Input' },
+      { name: 'dateFormat', type: 'text', label: 'Format' },
+      { name: 'amount', type: 'text', label: 'Amount' },
+      { name: 'unit', type: 'select', label: 'Unit', options: ['milliseconds', 'seconds', 'minutes', 'hours', 'days', 'weeks', 'months', 'years'] },
     ],
   },
   'logic-condition': {

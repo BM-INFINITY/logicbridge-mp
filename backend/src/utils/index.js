@@ -7,6 +7,7 @@ const ResponseHelper = require('./ResponseHelper');
 const ExecutionPath = require('./ExecutionPath');
 const TriggerContext = require('./TriggerContext');
 const WebhookPayload = require('./WebhookPayload');
+const SecretRedactor = require('./SecretRedactor');
 
 module.exports = {
   VariableResolver,
@@ -18,6 +19,7 @@ module.exports = {
   ExecutionPath,
   TriggerContext,
   WebhookPayload,
+  SecretRedactor,
   resolveVariable: VariableResolver.resolveVariable,
   generateCsvFile: CsvGenerator.generateFile,
   transformTemplate: TemplateResolver.transformTemplate,
@@ -25,4 +27,5 @@ module.exports = {
   logError: ExecutionLogger.logError,
   success: ResponseHelper.success,
   error: ResponseHelper.error,
+  redactSecrets: SecretRedactor.redactSecrets,
 };

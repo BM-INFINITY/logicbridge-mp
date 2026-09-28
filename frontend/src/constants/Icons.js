@@ -46,6 +46,10 @@ import {
   Shield,
   BarChart2,
   Brain,
+  Braces,
+  Type,
+  Calculator,
+  Calendar,
 } from 'lucide-react';
 
 // ─── Node Type → Icon Component ──────────────────────────────────────────────
@@ -60,6 +64,10 @@ const NODE_ICONS = {
   'action-transform': Shuffle,
   'action-email': Mail,
   'action-csv': Table,
+  'action-json': Braces,
+  'action-text': Type,
+  'action-math': Calculator,
+  'action-date': Calendar,
   'logic-condition': GitBranch,
 };
 
@@ -130,4 +138,8 @@ export {
   Shield,
   BarChart2,
   Brain,
+  Braces,
+  Type,
+  Calculator,
+  Calendar,
 };

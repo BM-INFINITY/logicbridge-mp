@@ -239,6 +239,33 @@ export const NODE_DEFS = {
       { name: 'unit', type: 'select', label: 'Unit', options: ['milliseconds', 'seconds', 'minutes', 'hours', 'days', 'weeks', 'months', 'years'] },
     ],
   },
+  'action-postgres': {
+    label: 'PostgreSQL', icon: 'Database', color: '#336791', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'connectionId', type: 'select', label: 'Connection' },
+      { name: 'operation', type: 'select', label: 'Operation', options: ['select', 'insert', 'update', 'delete', 'query'] },
+      { name: 'table', type: 'text', label: 'Table' },
+      { name: 'columns', type: 'text', label: 'Columns' },
+      { name: 'filters', type: 'text', label: 'Filters' },
+      { name: 'values', type: 'text', label: 'Values' },
+      { name: 'limit', type: 'text', label: 'Limit' },
+      { name: 'query', type: 'code', label: 'Raw SQL' },
+    ],
+  },
+  'action-mongodb': {
+    label: 'MongoDB', icon: 'Database', color: '#13aa52', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'connectionId', type: 'select', label: 'Connection' },
+      { name: 'database', type: 'text', label: 'Database' },
+      { name: 'collection', type: 'text', label: 'Collection' },
+      { name: 'operation', type: 'select', label: 'Operation', options: ['find', 'findOne', 'insertOne', 'insertMany', 'updateOne', 'deleteOne', 'count'] },
+      { name: 'filter', type: 'code', label: 'Filter (JSON)' },
+      { name: 'document', type: 'code', label: 'Document / Update (JSON)' },
+      { name: 'limit', type: 'text', label: 'Limit' },
+    ],
+  },
   'logic-condition': {
     label: 'If / Condition', icon: 'GitBranch', color: '#f59e0b', category: 'logic',
     configSchema: [

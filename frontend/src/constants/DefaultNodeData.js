@@ -13,6 +13,8 @@ export const DefaultNodeData = Object.freeze({
   [NodeTypes.ACTION_TEXT]: { label: 'Text', operation: 'uppercase', input: '', find: '', replace: '', search: '', separator: ',', start: '0', end: '' },
   [NodeTypes.ACTION_MATH]: { label: 'Math', operation: 'add', valueA: '', valueB: '' },
   [NodeTypes.ACTION_DATE]: { label: 'Date & Time', operation: 'now', dateInput: '', dateFormat: 'YYYY-MM-DD', amount: '1', unit: 'days', dateA: '', dateB: '', outputUnit: 'days' },
+  [NodeTypes.ACTION_POSTGRES]: { label: 'PostgreSQL', connectionId: '', operation: 'select', table: '', columns: '*', filters: '', values: '', limit: '10', query: '' },
+  [NodeTypes.ACTION_MONGODB]: { label: 'MongoDB', connectionId: '', database: '', collection: '', operation: 'find', filter: '', document: '', update: '', limit: '50' },
   [NodeTypes.LOGIC_CONDITION]: { label: 'If / Condition', leftValue: '', operator: 'equals', rightValue: '' },
 });
 

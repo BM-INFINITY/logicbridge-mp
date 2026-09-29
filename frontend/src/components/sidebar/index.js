@@ -12,6 +12,8 @@ import JsonConfig from './JsonConfig';
 import TextConfig from './TextConfig';
 import MathConfig from './MathConfig';
 import DateConfig from './DateConfig';
+import PostgresConfig from './PostgresConfig';
+import MongoConfig from './MongoConfig';
 
 export {
   SidebarHeader,
@@ -28,5 +30,7 @@ export {
   TextConfig,
   MathConfig,
   DateConfig,
+  PostgresConfig,
+  MongoConfig,
 };
 

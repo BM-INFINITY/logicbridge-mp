@@ -9,6 +9,8 @@ import JsonConfig from './JsonConfig';
 import TextConfig from './TextConfig';
 import MathConfig from './MathConfig';
 import DateConfig from './DateConfig';
+import PostgresConfig from './PostgresConfig';
+import MongoConfig from './MongoConfig';
 
 export default function SidebarFactory({
   nodeType,
@@ -88,6 +90,22 @@ export default function SidebarFactory({
     case 'action-date':
       return (
         <DateConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-postgres':
+      return (
+        <PostgresConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-mongodb':
+      return (
+        <MongoConfig
           data={data}
           onChange={onChange}
           onOpenVariablePicker={onOpenVariablePicker}

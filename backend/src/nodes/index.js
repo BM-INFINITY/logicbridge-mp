@@ -13,6 +13,8 @@ const JsonNode = require('./JsonNode');
 const TextNode = require('./TextNode');
 const MathNode = require('./MathNode');
 const DateNode = require('./DateNode');
+const PostgresNode = require('./PostgresNode');
+const MongoNode = require('./MongoNode');
 const registry = require('./registry');
 
 // Auto-register default node handlers into registry singleton
@@ -31,6 +33,8 @@ const defaultNodes = [
   new TextNode(),
   new MathNode(),
   new DateNode(),
+  new PostgresNode(),
+  new MongoNode(),
 ];
 
 defaultNodes.forEach(nodeInstance => registry.register(nodeInstance));
@@ -52,4 +56,6 @@ module.exports = {
   TextNode,
   MathNode,
   DateNode,
+  PostgresNode,
+  MongoNode,
 };

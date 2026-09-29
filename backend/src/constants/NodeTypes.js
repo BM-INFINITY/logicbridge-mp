@@ -18,6 +18,8 @@ const NodeTypes = Object.freeze({
   ACTION_TEXT: 'action-text',
   ACTION_MATH: 'action-math',
   ACTION_DATE: 'action-date',
+  ACTION_POSTGRES: 'action-postgres',
+  ACTION_MONGODB: 'action-mongodb',
 
   // Logic
   LOGIC_CONDITION: 'logic-condition',

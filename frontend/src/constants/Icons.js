@@ -50,6 +50,7 @@ import {
   Type,
   Calculator,
   Calendar,
+  Database,
 } from 'lucide-react';
 
 // ─── Node Type → Icon Component ──────────────────────────────────────────────
@@ -68,6 +69,8 @@ const NODE_ICONS = {
   'action-text': Type,
   'action-math': Calculator,
   'action-date': Calendar,
+  'action-postgres': Database,
+  'action-mongodb': Database,
   'logic-condition': GitBranch,
 };
 

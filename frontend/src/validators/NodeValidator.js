@@ -143,6 +143,100 @@ export class NodeValidator {
       }
     }
 
+    if (type === NodeTypes.ACTION_POSTGRES) {
+      if (!data?.connectionId?.trim()) {
+        return { valid: false, error: 'PostgreSQL connection is required' };
+      }
+      const validPgOps = ['select', 'insert', 'update', 'delete', 'query'];
+      const op = data?.operation || 'select';
+      if (!validPgOps.includes(op)) {
+        return { valid: false, error: `Invalid operation "${op}". Supported: ${validPgOps.join(', ')}` };
+      }
+      if (op === 'query') {
+        const sqlQuery = data?.query || data?.sql;
+        if (!sqlQuery || !String(sqlQuery).trim()) {
+          return { valid: false, error: 'SQL query is required for Raw SQL operation' };
+        }
+      } else {
+        if (!data?.table?.trim()) {
+          return { valid: false, error: `Table name is required for "${op}" operation` };
+        }
+        if (op === 'insert') {
+          const val = data?.values ?? data?.data;
+          const hasVal = typeof val === 'object' ? val && Object.keys(val).length > 0 : String(val || '').trim();
+          if (!hasVal) {
+            return { valid: false, error: 'Values / data are required for insert operation' };
+          }
+        }
+        if (op === 'update') {
+          const val = data?.values ?? data?.data;
+          const hasVal = typeof val === 'object' ? val && Object.keys(val).length > 0 : String(val || '').trim();
+          const filter = data?.filters ?? data?.where;
+          const hasFilter = typeof filter === 'object' ? filter && Object.keys(filter).length > 0 : String(filter || '').trim();
+          if (!hasVal) {
+            return { valid: false, error: 'Values / data are required for update operation' };
+          }
+          if (!hasFilter) {
+            return { valid: false, error: 'Filters / WHERE condition is required for update operation' };
+          }
+        }
+        if (op === 'delete') {
+          const filter = data?.filters ?? data?.where;
+          const hasFilter = typeof filter === 'object' ? filter && Object.keys(filter).length > 0 : String(filter || '').trim();
+          if (!hasFilter) {
+            return { valid: false, error: 'Filters / WHERE condition is required for delete operation' };
+          }
+        }
+      }
+    }
+
+    if (type === NodeTypes.ACTION_MONGODB) {
+      if (!data?.connectionId?.trim()) {
+        return { valid: false, error: 'MongoDB connection is required' };
+      }
+      const validMongoOps = ['find', 'findOne', 'insertOne', 'insertMany', 'updateOne', 'deleteOne', 'count'];
+      const op = data?.operation || 'find';
+      if (!validMongoOps.includes(op)) {
+        return { valid: false, error: `Invalid operation "${op}". Supported: ${validMongoOps.join(', ')}` };
+      }
+      if (!data?.collection?.trim()) {
+        return { valid: false, error: 'Collection name is required' };
+      }
+      if (op === 'insertOne') {
+        const doc = data?.document ?? data?.data;
+        const hasDoc = typeof doc === 'object' ? doc && Object.keys(doc).length > 0 : String(doc || '').trim();
+        if (!hasDoc) {
+          return { valid: false, error: 'Document data is required for insertOne' };
+        }
+      }
+      if (op === 'insertMany') {
+        const docs = data?.document ?? data?.data;
+        const hasDocs = Array.isArray(docs) ? docs.length > 0 : String(docs || '').trim();
+        if (!hasDocs) {
+          return { valid: false, error: 'Documents array is required for insertMany' };
+        }
+      }
+      if (op === 'updateOne') {
+        const upd = data?.update ?? data?.document ?? data?.data;
+        const hasUpd = typeof upd === 'object' ? upd && Object.keys(upd).length > 0 : String(upd || '').trim();
+        const filter = data?.filter;
+        const hasFilter = typeof filter === 'object' ? filter && Object.keys(filter).length > 0 : String(filter || '').trim();
+        if (!hasUpd) {
+          return { valid: false, error: 'Update data is required for updateOne' };
+        }
+        if (!hasFilter) {
+          return { valid: false, error: 'Filter is required for updateOne' };
+        }
+      }
+      if (op === 'deleteOne') {
+        const filter = data?.filter;
+        const hasFilter = typeof filter === 'object' ? filter && Object.keys(filter).length > 0 : String(filter || '').trim();
+        if (!hasFilter) {
+          return { valid: false, error: 'Filter is required for deleteOne' };
+        }
+      }
+    }
+
     return { valid: true };
   }
 

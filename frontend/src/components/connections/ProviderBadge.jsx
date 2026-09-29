@@ -1,4 +1,5 @@
 import React from 'react';
+import { getProviderIcon } from '../../constants/Icons';
 
 const PROVIDER_COLORS = {
   smtp:          { bg: 'rgba(108,99,255,0.15)', color: '#6c63ff' },
@@ -9,25 +10,17 @@ const PROVIDER_COLORS = {
   google_sheets: { bg: 'rgba(15,157,88,0.15)',  color: '#0f9d58' },
 };
 
-const PROVIDER_ICONS = {
-  smtp:          '📧',
-  gmail:         '📩',
-  outlook:       '📬',
-  postgres:      '🐘',
-  mongodb:       '🍃',
-  google_sheets: '📊',
-};
-
 /**
  * ProviderBadge — small pill showing provider identity with icon.
  */
 export default function ProviderBadge({ provider, size = 'sm' }) {
-  const style = PROVIDER_COLORS[provider] || { bg: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' };
-  const icon  = PROVIDER_ICONS[provider] || '🔌';
-  const label = provider?.toUpperCase() || 'UNKNOWN';
+  const style    = PROVIDER_COLORS[provider] || { bg: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' };
+  const label    = provider?.toUpperCase() || 'UNKNOWN';
+  const IconComp = getProviderIcon(provider);
 
-  const fontSize = size === 'lg' ? '0.8rem' : '0.68rem';
-  const padding  = size === 'lg' ? '4px 10px' : '2px 8px';
+  const fontSize   = size === 'lg' ? '0.8rem' : '0.68rem';
+  const padding    = size === 'lg' ? '4px 10px' : '2px 8px';
+  const iconSize   = size === 'lg' ? 14 : 11;
 
   return (
     <span
@@ -46,7 +39,7 @@ export default function ProviderBadge({ provider, size = 'sm' }) {
         border: `1px solid ${style.color}30`,
       }}
     >
-      <span>{icon}</span>
+      <IconComp size={iconSize} />
       {label}
     </span>
   );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShieldCheck, ShieldOff, Loader, Trash2, RefreshCw } from 'lucide-react';
 import ProviderBadge from './ProviderBadge';
+import { getProviderIcon } from '../../constants/Icons';
 
 const STATUS_CONFIG = {
   active:       { label: 'Active',        color: 'var(--accent-success)', bg: 'rgba(34,197,94,0.1)',  icon: <ShieldCheck size={12} /> },
@@ -45,10 +46,9 @@ export default function ConnectionCard({ connection, onVerify, onDelete, verifyi
             width: 40, height: 40, borderRadius: 10,
             background: 'var(--bg-elevated)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '1.3rem',
             border: '1px solid var(--border)',
           }}>
-            {connection.provider === 'gmail' ? '📩' : connection.provider === 'outlook' ? '📬' : connection.provider === 'postgres' ? '🐘' : connection.provider === 'mongodb' ? '🍃' : connection.provider === 'google_sheets' ? '📊' : '📧'}
+            {(() => { const ProvIcon = getProviderIcon(connection.provider); return <ProvIcon size={20} style={{ color: 'var(--text-secondary)' }} />; })()}
           </div>
           <div>
             <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{connection.name}</div>

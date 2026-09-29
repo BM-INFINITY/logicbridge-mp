@@ -237,7 +237,7 @@ export default function HttpConfig({ data, onChange, onOpenVariablePicker }) {
                   <option value="">— Select Saved Connection —</option>
                   {connections.map((c) => (
                     <option key={c._id} value={c._id}>
-                      🌐 {c.name} ({c.email || c.provider})
+                      {c.name} ({c.email || c.provider})
                     </option>
                   ))}
                 </select>

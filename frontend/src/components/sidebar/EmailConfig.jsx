@@ -81,7 +81,7 @@ export default function EmailConfig({ data, onChange, onOpenVariablePicker }) {
             <option value="">— Use platform SMTP —</option>
             {connections.map((c) => (
               <option key={c._id} value={c._id}>
-                {c.provider === 'gmail' ? '📩' : '📧'} {c.name} ({c.email})
+                {c.name} ({c.email})
               </option>
             ))}
           </select>

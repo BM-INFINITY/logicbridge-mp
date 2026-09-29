@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { X, Plus, Eye, EyeOff, ExternalLink, Mail, Table } from 'lucide-react';
 import API from '../../api/client';
 
 /**
@@ -179,7 +179,9 @@ export default function ConnectionDialog({ onClose, onCreate }) {
                   display: 'flex', flexDirection: 'column', gap: 10,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                    <span style={{ fontSize: '1.5rem' }}>📩</span>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(234,67,53,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Mail size={20} color="#ea4335" />
+                    </div>
                     <div>
                       <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Sign in with Google</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -204,7 +206,9 @@ export default function ConnectionDialog({ onClose, onCreate }) {
                   display: 'flex', flexDirection: 'column', gap: 10,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                    <span style={{ fontSize: '1.5rem' }}>📊</span>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(15,157,88,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Table size={20} color="#0f9d58" />
+                    </div>
                     <div>
                       <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Connect Google Sheets</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>

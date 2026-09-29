@@ -51,6 +51,14 @@ import {
   Calculator,
   Calendar,
   Database,
+  Plug,
+  Search,
+  Filter,
+  Tag,
+  Layers,
+  BookOpen,
+  Code2,
+  Star,
 } from 'lucide-react';
 
 // ─── Node Type → Icon Component ──────────────────────────────────────────────
@@ -84,6 +92,28 @@ const NODE_ICONS = {
  */
 export function getNodeIcon(type) {
   return NODE_ICONS[type] || Settings;
+}
+
+// ─── Connection Provider → Icon Component ────────────────────────────────────
+
+const PROVIDER_ICON_MAP = {
+  smtp:          Mail,
+  gmail:         Mail,
+  outlook:       Mail,
+  postgres:      Database,
+  mongodb:       Database,
+  google_sheets: Table,
+};
+
+/**
+ * Returns the Lucide icon component for a given connection provider.
+ * Falls back to Plug for unknown providers.
+ *
+ * @param {string} provider - provider key (e.g. 'gmail', 'postgres')
+ * @returns {React.ComponentType} Lucide icon component
+ */
+export function getProviderIcon(provider) {
+  return PROVIDER_ICON_MAP[provider] || Plug;
 }
 
 // ─── Named semantic exports ───────────────────────────────────────────────────
@@ -146,4 +176,17 @@ export {
   Type,
   Calculator,
   Calendar,
+
+  // Provider / connection icons
+  Database,
+  Plug,
+
+  // Template / search icons
+  Search,
+  Filter,
+  Tag,
+  Layers,
+  BookOpen,
+  Code2,
+  Star,
 };

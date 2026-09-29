@@ -266,6 +266,20 @@ export const NODE_DEFS = {
       { name: 'limit', type: 'text', label: 'Limit' },
     ],
   },
+  'action-google-sheets': {
+    label: 'Google Sheets', icon: 'Table', color: '#0f9d58', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'connectionId', type: 'select', label: 'Connection' },
+      { name: 'spreadsheet', type: 'text', label: 'Spreadsheet ID or URL' },
+      { name: 'sheet', type: 'text', label: 'Sheet Name' },
+      { name: 'operation', type: 'select', label: 'Operation', options: ['get_rows', 'get_row', 'add_row', 'update_row', 'delete_row', 'find_row'] },
+      { name: 'rowNumber', type: 'text', label: 'Row Number' },
+      { name: 'row', type: 'text', label: 'Row Data / Values' },
+      { name: 'searchColumn', type: 'text', label: 'Search Column' },
+      { name: 'searchValue', type: 'text', label: 'Search Value' },
+    ],
+  },
   'logic-condition': {
     label: 'If / Condition', icon: 'GitBranch', color: '#f59e0b', category: 'logic',
     configSchema: [

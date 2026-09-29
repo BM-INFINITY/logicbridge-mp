@@ -71,6 +71,7 @@ const NODE_ICONS = {
   'action-date': Calendar,
   'action-postgres': Database,
   'action-mongodb': Database,
+  'action-google-sheets': Table,
   'logic-condition': GitBranch,
 };
 

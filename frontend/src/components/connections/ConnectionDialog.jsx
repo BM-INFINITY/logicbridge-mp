@@ -47,7 +47,7 @@ export default function ConnectionDialog({ onClose, onCreate }) {
     setError('');
     try {
       const { data } = await API.get('/api/oauth/google/url', {
-        params: { name },
+        params: { name, provider: selectedProvider?.id },
       });
       const url = data.data?.url || data.url;
       if (!url) throw new Error('No OAuth URL returned from server');
@@ -192,6 +192,31 @@ export default function ConnectionDialog({ onClose, onCreate }) {
                   </div>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     Scopes: <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: 3 }}>gmail.send</code>, <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: 3 }}>email</code>, <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: 3 }}>profile</code>
+                  </div>
+                </div>
+              )}
+
+              {/* Google Sheets OAuth: show consent button */}
+              {isOAuth && selectedProvider.id === 'google_sheets' && (
+                <div style={{
+                  background: 'rgba(15,157,88,0.07)', border: '1px solid rgba(15,157,88,0.2)',
+                  borderRadius: 'var(--radius-md)', padding: '16px 18px',
+                  display: 'flex', flexDirection: 'column', gap: 10,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                    <span style={{ fontSize: '1.5rem' }}>📊</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Connect Google Sheets</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        You&apos;ll be redirected to Google&apos;s secure sign-in
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                    LogicBridge will request permission to <strong>read, edit, and create Google Sheets</strong>. Your credentials are encrypted and never shared.
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Scopes: <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: 3 }}>spreadsheets</code>, <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: 3 }}>drive.file</code>, <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: 3 }}>email</code>, <code style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: 3 }}>profile</code>
                   </div>
                 </div>
               )}

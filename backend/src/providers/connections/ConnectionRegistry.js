@@ -3,6 +3,7 @@ const GmailConnectionProvider = require('./GmailConnectionProvider');
 const HttpConnectionProvider = require('./HttpConnectionProvider');
 const PostgreSQLConnectionProvider = require('./PostgreSQLConnectionProvider');
 const MongoDBConnectionProvider = require('./MongoDBConnectionProvider');
+const GoogleSheetsConnectionProvider = require('./GoogleSheetsConnectionProvider');
 
 /**
  * ConnectionRegistry — central registry for all connection providers.
@@ -32,7 +33,10 @@ class ConnectionRegistry {
    * @returns {ConnectionProvider}
    */
   resolve(id) {
-    const provider = this._providers.get(id);
+    let provider = this._providers.get(id);
+    if (!provider && (id === 'google-sheets' || id === 'googlesheets')) {
+      provider = this._providers.get('google_sheets');
+    }
     if (!provider) {
       const err = new Error(`Unknown connection provider: "${id}"`);
       err.statusCode = 400;
@@ -53,7 +57,7 @@ class ConnectionRegistry {
    * Returns true if a provider with the given ID is registered.
    */
   has(id) {
-    return this._providers.has(id);
+    return this._providers.has(id) || (id === 'google-sheets' && this._providers.has('google_sheets'));
   }
 }
 
@@ -64,7 +68,8 @@ connectionRegistry
   .register(new GmailConnectionProvider())
   .register(new HttpConnectionProvider())
   .register(new PostgreSQLConnectionProvider())
-  .register(new MongoDBConnectionProvider());
+  .register(new MongoDBConnectionProvider())
+  .register(new GoogleSheetsConnectionProvider());
 
 module.exports = {
   ConnectionRegistry,

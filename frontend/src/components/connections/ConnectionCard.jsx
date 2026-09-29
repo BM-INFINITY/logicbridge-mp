@@ -48,7 +48,7 @@ export default function ConnectionCard({ connection, onVerify, onDelete, verifyi
             fontSize: '1.3rem',
             border: '1px solid var(--border)',
           }}>
-            {connection.provider === 'gmail' ? '📩' : connection.provider === 'outlook' ? '📬' : '📧'}
+            {connection.provider === 'gmail' ? '📩' : connection.provider === 'outlook' ? '📬' : connection.provider === 'postgres' ? '🐘' : connection.provider === 'mongodb' ? '🍃' : connection.provider === 'google_sheets' ? '📊' : '📧'}
           </div>
           <div>
             <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{connection.name}</div>

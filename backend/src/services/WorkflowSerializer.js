@@ -26,6 +26,15 @@ class WorkflowSerializer {
     return `${cleanName}_v${version}_${dateStr}.json`;
   }
 
+  static export(workflow = {}, options = {}) {
+    return JSON.stringify(this.serialize(workflow, options), null, 2);
+  }
+
+  static import(serializedData) {
+    const parsed = typeof serializedData === 'string' ? JSON.parse(serializedData) : serializedData;
+    return this.deserialize(parsed);
+  }
+
   /**
    * Serializes a workflow Mongoose document or plain JS object into portable JSON format
    * @param {object} workflow - Input workflow object or document

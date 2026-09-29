@@ -146,17 +146,18 @@ const ConnectionService = {
 
     let credentials = CredentialService.decrypt(conn.credentials);
 
-    // Auto-refresh expired Gmail OAuth tokens
-    if (conn.provider === 'gmail' && credentials.refreshToken && OAuthService.isConfigured()) {
+    // Auto-refresh expired Google OAuth tokens (Gmail, Google Sheets)
+    if (['gmail', 'google_sheets'].includes(conn.provider) && credentials.refreshToken && OAuthService.isConfigured()) {
       const isExpired = credentials.expiryDate && (credentials.expiryDate - Date.now()) < 60_000;
       if (isExpired) {
+        const providerName = conn.provider === 'google_sheets' ? 'Google Sheets' : 'Gmail';
         try {
           credentials = await OAuthService.refreshAccessToken(credentials);
           conn.credentials = CredentialService.encrypt(credentials);
           await conn.save();
         } catch (refreshErr) {
-          // Surface a clear error rather than a cryptic Gmail API error later
-          const err = new Error(`Gmail token refresh failed: ${refreshErr.message}. Please reconnect your Gmail account.`);
+          // Surface a clear error rather than a cryptic API error later
+          const err = new Error(`${providerName} token refresh failed: ${refreshErr.message}. Please reconnect your ${providerName} account.`);
           err.statusCode = 401;
           throw err;
         }

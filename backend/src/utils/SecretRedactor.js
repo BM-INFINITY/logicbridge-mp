@@ -3,7 +3,7 @@
  * in execution step inputs/outputs and logs to prevent credential leakage.
  */
 
-const SENSITIVE_KEYS_REGEX = /^(authorization|proxy-authorization|cookie|set-cookie|api[-_]?key|x-api-key|token|bearer|password|secret|pass|client[-_]?secret|credentials|connectionstring|databaseurl|mongouri|dburl)$/i;
+const SENSITIVE_KEYS_REGEX = /^(authorization|proxy-authorization|cookie|set-cookie|api[-_]?key|x-api-key|(?:access[-_]?|refresh[-_]?|id[-_]?)?token|bearer|password|secret|pass|client[-_]?secret|credentials|connectionstring|databaseurl|mongouri|dburl)$/i;
 
 const DB_URI_REGEX = /((?:postgres(?:ql)?|mongodb(?:\+srv)?):\/\/[^:\s]+:)[^@\s]+(@[^\s]+)/gi;
 

@@ -15,8 +15,9 @@ const initiateGoogleAuth = (req, res, next) => {
       return error(res, 'Google OAuth is not configured on this server.', 503);
     }
     const userId = String(req.user._id);
-    const connectionName = req.query.name || 'My Gmail';
-    const url = OAuthService.generateAuthUrl(userId, connectionName);
+    const provider = req.query.provider || 'gmail';
+    const connectionName = req.query.name || (provider === 'google_sheets' ? 'My Google Sheets' : 'My Gmail');
+    const url = OAuthService.generateAuthUrl(userId, connectionName, provider);
     return res.redirect(url);
   } catch (err) {
     return next(err);
@@ -45,9 +46,9 @@ const googleCallback = async (req, res, next) => {
     return res.redirect(`${FRONTEND}/connections?oauth=error&msg=Missing+code+or+state`);
   }
 
-  let userId, connectionName;
+  let userId, connectionName, provider;
   try {
-    ({ userId, connectionName } = OAuthService.decodeState(state));
+    ({ userId, connectionName, provider = 'gmail' } = OAuthService.decodeState(state));
   } catch {
     return res.redirect(`${FRONTEND}/connections?oauth=error&msg=Invalid+state`);
   }
@@ -56,10 +57,10 @@ const googleCallback = async (req, res, next) => {
     // Exchange code for tokens + profile
     const tokenPayload = await OAuthService.exchangeCode(code);
 
-    // Check if this Gmail account is already connected for this user
+    // Check if this account is already connected for this user
     const existing = await Connection.findOne({
       owner: userId,
-      provider: 'gmail',
+      provider,
       email: tokenPayload.email,
     }).select('+credentials');
 
@@ -74,7 +75,7 @@ const googleCallback = async (req, res, next) => {
       // Create brand new connection
       await Connection.create({
         owner: userId,
-        provider: 'gmail',
+        provider,
         name: connectionName,
         email: tokenPayload.email,
         status: 'active',
@@ -84,7 +85,7 @@ const googleCallback = async (req, res, next) => {
       });
     }
 
-    return res.redirect(`${FRONTEND}/connections?oauth=success&provider=gmail`);
+    return res.redirect(`${FRONTEND}/connections?oauth=success&provider=${provider}`);
   } catch (err) {
     const msg = encodeURIComponent(err.message || 'OAuth failed');
     return res.redirect(`${FRONTEND}/connections?oauth=error&msg=${msg}`);
@@ -111,7 +112,7 @@ const disconnectGoogle = async (req, res, next) => {
 /**
  * GET /api/oauth/google/url
  * Returns the OAuth URL as JSON (for SPA navigation).
- * Body: { name? }
+ * Query params: { name?, provider? }
  */
 const getGoogleAuthUrl = (req, res, next) => {
   try {
@@ -119,8 +120,9 @@ const getGoogleAuthUrl = (req, res, next) => {
       return error(res, 'Google OAuth is not configured on this server.', 503);
     }
     const userId = String(req.user._id);
-    const connectionName = req.query.name || 'My Gmail';
-    const url = OAuthService.generateAuthUrl(userId, connectionName);
+    const provider = req.query.provider || 'gmail';
+    const connectionName = req.query.name || (provider === 'google_sheets' ? 'My Google Sheets' : 'My Gmail');
+    const url = OAuthService.generateAuthUrl(userId, connectionName, provider);
     return success(res, { url });
   } catch (err) {
     return next(err);

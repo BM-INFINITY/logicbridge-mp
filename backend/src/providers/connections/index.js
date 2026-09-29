@@ -5,6 +5,7 @@ const GmailConnectionProvider = require('./GmailConnectionProvider');
 const HttpConnectionProvider = require('./HttpConnectionProvider');
 const PostgreSQLConnectionProvider = require('./PostgreSQLConnectionProvider');
 const MongoDBConnectionProvider = require('./MongoDBConnectionProvider');
+const GoogleSheetsConnectionProvider = require('./GoogleSheetsConnectionProvider');
 
 const { connectionRegistry } = ConnectionRegistry;
 
@@ -17,4 +18,5 @@ module.exports = {
   HttpConnectionProvider,
   PostgreSQLConnectionProvider,
   MongoDBConnectionProvider,
+  GoogleSheetsConnectionProvider,
 };

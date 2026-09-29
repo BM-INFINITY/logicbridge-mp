@@ -14,6 +14,7 @@ import MathConfig from './MathConfig';
 import DateConfig from './DateConfig';
 import PostgresConfig from './PostgresConfig';
 import MongoConfig from './MongoConfig';
+import GoogleSheetsConfig from './GoogleSheetsConfig';
 
 export {
   SidebarHeader,
@@ -32,5 +33,6 @@ export {
   DateConfig,
   PostgresConfig,
   MongoConfig,
+  GoogleSheetsConfig,
 };
 

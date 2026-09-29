@@ -15,6 +15,7 @@ const MathNode = require('./MathNode');
 const DateNode = require('./DateNode');
 const PostgresNode = require('./PostgresNode');
 const MongoNode = require('./MongoNode');
+const GoogleSheetsNode = require('./GoogleSheetsNode');
 const registry = require('./registry');
 
 // Auto-register default node handlers into registry singleton
@@ -35,6 +36,7 @@ const defaultNodes = [
   new DateNode(),
   new PostgresNode(),
   new MongoNode(),
+  new GoogleSheetsNode(),
 ];
 
 defaultNodes.forEach(nodeInstance => registry.register(nodeInstance));
@@ -58,4 +60,5 @@ module.exports = {
   DateNode,
   PostgresNode,
   MongoNode,
+  GoogleSheetsNode,
 };

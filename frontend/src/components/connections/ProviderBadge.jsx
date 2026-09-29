@@ -1,15 +1,21 @@
 import React from 'react';
 
 const PROVIDER_COLORS = {
-  smtp:    { bg: 'rgba(108,99,255,0.15)', color: '#6c63ff' },
-  gmail:   { bg: 'rgba(234,67,53,0.15)',  color: '#ea4335' },
-  outlook: { bg: 'rgba(0,120,212,0.15)',  color: '#0078d4' },
+  smtp:          { bg: 'rgba(108,99,255,0.15)', color: '#6c63ff' },
+  gmail:         { bg: 'rgba(234,67,53,0.15)',  color: '#ea4335' },
+  outlook:       { bg: 'rgba(0,120,212,0.15)',  color: '#0078d4' },
+  postgres:      { bg: 'rgba(51,103,145,0.15)', color: '#336791' },
+  mongodb:       { bg: 'rgba(0,237,100,0.15)',  color: '#00ed64' },
+  google_sheets: { bg: 'rgba(15,157,88,0.15)',  color: '#0f9d58' },
 };
 
 const PROVIDER_ICONS = {
-  smtp:    '📧',
-  gmail:   '📩',
-  outlook: '📬',
+  smtp:          '📧',
+  gmail:         '📩',
+  outlook:       '📬',
+  postgres:      '🐘',
+  mongodb:       '🍃',
+  google_sheets: '📊',
 };
 
 /**

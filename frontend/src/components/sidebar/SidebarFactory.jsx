@@ -11,6 +11,7 @@ import MathConfig from './MathConfig';
 import DateConfig from './DateConfig';
 import PostgresConfig from './PostgresConfig';
 import MongoConfig from './MongoConfig';
+import GoogleSheetsConfig from './GoogleSheetsConfig';
 
 export default function SidebarFactory({
   nodeType,
@@ -106,6 +107,14 @@ export default function SidebarFactory({
     case 'action-mongodb':
       return (
         <MongoConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-google-sheets':
+      return (
+        <GoogleSheetsConfig
           data={data}
           onChange={onChange}
           onOpenVariablePicker={onOpenVariablePicker}

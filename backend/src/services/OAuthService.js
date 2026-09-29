@@ -16,14 +16,27 @@ function buildClient() {
   );
 }
 
-const SCOPES = [
-  'openid',
-  'email',
-  'profile',
-  'https://www.googleapis.com/auth/gmail.send',
-];
+const PROVIDER_SCOPES = {
+  gmail: [
+    'openid',
+    'email',
+    'profile',
+    'https://www.googleapis.com/auth/gmail.send',
+  ],
+  google_sheets: [
+    'openid',
+    'email',
+    'profile',
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive.file',
+  ],
+};
+
+const SCOPES = PROVIDER_SCOPES.gmail;
 
 const OAuthService = {
+  PROVIDER_SCOPES,
+
   /**
    * Check that required env vars are set.
    */
@@ -37,24 +50,26 @@ const OAuthService = {
 
   /**
    * Generate a Google OAuth consent URL.
-   * The state param encodes the authenticated userId so the callback can
-   * associate the token with the correct user.
+   * The state param encodes the authenticated userId and provider so the callback can
+   * associate the token with the correct user and provider.
    *
    * @param {string} userId - MongoDB user _id
    * @param {string} connectionName - User-provided display name
+   * @param {string} provider - Provider id ('gmail' or 'google_sheets')
    * @returns {string} redirect URL
    */
-  generateAuthUrl(userId, connectionName = 'My Gmail') {
+  generateAuthUrl(userId, connectionName = 'My Google Account', provider = 'gmail') {
     if (!OAuthService.isConfigured()) {
       throw new Error('Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI.');
     }
     const client = buildClient();
-    // Encode userId + connectionName in state so callback can retrieve them
-    const state = Buffer.from(JSON.stringify({ userId, connectionName })).toString('base64url');
+    const scopes = PROVIDER_SCOPES[provider] || PROVIDER_SCOPES.gmail;
+    // Encode userId + connectionName + provider in state so callback can retrieve them
+    const state = Buffer.from(JSON.stringify({ userId, connectionName, provider })).toString('base64url');
     return client.generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',         // force consent so we always get refresh_token
-      scope: SCOPES,
+      scope: scopes,
       state,
     });
   },
@@ -62,11 +77,16 @@ const OAuthService = {
   /**
    * Decode the state param from the OAuth callback.
    * @param {string} state - base64url encoded state
-   * @returns {{ userId: string, connectionName: string }}
+   * @returns {{ userId: string, connectionName: string, provider: string }}
    */
   decodeState(state) {
     try {
-      return JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
+      const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
+      return {
+        userId: decoded.userId,
+        connectionName: decoded.connectionName,
+        provider: decoded.provider || 'gmail',
+      };
     } catch {
       throw new Error('Invalid OAuth state parameter');
     }
@@ -121,7 +141,8 @@ const OAuthService = {
    */
   async refreshAccessToken(credentials) {
     const client = buildClient();
-    client.setCredentials({ refresh_token: credentials.refreshToken });
+    const refreshToken = credentials.refreshToken || credentials.refresh_token;
+    client.setCredentials({ refresh_token: refreshToken });
 
     let newTokens;
     try {
@@ -130,7 +151,7 @@ const OAuthService = {
     } catch (err) {
       const msg = err.response?.data?.error || err.message || 'Token refresh failed';
       if (msg.includes('invalid_grant') || msg.includes('Token has been expired')) {
-        const error = new Error('Gmail refresh token is invalid or has been revoked. Please reconnect your Gmail account.');
+        const error = new Error('Google refresh token is invalid or has been revoked. Please reconnect your account.');
         error.statusCode = 401;
         throw error;
       }
@@ -140,7 +161,9 @@ const OAuthService = {
     return {
       ...credentials,
       accessToken: newTokens.access_token,
+      access_token: newTokens.access_token,
       expiryDate: newTokens.expiry_date,
+      expiry_date: newTokens.expiry_date,
     };
   },
 
@@ -168,21 +191,22 @@ const OAuthService = {
   async buildAuthenticatedClient(credentials) {
     const client = buildClient();
     client.setCredentials({
-      access_token: credentials.accessToken,
-      refresh_token: credentials.refreshToken,
-      expiry_date: credentials.expiryDate,
+      access_token: credentials.accessToken || credentials.access_token,
+      refresh_token: credentials.refreshToken || credentials.refresh_token,
+      expiry_date: credentials.expiryDate || credentials.expiry_date,
     });
 
     // Check if token is expired (with 60-second buffer)
-    const isExpired = credentials.expiryDate && (credentials.expiryDate - Date.now()) < 60_000;
+    const expiryDate = credentials.expiryDate || credentials.expiry_date;
+    const isExpired = expiryDate && (expiryDate - Date.now()) < 60_000;
     let updatedCredentials = credentials;
 
     if (isExpired) {
       updatedCredentials = await OAuthService.refreshAccessToken(credentials);
       client.setCredentials({
-        access_token: updatedCredentials.accessToken,
-        refresh_token: updatedCredentials.refreshToken,
-        expiry_date: updatedCredentials.expiryDate,
+        access_token: updatedCredentials.accessToken || updatedCredentials.access_token,
+        refresh_token: updatedCredentials.refreshToken || updatedCredentials.refresh_token,
+        expiry_date: updatedCredentials.expiryDate || updatedCredentials.expiry_date,
       });
     }
 
@@ -192,17 +216,21 @@ const OAuthService = {
   /**
    * Verify that a stored credential can still reach Google APIs.
    * @param {object} credentials - decrypted credentials
-   * @returns {{ ok: boolean, email: string, message: string }}
+   * @returns {{ ok: boolean, valid: boolean, email: string, message: string }}
    */
-  async verifyCredentials(credentials) {
+  async verifyCredentials(credentials, provider = 'gmail') {
+    const label = provider === 'google_sheets' ? 'Google Sheets' : 'Gmail';
+    if (!credentials || (!credentials.accessToken && !credentials.access_token)) {
+      return { ok: false, valid: false, message: `${label} credentials missing access token` };
+    }
     try {
       const { client } = await OAuthService.buildAuthenticatedClient(credentials);
       const oauth2 = google.oauth2({ version: 'v2', auth: client });
       const { data: profile } = await oauth2.userinfo.get();
-      return { ok: true, email: profile.email, message: `Gmail verified for ${profile.email}` };
+      return { ok: true, valid: true, email: profile?.email || 'verified', message: `${label} verified for ${profile?.email}` };
     } catch (err) {
-      const msg = err.message || 'Gmail verification failed';
-      return { ok: false, message: msg };
+      const msg = err.message || `${label} verification failed`;
+      return { ok: false, valid: false, message: msg };
     }
   },
 };

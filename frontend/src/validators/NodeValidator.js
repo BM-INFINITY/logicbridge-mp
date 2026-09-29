@@ -237,6 +237,50 @@ export class NodeValidator {
       }
     }
 
+    if (type === NodeTypes.ACTION_GOOGLE_SHEETS) {
+      if (!data?.connectionId?.trim()) {
+        return { valid: false, error: 'Google Sheets connection is required' };
+      }
+      const targetSheet = data?.spreadsheet || data?.spreadsheetId;
+      if (!targetSheet?.trim()) {
+        return { valid: false, error: 'Spreadsheet ID or URL is required' };
+      }
+      const validOps = [
+        'get_rows', 'getrows', 'get-rows',
+        'get_row', 'getrow', 'get-row',
+        'add_row', 'addrow', 'add-row', 'append',
+        'update_row', 'updaterow', 'update-row',
+        'delete_row', 'deleterow', 'delete-row',
+        'find_row', 'findrow', 'find-row',
+      ];
+      const rawOp = data?.operation || 'get_rows';
+      const opKey = String(rawOp).toLowerCase().replace(/[^a-z]/g, '');
+      if (!validOps.map((o) => o.replace(/[^a-z]/g, '')).includes(opKey)) {
+        return { valid: false, error: `Invalid operation "${rawOp}". Supported: Get Rows, Get Row, Add Row, Update Row, Delete Row, Find Row` };
+      }
+      if (opKey === 'getrow' || opKey === 'updaterow' || opKey === 'deleterow') {
+        const rNum = data?.rowNumber;
+        if (rNum === undefined || rNum === null || String(rNum).trim() === '') {
+          return { valid: false, error: `Row number is required for ${rawOp} operation` };
+        }
+      }
+      if (opKey === 'addrow' || opKey === 'append' || opKey === 'updaterow') {
+        const val = data?.row ?? data?.values ?? data?.data;
+        const hasVal = typeof val === 'object' ? (val && Object.keys(val).length > 0) : String(val || '').trim();
+        if (!hasVal) {
+          return { valid: false, error: `Row data/values are required for ${rawOp} operation` };
+        }
+      }
+      if (opKey === 'findrow') {
+        if (!data?.searchColumn?.trim()) {
+          return { valid: false, error: 'Search column is required for Find Row operation' };
+        }
+        if (data?.searchValue === undefined || data?.searchValue === null || String(data?.searchValue).trim() === '') {
+          return { valid: false, error: 'Search value is required for Find Row operation' };
+        }
+      }
+    }
+
     return { valid: true };
   }
 

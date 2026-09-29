@@ -14,6 +14,7 @@ export const NodeTypes = Object.freeze({
   ACTION_DATE: 'action-date',
   ACTION_POSTGRES: 'action-postgres',
   ACTION_MONGODB: 'action-mongodb',
+  ACTION_GOOGLE_SHEETS: 'action-google-sheets',
   LOGIC_CONDITION: 'logic-condition',
 });
 

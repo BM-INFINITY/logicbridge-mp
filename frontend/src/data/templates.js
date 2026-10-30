@@ -29,6 +29,7 @@ export const TEMPLATES = [
     icon: 'Globe',
     nodeTypes: ['trigger-manual', 'action-http', 'action-log'],
     difficulty: 'Beginner',
+    requiresConnection: null,
     tags: ['http', 'api', 'get', 'log', 'starter'],
     nodes: [
       { id: 'n1', type: 'trigger-manual', position: { x: 80,  y: 200 }, data: { label: 'Manual Start' } },
@@ -57,6 +58,7 @@ export const TEMPLATES = [
     icon: 'Shuffle',
     nodeTypes: ['trigger-manual', 'action-http', 'action-transform', 'action-log'],
     difficulty: 'Beginner',
+    requiresConnection: null,
     tags: ['http', 'transform', 'api', 'map'],
     nodes: [
       { id: 'n1', type: 'trigger-manual',  position: { x: 80,  y: 200 }, data: { label: 'Start' } },
@@ -69,7 +71,7 @@ export const TEMPLATES = [
         data: {
           label: 'Extract Fields',
           operation: 'pick',
-          fields: 'name,email,phone',
+          fields: ['name', 'email', 'phone'],
         },
       },
       { id: 'n4', type: 'action-log', position: { x: 800, y: 200 }, data: { label: 'Log User', message: 'User: {{prev.name}} · {{prev.email}}' } },
@@ -90,6 +92,7 @@ export const TEMPLATES = [
     icon: 'GitBranch',
     nodeTypes: ['trigger-manual', 'action-http', 'logic-condition', 'action-log'],
     difficulty: 'Beginner',
+    requiresConnection: null,
     tags: ['condition', 'branch', 'if', 'logic'],
     nodes: [
       { id: 'n1', type: 'trigger-manual',  position: { x: 80,  y: 200 }, data: { label: 'Start' } },
@@ -115,6 +118,7 @@ export const TEMPLATES = [
     icon: 'Database',
     nodeTypes: ['trigger-webhook', 'action-transform', 'action-postgres'],
     difficulty: 'Intermediate',
+    requiresConnection: 'postgres',
     tags: ['webhook', 'postgres', 'insert', 'database'],
     nodes: [
       { id: 'n1', type: 'trigger-webhook',  position: { x: 80,  y: 200 }, data: { label: 'Webhook Trigger' } },
@@ -123,7 +127,7 @@ export const TEMPLATES = [
         data: {
           label: 'Prepare Record',
           operation: 'pick',
-          fields: 'name,email,created_at',
+          fields: ['name', 'email', 'created_at'],
         },
       },
       {
@@ -151,6 +155,7 @@ export const TEMPLATES = [
     icon: 'Database',
     nodeTypes: ['trigger-schedule', 'action-postgres', 'action-transform', 'action-http'],
     difficulty: 'Intermediate',
+    requiresConnection: 'postgres',
     tags: ['schedule', 'postgres', 'select', 'http', 'post', 'sync'],
     nodes: [
       { id: 'n1', type: 'trigger-schedule', position: { x: 80,  y: 200 }, data: { label: 'Every Day 9 AM', cron: '0 9 * * *' } },
@@ -168,7 +173,7 @@ export const TEMPLATES = [
         data: {
           label: 'Format Payload',
           operation: 'map',
-          mappings: [{ from: 'rows', to: 'users' }],
+          mappings: [{ outputField: 'users', source: '{{prev.rows}}' }],
         },
       },
       {
@@ -197,6 +202,7 @@ export const TEMPLATES = [
     icon: 'Database',
     nodeTypes: ['trigger-manual', 'action-mongodb', 'action-transform', 'logic-condition', 'action-http'],
     difficulty: 'Intermediate',
+    requiresConnection: 'mongodb',
     tags: ['mongodb', 'find', 'transform', 'condition', 'http'],
     nodes: [
       { id: 'n1', type: 'trigger-manual',  position: { x: 60,  y: 200 }, data: { label: 'Manual Start' } },
@@ -242,12 +248,13 @@ export const TEMPLATES = [
     icon: 'Table',
     nodeTypes: ['trigger-webhook', 'action-transform', 'action-google-sheets'],
     difficulty: 'Intermediate',
+    requiresConnection: 'google_sheets',
     tags: ['webhook', 'google-sheets', 'append', 'automation'],
     nodes: [
       { id: 'n1', type: 'trigger-webhook',  position: { x: 80,  y: 200 }, data: { label: 'Webhook Trigger' } },
       {
         id: 'n2', type: 'action-transform', position: { x: 320, y: 200 },
-        data: { label: 'Prepare Row Data', operation: 'pick', fields: 'name,email,timestamp' },
+        data: { label: 'Prepare Row Data', operation: 'pick', fields: ['name', 'email', 'timestamp'] },
       },
       {
         id: 'n3', type: 'action-google-sheets', position: { x: 560, y: 200 },
@@ -274,6 +281,7 @@ export const TEMPLATES = [
     icon: 'Table',
     nodeTypes: ['trigger-schedule', 'action-google-sheets', 'action-transform', 'action-http'],
     difficulty: 'Intermediate',
+    requiresConnection: 'google_sheets',
     tags: ['schedule', 'google-sheets', 'get-rows', 'http', 'sync'],
     nodes: [
       { id: 'n1', type: 'trigger-schedule', position: { x: 80,  y: 200 }, data: { label: 'Every Hour', cron: '0 * * * *' } },
@@ -288,7 +296,7 @@ export const TEMPLATES = [
       },
       {
         id: 'n3', type: 'action-transform', position: { x: 540, y: 200 },
-        data: { label: 'Format Payload', operation: 'array-map', mappings: [{ from: 'rows', to: 'records' }] },
+        data: { label: 'Format Payload', operation: 'array-map', mappings: [{ outputField: 'records', source: '{{prev.rows}}' }] },
       },
       {
         id: 'n4', type: 'action-http', position: { x: 780, y: 200 },
@@ -311,6 +319,7 @@ export const TEMPLATES = [
     icon: 'Braces',
     nodeTypes: ['trigger-manual', 'action-http', 'action-json', 'action-transform', 'action-math', 'logic-condition'],
     difficulty: 'Advanced',
+    requiresConnection: null,
     tags: ['json', 'transform', 'math', 'condition', 'pipeline'],
     nodes: [
       { id: 'n1', type: 'trigger-manual',  position: { x: 60,  y: 200 }, data: { label: 'Start' } },
@@ -324,7 +333,7 @@ export const TEMPLATES = [
       },
       {
         id: 'n4', type: 'action-transform', position: { x: 600, y: 200 },
-        data: { label: 'Pick Fields', operation: 'pick', fields: 'userId,title' },
+        data: { label: 'Pick Fields', operation: 'pick', source: '{{n2.data}}', fields: ['userId', 'title'] },
       },
       {
         id: 'n5', type: 'action-math', position: { x: 780, y: 200 },
@@ -353,6 +362,7 @@ export const TEMPLATES = [
     icon: 'Code2',
     nodeTypes: ['trigger-manual', 'action-http', 'action-json', 'action-transform', 'action-math', 'action-text', 'action-date', 'action-delay', 'logic-condition', 'action-log'],
     difficulty: 'Advanced',
+    requiresConnection: null,
     tags: ['dev', 'test', 'all-nodes', 'debug', 'replay', 'serialization'],
     nodes: [
       { id: 'n1', type: 'trigger-manual',  position: { x: 60,  y: 300 }, data: { label: '[DEV] Start' } },
@@ -381,8 +391,8 @@ export const TEMPLATES = [
         data: {
           label: '[DEV] Merge', operation: 'set',
           mappings: [
-            { from: 'title', to: 'formattedTitle' },
-            { from: 'result', to: 'timestamp' },
+            { outputField: 'formattedTitle', source: '{{n4.result}}' },
+            { outputField: 'timestamp', source: '{{n6.result}}' },
           ],
         },
       },
@@ -421,6 +431,7 @@ export const TEMPLATES = [
     icon: 'FileText',
     nodeTypes: ['trigger-manual', 'action-http', 'action-csv'],
     difficulty: 'Intermediate',
+    requiresConnection: null,
     tags: ['csv', 'http', 'export', 'attendance'],
     nodes: [
       { id: 'n1', type: 'trigger-manual', position: { x: 80, y: 200 }, data: { label: 'Manual Start' } },
@@ -462,12 +473,13 @@ export const TEMPLATES = [
     icon: 'Zap',
     nodeTypes: ['trigger-manual', 'action-http', 'action-delay', 'action-transform', 'action-log'],
     difficulty: 'Beginner',
+    requiresConnection: null,
     tags: ['delay', 'transform', 'pipeline', 'starter'],
     nodes: [
       { id: 'n1', type: 'trigger-manual',  position: { x: 80,  y: 200 }, data: { label: 'Start' } },
       { id: 'n2', type: 'action-http',     position: { x: 300, y: 200 }, data: { label: 'Fetch Post', url: 'https://jsonplaceholder.typicode.com/posts/5', method: 'GET' } },
       { id: 'n3', type: 'action-delay',    position: { x: 520, y: 200 }, data: { label: 'Wait 1s', seconds: 1 } },
-      { id: 'n4', type: 'action-transform',position: { x: 740, y: 200 }, data: { label: 'Extract Fields', operation: 'pick', fields: 'title,body' } },
+      { id: 'n4', type: 'action-transform',position: { x: 740, y: 200 }, data: { label: 'Extract Fields', operation: 'pick', source: '{{n2.data}}', fields: ['title', 'body'] } },
       { id: 'n5', type: 'action-log',      position: { x: 960, y: 200 }, data: { label: 'Final Log', message: 'Pipeline complete: {{prev.title}}' } },
     ],
     edges: [
@@ -475,6 +487,130 @@ export const TEMPLATES = [
       { id: 'e2', source: 'n2', target: 'n3', animated: true },
       { id: 'e3', source: 'n3', target: 'n4', animated: true },
       { id: 'e4', source: 'n4', target: 'n5', animated: true },
+    ],
+  },
+
+  // ── 13. Scheduled API Health Check & Email Alert ───────────────────────────
+  {
+    id: 'scheduled-health-email',
+    name: 'Scheduled Health Check & Alert',
+    description: 'Ping an API endpoint every 15 minutes, evaluate status code, and log operational health. The fallback alert branch triggers an email notification (requires an Email connection or SMTP settings; the normal healthy path runs with zero credentials).',
+    category: 'automation',
+    icon: 'Mail',
+    nodeTypes: ['trigger-schedule', 'action-http', 'logic-condition', 'action-log', 'action-email'],
+    difficulty: 'Intermediate',
+    requiresConnection: 'email',
+    tags: ['schedule', 'http', 'condition', 'email', 'alert', 'monitoring'],
+    nodes: [
+      { id: 'n1', type: 'trigger-schedule', position: { x: 60,  y: 220 }, data: { label: 'Every 15 Min', cron: '*/15 * * * *' } },
+      { id: 'n2', type: 'action-http',     position: { x: 280, y: 220 }, data: { label: 'Health Probe', url: 'https://jsonplaceholder.typicode.com/posts/1', method: 'GET' } },
+      { id: 'n3', type: 'logic-condition', position: { x: 500, y: 220 }, data: { label: 'Status == 200?', leftValue: '{{prev.status}}', operator: 'equals', rightValue: '200' } },
+      { id: 'n4', type: 'action-log',      position: { x: 740, y: 140 }, data: { label: 'Log Healthy', message: 'System operational: endpoint returned HTTP 200' } },
+      {
+        id: 'n5', type: 'action-email',    position: { x: 740, y: 300 },
+        data: {
+          label: 'Send Alert (Email/SMTP)',
+          to: 'ops@example.com',
+          subject: 'ALERT: API Health Check Failed',
+          body: 'Endpoint health check returned unexpected status code. Please investigate immediately.\n\n[Note: This step requires an active Email connection (Gmail/SMTP) or configured SMTP server].',
+        },
+      },
+    ],
+    edges: [
+      { id: 'e1', source: 'n1', target: 'n2', animated: true },
+      { id: 'e2', source: 'n2', target: 'n3', animated: true },
+      { id: 'e3', source: 'n3', target: 'n4', sourceHandle: 'true',  animated: true, label: 'True',  style: { stroke: '#22c55e', strokeWidth: 2 }, labelStyle: { fill: '#22c55e', fontWeight: 700 } },
+      { id: 'e4', source: 'n3', target: 'n5', sourceHandle: 'false', animated: true, label: 'False', style: { stroke: '#ef4444', strokeWidth: 2 }, labelStyle: { fill: '#ef4444', fontWeight: 700 } },
+    ],
+  },
+
+  // ── 14. Text & Date Normalization Pipeline ─────────────────────────────────
+  {
+    id: 'text-date-normalization',
+    name: 'Text & Date Normalization',
+    description: 'Fetch user profile, uppercase company name, format current timestamp, and assemble cleaned payload with zero external credentials.',
+    category: 'data-processing',
+    icon: 'Type',
+    nodeTypes: ['trigger-manual', 'action-http', 'action-text', 'action-date', 'action-transform', 'action-log'],
+    difficulty: 'Beginner',
+    requiresConnection: null,
+    tags: ['text', 'date', 'utilities', 'transform', 'string', 'pipeline'],
+    nodes: [
+      { id: 'n1', type: 'trigger-manual',   position: { x: 60,  y: 200 }, data: { label: 'Start Pipeline' } },
+      { id: 'n2', type: 'action-http',      position: { x: 260, y: 200 }, data: { label: 'Fetch User Profile', url: 'https://jsonplaceholder.typicode.com/users/1', method: 'GET' } },
+      { id: 'n3', type: 'action-text',      position: { x: 480, y: 200 }, data: { label: 'Uppercase Company', operation: 'uppercase', input: '{{prev.company.name}}' } },
+      { id: 'n4', type: 'action-date',      position: { x: 700, y: 200 }, data: { label: 'Timestamp ISO', operation: 'now', dateFormat: 'YYYY-MM-DD HH:mm:ss' } },
+      { id: 'n5', type: 'action-transform', position: { x: 920, y: 200 }, data: { label: 'Format Payload', operation: 'set', mappings: [{ outputField: 'customer', source: '{{n2.data.name}}' }] } },
+      { id: 'n6', type: 'action-log',       position: { x: 1140, y: 200 }, data: { label: 'Log Normalized', message: 'Processed record at {{steps.n4.data}} for company {{steps.n3.data}}' } },
+    ],
+    edges: [
+      { id: 'e1', source: 'n1', target: 'n2', animated: true },
+      { id: 'e2', source: 'n2', target: 'n3', animated: true },
+      { id: 'e3', source: 'n3', target: 'n4', animated: true },
+      { id: 'e4', source: 'n4', target: 'n5', animated: true },
+      { id: 'e5', source: 'n5', target: 'n6', animated: true },
+    ],
+  },
+
+  // ── 15. Developer Multi-Branch Logic & Routing Suite ───────────────────────
+  {
+    id: 'dev-multi-path-branching',
+    name: 'Multi-Path Branching Suite',
+    description: 'Developer test suite exercising multi-level branching, nested truthy/falsy evaluation, and alternative workflow execution paths.',
+    category: 'developer',
+    icon: 'GitBranch',
+    nodeTypes: ['trigger-manual', 'action-http', 'logic-condition', 'action-math', 'action-log'],
+    difficulty: 'Advanced',
+    requiresConnection: null,
+    tags: ['dev', 'test', 'branching', 'nested-logic', 'execution-paths', 'routing'],
+    nodes: [
+      { id: 'n1', type: 'trigger-manual',  position: { x: 60,  y: 250 }, data: { label: '[DEV] Branch Trigger' } },
+      { id: 'n2', type: 'action-http',     position: { x: 260, y: 250 }, data: { label: '[DEV] Query Post', url: 'https://jsonplaceholder.typicode.com/posts/1', method: 'GET' } },
+      { id: 'n3', type: 'logic-condition', position: { x: 480, y: 250 }, data: { label: '[DEV] Check ID == 1', leftValue: '{{prev.id}}', operator: 'equals', rightValue: '1' } },
+      { id: 'n4', type: 'action-math',     position: { x: 720, y: 160 }, data: { label: '[DEV] Multiply Score', operation: 'multiply', valueA: '{{n2.id}}', valueB: '50' } },
+      { id: 'n5', type: 'logic-condition', position: { x: 940, y: 160 }, data: { label: '[DEV] Check Score >= 50', leftValue: '{{prev.data}}', operator: 'greater-than', rightValue: '49' } },
+      { id: 'n6', type: 'action-log',      position: { x: 1180, y: 100 }, data: { label: '[DEV] Branch A1 (Pass)', message: 'Score condition met: {{prev.data}}' } },
+      { id: 'n7', type: 'action-log',      position: { x: 1180, y: 220 }, data: { label: '[DEV] Branch A2 (Low)', message: 'Score below threshold' } },
+      { id: 'n8', type: 'action-log',      position: { x: 720, y: 340 }, data: { label: '[DEV] Branch B (Fallback)', message: 'Top-level condition failed for post id {{n2.id}}' } },
+    ],
+    edges: [
+      { id: 'e1', source: 'n1', target: 'n2', animated: true },
+      { id: 'e2', source: 'n2', target: 'n3', animated: true },
+      { id: 'e3', source: 'n3', target: 'n4', sourceHandle: 'true',  animated: true, label: 'True',  style: { stroke: '#22c55e', strokeWidth: 2 }, labelStyle: { fill: '#22c55e', fontWeight: 700 } },
+      { id: 'e4', source: 'n3', target: 'n8', sourceHandle: 'false', animated: true, label: 'False', style: { stroke: '#ef4444', strokeWidth: 2 }, labelStyle: { fill: '#ef4444', fontWeight: 700 } },
+      { id: 'e5', source: 'n4', target: 'n5', animated: true },
+      { id: 'e6', source: 'n5', target: 'n6', sourceHandle: 'true',  animated: true, label: 'True',  style: { stroke: '#22c55e', strokeWidth: 2 }, labelStyle: { fill: '#22c55e', fontWeight: 700 } },
+      { id: 'e7', source: 'n5', target: 'n7', sourceHandle: 'false', animated: true, label: 'False', style: { stroke: '#ef4444', strokeWidth: 2 }, labelStyle: { fill: '#ef4444', fontWeight: 700 } },
+    ],
+  },
+
+  // ── 16. Developer Utility Nodes Stress Test ────────────────────────────────
+  {
+    id: 'dev-utility-suite',
+    name: 'Utility Nodes Test Suite',
+    description: 'Developer test suite validating JSON parsing, string manipulations, arithmetic calculations, and date formatting in sequence.',
+    category: 'developer',
+    icon: 'Code2',
+    nodeTypes: ['trigger-manual', 'action-json', 'action-text', 'action-math', 'action-date', 'action-transform', 'action-log'],
+    difficulty: 'Advanced',
+    requiresConnection: null,
+    tags: ['dev', 'test', 'json', 'text', 'math', 'date', 'utilities'],
+    nodes: [
+      { id: 'n1', type: 'trigger-manual',   position: { x: 60,  y: 220 }, data: { label: '[DEV] Utility Start' } },
+      { id: 'n2', type: 'action-json',      position: { x: 260, y: 220 }, data: { label: '[DEV] Parse JSON', operation: 'parse', input: '{"product":"LogicBridge Cloud","price":49.99,"taxRate":0.15,"quantity":3}' } },
+      { id: 'n3', type: 'action-text',      position: { x: 480, y: 220 }, data: { label: '[DEV] Uppercase Text', operation: 'uppercase', input: '{{prev.product}}' } },
+      { id: 'n4', type: 'action-math',      position: { x: 700, y: 220 }, data: { label: '[DEV] Subtotal Math', operation: 'multiply', valueA: '{{steps.n2.data.price}}', valueB: '{{steps.n2.data.quantity}}' } },
+      { id: 'n5', type: 'action-date',      position: { x: 920, y: 220 }, data: { label: '[DEV] Current Date', operation: 'now', dateFormat: 'YYYY-MM-DD' } },
+      { id: 'n6', type: 'action-transform', position: { x: 1140, y: 220 }, data: { label: '[DEV] Final Map', operation: 'set', mappings: [{ outputField: 'item', source: '{{n2.data.product}}' }] } },
+      { id: 'n7', type: 'action-log',       position: { x: 1360, y: 220 }, data: { label: '[DEV] Verify All', message: 'Verified Product: {{steps.n3.data}} | Total: {{steps.n4.data}} | Date: {{steps.n5.data}}' } },
+    ],
+    edges: [
+      { id: 'e1', source: 'n1', target: 'n2', animated: true },
+      { id: 'e2', source: 'n2', target: 'n3', animated: true },
+      { id: 'e3', source: 'n3', target: 'n4', animated: true },
+      { id: 'e4', source: 'n4', target: 'n5', animated: true },
+      { id: 'e5', source: 'n5', target: 'n6', animated: true },
+      { id: 'e6', source: 'n6', target: 'n7', animated: true },
     ],
   },
 ];

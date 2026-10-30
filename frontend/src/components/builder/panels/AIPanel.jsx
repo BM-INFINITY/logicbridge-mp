@@ -17,7 +17,7 @@ export default function AIPanel({ onGenerate }) {
       const res = await generateFromAI(prompt);
       onGenerate(res);
       setShowAI(false);
-      toast.success('AI workflow generated! ✨');
+      toast.success('AI workflow generated!');
     } catch {
       toast.error('AI generation failed');
     } finally {

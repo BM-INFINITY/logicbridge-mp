@@ -6,13 +6,15 @@
  * the space they deserve as a proper product page.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { TEMPLATES, TEMPLATE_CATEGORIES } from '../data/templates';
 import { getNodeIcon } from '../constants/Icons';
+import { useTemplateFavorites } from '../hooks';
 import {
   X, Search, Layers, Code2, Star,
   ArrowRight, Globe, Shuffle, GitBranch, Database, Table,
   Zap, FileText, Braces, Settings,
+  Mail, Clock, Type, Calculator, Calendar, Sparkles, Filter, Tag,
 } from 'lucide-react';
 
 // ─── Icon lookup by string name ───────────────────────────────────────────────
@@ -20,10 +22,16 @@ import {
 const ICON_MAP = {
   Globe, Shuffle, GitBranch, Database, Table, Zap, FileText,
   Braces, Code2, Layers, Star, Settings,
+  Mail, Clock, Type, Calculator, Calendar, Sparkles, Filter, Tag,
 };
 
 function resolveIcon(name) {
   return ICON_MAP[name] || Layers;
+}
+
+function TemplateIcon({ name, size = 20 }) {
+  const Icon = resolveIcon(name);
+  return <Icon size={size} />;
 }
 
 // ─── Difficulty badge ─────────────────────────────────────────────────────────
@@ -42,6 +50,50 @@ function DifficultyBadge({ difficulty }) {
       background: s.bg, color: s.color, border: `1px solid ${s.border}`,
     }}>
       {difficulty}
+    </span>
+  );
+}
+
+// ─── Connection Requirement Badge ─────────────────────────────────────────────
+function ConnectionRequirementBadge({ requiresConnection }) {
+  if (!requiresConnection) {
+    return (
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: '0.65rem', fontWeight: 600,
+          padding: '2px 8px', borderRadius: 20,
+          background: 'rgba(34,197,94,0.1)', color: '#22c55e',
+          border: '1px solid rgba(34,197,94,0.25)',
+        }}
+        title="Zero external credentials needed — executes immediately out of the box"
+      >
+        <Sparkles size={10} /> Ready to Run
+      </span>
+    );
+  }
+
+  const CONFIG = {
+    postgres:      { label: 'Requires PostgreSQL', icon: Database, color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.3)' },
+    mongodb:       { label: 'Requires MongoDB',    icon: Database, color: '#10b981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.3)' },
+    google_sheets: { label: 'Requires Sheets',     icon: Table,    color: '#06b6d4', bg: 'rgba(6,182,212,0.12)',  border: 'rgba(6,182,212,0.3)' },
+    email:         { label: 'Requires Email',      icon: Mail,     color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.3)' },
+  };
+
+  const c = CONFIG[requiresConnection] || { label: 'Connection Required', icon: Layers, color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' };
+  const ReqIcon = c.icon;
+
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        fontSize: '0.65rem', fontWeight: 600,
+        padding: '2px 8px', borderRadius: 20,
+        background: c.bg, color: c.color, border: `1px solid ${c.border}`,
+      }}
+      title={`Requires active ${c.label}`}
+    >
+      <ReqIcon size={10} /> {c.label}
     </span>
   );
 }
@@ -68,9 +120,8 @@ function NodeTypeChip({ type }) {
 }
 
 // ─── Template Card ────────────────────────────────────────────────────────────
-function TemplateCard({ template, onUse }) {
+function TemplateCard({ template, onUse, isFavorite, onToggleFavorite }) {
   const [hovered, setHovered] = useState(false);
-  const IconComp = resolveIcon(template.icon);
 
   // Limit displayed node types to 4 to keep cards compact
   const displayedTypes = template.nodeTypes?.slice(0, 4) || [];
@@ -104,7 +155,7 @@ function TemplateCard({ template, onUse }) {
         transition: 'opacity var(--transition)',
       }} />
 
-      {/* Header: icon + name + difficulty */}
+      {/* Header: icon + name + difficulty + favorite button */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{
           width: 44, height: 44, borderRadius: 12, flexShrink: 0,
@@ -113,14 +164,47 @@ function TemplateCard({ template, onUse }) {
           color: 'var(--accent-primary)',
           border: '1px solid rgba(108,99,255,0.2)',
         }}>
-          <IconComp size={22} />
+          <TemplateIcon name={template.icon} size={22} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: 4, lineHeight: 1.3 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: 5, lineHeight: 1.3 }}>
             {template.name}
           </div>
-          {template.difficulty && <DifficultyBadge difficulty={template.difficulty} />}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            {template.difficulty && <DifficultyBadge difficulty={template.difficulty} />}
+            <ConnectionRequirementBadge requiresConnection={template.requiresConnection} />
+          </div>
         </div>
+
+        {/* Favorite toggle star */}
+        <button
+          id={`favorite-btn-${template.id}`}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(template.id);
+          }}
+          title={isFavorite ? `Remove "${template.name}" from favorites` : `Add "${template.name}" to favorites`}
+          aria-label={isFavorite ? `Remove ${template.name} from favorites` : `Add ${template.name} to favorites`}
+          aria-pressed={isFavorite}
+          style={{
+            background: isFavorite ? 'rgba(245,158,11,0.15)' : 'var(--bg-elevated)',
+            border: `1px solid ${isFavorite ? '#f59e0b' : 'var(--border)'}`,
+            borderRadius: 8,
+            padding: 7,
+            cursor: 'pointer',
+            color: isFavorite ? '#f59e0b' : 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.15s ease',
+            flexShrink: 0,
+            width: 32,
+            height: 32,
+          }}
+        >
+          <Star size={15} fill={isFavorite ? '#f59e0b' : 'none'} color={isFavorite ? '#f59e0b' : 'currentColor'} />
+        </button>
       </div>
 
       {/* Description */}
@@ -176,17 +260,51 @@ function TemplateCard({ template, onUse }) {
 }
 
 // ─── Category Filter ──────────────────────────────────────────────────────────
-function CategoryFilter({ categories, active, onChange, templateCounts }) {
+function CategoryFilter({ categories, active, onChange, templateCounts, onlyFavorites, onToggleFavorites, favoritesCount }) {
   return (
     <div style={{
       display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
     }}>
+      {/* Favorites Toggle Pill */}
+      <button
+        id="filter-favorites-btn"
+        type="button"
+        onClick={onToggleFavorites}
+        aria-pressed={onlyFavorites}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '5px 14px', borderRadius: 'var(--radius-full)',
+          fontSize: '0.8rem', fontWeight: onlyFavorites ? 600 : 500,
+          background: onlyFavorites ? '#f59e0b' : 'var(--bg-elevated)',
+          color: onlyFavorites ? '#000' : 'var(--text-secondary)',
+          border: `1px solid ${onlyFavorites ? '#f59e0b' : 'var(--border)'}`,
+          cursor: 'pointer',
+          transition: 'all var(--transition)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <Star size={13} fill={onlyFavorites ? '#000' : 'none'} color={onlyFavorites ? '#000' : '#f59e0b'} />
+        Favorites
+        <span style={{
+          fontSize: '0.65rem',
+          background: onlyFavorites ? 'rgba(0,0,0,0.2)' : 'var(--bg-card)',
+          borderRadius: 10, padding: '1px 6px',
+          color: onlyFavorites ? '#000' : 'var(--text-muted)',
+          fontWeight: 700,
+        }}>
+          {favoritesCount}
+        </span>
+      </button>
+
+      <div style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 2px' }} />
+
       {categories.map((cat) => {
         const count = templateCounts[cat.id] ?? 0;
-        const isActive = active === cat.id;
+        const isActive = !onlyFavorites && active === cat.id;
         return (
           <button
             key={cat.id}
+            type="button"
             onClick={() => onChange(cat.id)}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -217,8 +335,20 @@ function CategoryFilter({ categories, active, onChange, templateCounts }) {
 
 // ─── Main TemplatesModal ──────────────────────────────────────────────────────
 export default function TemplatesModal({ onClose, onLoad }) {
-  const [search, setSearch]     = useState('');
-  const [category, setCategory] = useState('all');
+  const [search, setSearch]             = useState('');
+  const [category, setCategory]         = useState('all');
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
+
+  const { favorites, toggleFavorite, isFavorite } = useTemplateFavorites();
+
+  // Close modal on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   // Per-category counts for filter pills
   const templateCounts = useMemo(() => {
@@ -229,20 +359,22 @@ export default function TemplatesModal({ onClose, onLoad }) {
     return counts;
   }, []);
 
-  // Filtered templates
+  // Filtered templates incorporating search, category, and favorites
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     return TEMPLATES.filter((t) => {
+      if (onlyFavorites && !favorites.includes(t.id)) return false;
       const catMatch = category === 'all' || t.category === category;
       if (!catMatch) return false;
       if (!q) return true;
       return (
         t.name.toLowerCase().includes(q) ||
         t.description.toLowerCase().includes(q) ||
-        (t.tags || []).some((tag) => tag.toLowerCase().includes(q))
+        (t.tags || []).some((tag) => tag.toLowerCase().includes(q)) ||
+        (t.nodeTypes || []).some((nt) => nt.toLowerCase().includes(q))
       );
     });
-  }, [search, category]);
+  }, [search, category, onlyFavorites, favorites]);
 
   const handleUse = (template) => {
     onLoad(template);
@@ -319,7 +451,7 @@ export default function TemplatesModal({ onClose, onLoad }) {
             <input
               id="template-search"
               type="text"
-              placeholder="Search templates by name, description or tag…"
+              placeholder="Search templates by name, description, tags, or node types…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="form-input"
@@ -341,12 +473,17 @@ export default function TemplatesModal({ onClose, onLoad }) {
             )}
           </div>
 
-          {/* Category filter */}
+          {/* Category filter + Favorites pill */}
           <CategoryFilter
             categories={TEMPLATE_CATEGORIES}
             active={category}
-            onChange={setCategory}
+            onChange={(catId) => {
+              setCategory(catId);
+            }}
             templateCounts={templateCounts}
+            onlyFavorites={onlyFavorites}
+            onToggleFavorites={() => setOnlyFavorites((prev) => !prev)}
+            favoritesCount={favorites.length}
           />
         </div>
 
@@ -358,32 +495,87 @@ export default function TemplatesModal({ onClose, onLoad }) {
               justifyContent: 'center', gap: 12, padding: '60px 20px',
               color: 'var(--text-muted)',
             }}>
-              <Search size={40} style={{ opacity: 0.3 }} />
-              <div style={{ fontWeight: 600, fontSize: '1rem' }}>No templates found</div>
-              <div style={{ fontSize: '0.85rem', textAlign: 'center', maxWidth: 300 }}>
-                Try a different search term or category.
-              </div>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => { setSearch(''); setCategory('all'); }}
-              >
-                Clear filters
-              </button>
+              {onlyFavorites && favorites.length === 0 ? (
+                <>
+                  <Star size={44} style={{ opacity: 0.35, color: '#f59e0b' }} />
+                  <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                    No favorite templates yet
+                  </div>
+                  <div style={{ fontSize: '0.85rem', textAlign: 'center', maxWidth: 340, lineHeight: 1.5 }}>
+                    Click the star icon on any template card to bookmark your most-used workflows for quick access.
+                  </div>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setOnlyFavorites(false)}
+                  >
+                    Browse All Templates
+                  </button>
+                </>
+              ) : onlyFavorites && favorites.length > 0 ? (
+                <>
+                  <Filter size={40} style={{ opacity: 0.3 }} />
+                  <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                    No favorites match current filters
+                  </div>
+                  <div style={{ fontSize: '0.85rem', textAlign: 'center', maxWidth: 320 }}>
+                    Try clearing your search term or selecting a different category.
+                  </div>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => { setSearch(''); setCategory('all'); }}
+                  >
+                    Reset Search & Category
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Search size={40} style={{ opacity: 0.3 }} />
+                  <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                    No templates found
+                  </div>
+                  <div style={{ fontSize: '0.85rem', textAlign: 'center', maxWidth: 300 }}>
+                    Try a different search term or category.
+                  </div>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => { setSearch(''); setCategory('all'); }}
+                  >
+                    Clear filters
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 16 }}>
-                {filtered.length} template{filtered.length !== 1 ? 's' : ''}
-                {search && ` matching "${search}"`}
-                {category !== 'all' && !search && ` in ${TEMPLATE_CATEGORIES.find((c) => c.id === category)?.label || category}`}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 16 }}>
+                <div>
+                  {filtered.length} template{filtered.length !== 1 ? 's' : ''}
+                  {onlyFavorites && ' in Favorites'}
+                  {search && ` matching "${search}"`}
+                  {category !== 'all' && !search && ` in ${TEMPLATE_CATEGORIES.find((c) => c.id === category)?.label || category}`}
+                </div>
+                {onlyFavorites && (
+                  <button
+                    onClick={() => setOnlyFavorites(false)}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+                  >
+                    View All Templates →
+                  </button>
+                )}
               </div>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
                 gap: 16,
               }}>
                 {filtered.map((t) => (
-                  <TemplateCard key={t.id} template={t} onUse={handleUse} />
+                  <TemplateCard
+                    key={t.id}
+                    template={t}
+                    onUse={handleUse}
+                    isFavorite={isFavorite(t.id)}
+                    onToggleFavorite={toggleFavorite}
+                  />
                 ))}
               </div>
             </>

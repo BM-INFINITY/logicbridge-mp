@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle2, XCircle, AlertCircle, Loader, Circle } from 'lucide-react';
-import { NODE_DEFS } from '../../data/templates';
+import { getNodeIcon } from '../../constants/Icons';
 
 const STATUS_CONFIG = {
   success: { color: '#22c55e', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)',  icon: <CheckCircle2 size={12} color="#22c55e" /> },
@@ -16,7 +16,7 @@ const STATUS_CONFIG = {
 export default function TimelineNode({ snapshot, index, isSelected, isActive, onClick }) {
   const status = snapshot?.status || 'pending';
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
-  const def = NODE_DEFS[snapshot?.nodeType] || { icon: '⚙️', label: snapshot?.nodeName };
+  const NodeIcon = getNodeIcon(snapshot?.nodeType);
 
   return (
     <button
@@ -40,7 +40,7 @@ export default function TimelineNode({ snapshot, index, isSelected, isActive, on
         opacity: status === 'skipped' ? 0.65 : 1,
       }}
     >
-      <span style={{ fontSize: '0.85rem' }}>{def.icon || '⚙️'}</span>
+      <span style={{ display: 'inline-flex', alignItems: 'center' }}><NodeIcon size={13} color={cfg.color} /></span>
       <span>{snapshot?.nodeName || `Step ${index + 1}`}</span>
       {cfg.icon}
       {snapshot?.duration > 0 && (

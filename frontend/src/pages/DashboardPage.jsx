@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Zap, GitBranch, Play, CheckCircle2, XCircle, Plus, Bot,
+  Zap, GitBranch, Play, CheckCircle2, XCircle, Plus, Bot, LayoutTemplate,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import useWorkflowStore from '../store/workflowStore';
 import toast from 'react-hot-toast';
 import API from '../api/client';
 import AppSidebar from '../components/AppSidebar';
+import TemplatesModal from '../components/TemplatesModal';
+import { instantiateTemplate } from '../utils';
 
 /* ─── Create Workflow Modal ───────────────────────────────────────────────── */
 function CreateWorkflowModal({ onClose, onCreate }) {
@@ -87,6 +89,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { workflows, fetchWorkflows, createWorkflow, deleteWorkflow, runWorkflow } = useWorkflowStore();
   const [showModal, setShowModal] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [execStats, setExecStats] = useState({ total: 0, success: 0, failed: 0 });
 
   useEffect(() => {
@@ -102,6 +105,23 @@ export default function DashboardPage() {
   const handleCreate = async (payload) => {
     const wf = await createWorkflow(payload);
     navigate(`/builder/${wf._id}`);
+  };
+
+  const handleUseTemplate = async (template) => {
+    try {
+      const instantiated = instantiateTemplate(template);
+      const wf = await createWorkflow({
+        name: instantiated.name,
+        description: instantiated.description,
+        nodes: instantiated.nodes,
+        edges: instantiated.edges,
+        status: 'draft',
+      });
+      toast.success(`Template "${template.name}" created!`);
+      navigate(`/builder/${wf._id}`);
+    } catch {
+      toast.error('Failed to create workflow from template');
+    }
   };
 
   const handleDelete = async (id, e) => {
@@ -140,9 +160,14 @@ export default function DashboardPage() {
             <h1 className="font-display" style={{ fontSize: '1.8rem', fontWeight: 700 }}>Dashboard</h1>
             <p className="text-secondary text-sm mt-1">Manage and monitor your automation workflows</p>
           </div>
-          <button id="create-workflow-btn" className="btn btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={18} /> New Workflow
-          </button>
+          <div className="flex gap-2">
+            <button id="dashboard-templates-btn" className="btn btn-secondary" onClick={() => setShowTemplates(true)}>
+              <LayoutTemplate size={16} /> Browse Templates
+            </button>
+            <button id="create-workflow-btn" className="btn btn-primary" onClick={() => setShowModal(true)}>
+              <Plus size={18} /> New Workflow
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -163,11 +188,16 @@ export default function DashboardPage() {
             <div className="empty-icon"><GitBranch size={36} /></div>
             <h3 style={{ fontWeight: 600, fontSize: '1.1rem' }}>No workflows yet</h3>
             <p className="text-secondary text-sm" style={{ maxWidth: 300 }}>
-              Create your first workflow to start automating your tasks
+              Create your first workflow or pick a ready-to-use template to get started
             </p>
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-              <Plus size={16} /> Create Workflow
-            </button>
+            <div className="flex gap-3 mt-2">
+              <button className="btn btn-secondary" onClick={() => setShowTemplates(true)}>
+                <LayoutTemplate size={16} /> Browse Templates
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                <Plus size={16} /> Create Workflow
+              </button>
+            </div>
           </div>
         ) : (
           <div className="workflow-grid">
@@ -228,6 +258,7 @@ export default function DashboardPage() {
       </main>
 
       {showModal && <CreateWorkflowModal onClose={() => setShowModal(false)} onCreate={handleCreate} />}
+      {showTemplates && <TemplatesModal onClose={() => setShowTemplates(false)} onLoad={handleUseTemplate} />}
     </div>
   );
 }

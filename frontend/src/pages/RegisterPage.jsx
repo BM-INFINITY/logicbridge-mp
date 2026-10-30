@@ -21,7 +21,7 @@ export default function RegisterPage() {
     }
     const ok = await register(name, email, password);
     if (ok) {
-      toast.success('Account created! 🎉');
+      toast.success('Account created successfully!');
       navigate('/dashboard');
     }
   };

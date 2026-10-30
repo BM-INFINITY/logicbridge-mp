@@ -14,12 +14,13 @@ import TemplatesModal from '../components/TemplatesModal';
 import ExecutionPanel from '../components/ExecutionPanel';
 import StepEditorSidebar from '../components/StepEditorSidebar';
 import { ExecutionTimeline } from '../components/execution';
+import { instantiateTemplate } from '../utils';
 
 function BuilderContent() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { fetchWorkflow, updateWorkflow, runWorkflow } = useWorkflowStore();
+  const { fetchWorkflow, updateWorkflow, createWorkflow, runWorkflow } = useWorkflowStore();
 
   const {
     nodes,
@@ -106,11 +107,16 @@ function BuilderContent() {
   );
 
   const handleSave = async () => {
-    if (!id) return;
     setSaving(true);
     try {
-      await updateWorkflow(id, { name: workflowName, nodes, edges, status: 'active' });
-      toast.success('Saved!');
+      if (id) {
+        await updateWorkflow(id, { name: workflowName, nodes, edges, status: 'active' });
+        toast.success('Saved!');
+      } else {
+        const newWf = await createWorkflow({ name: workflowName, nodes, edges, status: 'active' });
+        toast.success('Workflow created and saved!');
+        navigate(`/builder/${newWf._id}`, { replace: true });
+      }
     } catch {
       toast.error('Save failed');
     } finally {
@@ -119,7 +125,7 @@ function BuilderContent() {
   };
 
   const handleRun = async () => {
-    if (!id) return;
+    let currentId = id;
     if (isReplayActive) stopReplay();
 
     setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: 'running' } })));
@@ -127,13 +133,24 @@ function BuilderContent() {
     setRunning(true);
     toast.loading('Running workflow...', { id: 'run' });
     try {
-      await updateWorkflow(id, {
-        name: workflowName,
-        nodes: nodes.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })),
-        edges,
-        status: 'active',
-      });
-      const result = await runWorkflow(id);
+      if (!currentId) {
+        const newWf = await createWorkflow({
+          name: workflowName,
+          nodes: nodes.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })),
+          edges,
+          status: 'active',
+        });
+        currentId = newWf._id;
+        navigate(`/builder/${newWf._id}`, { replace: true });
+      } else {
+        await updateWorkflow(currentId, {
+          name: workflowName,
+          nodes: nodes.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })),
+          edges,
+          status: 'active',
+        });
+      }
+      const result = await runWorkflow(currentId);
       setExecutionResult(result);
       const stepMap = {};
       (result.steps || []).forEach((s) => { stepMap[s.nodeId] = s.status; });
@@ -148,9 +165,10 @@ function BuilderContent() {
   };
 
   const loadTemplate = (t) => {
-    setWorkflowName(t.name);
-    setNodes(t.nodes);
-    setEdges(t.edges);
+    const instantiated = instantiateTemplate(t);
+    setWorkflowName(instantiated.name);
+    setNodes(instantiated.nodes);
+    setEdges(instantiated.edges);
     setExecutionResult(null);
     setSelectedNode(null);
     if (isReplayActive) stopReplay();

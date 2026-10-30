@@ -37,8 +37,26 @@ class TransformNode extends BaseNode {
     });
   }
 
+  _normalizeNodeData(nodeData = {}) {
+    const data = { ...nodeData };
+    if (typeof data.fields === 'string') {
+      data.fields = data.fields.split(',').map((f) => f.trim()).filter(Boolean);
+    }
+    if (Array.isArray(data.mappings)) {
+      data.mappings = data.mappings.map((m) => {
+        if (!m || typeof m !== 'object') return m;
+        return {
+          ...m,
+          outputField: m.outputField || m.to || '',
+          source: m.source !== undefined ? m.source : (m.from !== undefined ? m.from : ''),
+        };
+      });
+    }
+    return data;
+  }
+
   validate(node) {
-    const { operation = 'map', mappings = [], fields = [], source } = node.data || {};
+    const { operation = 'map', mappings = [], fields = [] } = this._normalizeNodeData(node?.data);
 
     const validOperations = ['map', 'pick', 'omit', 'set', 'remove', 'array-map', 'array-filter', 'array-find', 'array-first', 'array-last', 'array-length'];
     if (!validOperations.includes(operation)) {
@@ -72,7 +90,8 @@ class TransformNode extends BaseNode {
   }
 
   async execute(node, context) {
-    const validation = this.validate(node);
+    const normalizedData = this._normalizeNodeData(node?.data);
+    const validation = this.validate({ ...node, data: normalizedData });
     if (!validation.valid) {
       throw new NodeExecutionError(validation.error, { nodeId: node.id, nodeType: this.type });
     }
@@ -85,7 +104,7 @@ class TransformNode extends BaseNode {
       filterField = '',
       filterValue = '',
       template = '',
-    } = node.data || {};
+    } = normalizedData;
 
     // Resolve input data — from explicit source expression or context.lastOutput
     let inputData;
@@ -98,6 +117,14 @@ class TransformNode extends BaseNode {
       }
     } else {
       inputData = context.lastOutput;
+    }
+
+    // If operation expects an array but inputData is an object wrapping an array (e.g. from Database or GoogleSheets)
+    if (operation.startsWith('array-') && !Array.isArray(inputData) && inputData && typeof inputData === 'object') {
+      if (Array.isArray(inputData.rows)) inputData = inputData.rows;
+      else if (Array.isArray(inputData.data)) inputData = inputData.data;
+      else if (Array.isArray(inputData.documents)) inputData = inputData.documents;
+      else if (Array.isArray(inputData.records)) inputData = inputData.records;
     }
 
     // Execute the requested operation
@@ -117,35 +144,44 @@ class TransformNode extends BaseNode {
         }
 
         case 'pick': {
-          // Select only specified keys from input object
-          if (typeof inputData !== 'object' || inputData === null || Array.isArray(inputData)) {
+          let target = inputData;
+          if (target && typeof target === 'object' && target.data && typeof target.data === 'object' && !Array.isArray(target.data)) {
+            target = target.data;
+          }
+          if (typeof target !== 'object' || target === null || Array.isArray(target)) {
             throw new NodeExecutionError('Transform "pick" expects an object input', { nodeId: node.id });
           }
           resultData = {};
           fields.forEach((f) => {
             const key = String(f).trim();
-            if (key && key in inputData) resultData[key] = inputData[key];
+            if (key && key in target) resultData[key] = target[key];
           });
           break;
         }
 
         case 'omit': {
-          // Return object without specified keys
-          if (typeof inputData !== 'object' || inputData === null || Array.isArray(inputData)) {
+          let target = inputData;
+          if (target && typeof target === 'object' && target.data && typeof target.data === 'object' && !Array.isArray(target.data)) {
+            target = target.data;
+          }
+          if (typeof target !== 'object' || target === null || Array.isArray(target)) {
             throw new NodeExecutionError('Transform "omit" expects an object input', { nodeId: node.id });
           }
           const omitSet = new Set(fields.map((f) => String(f).trim()).filter(Boolean));
           resultData = {};
-          for (const [k, v] of Object.entries(inputData)) {
+          for (const [k, v] of Object.entries(target)) {
             if (!omitSet.has(k)) resultData[k] = v;
           }
           break;
         }
 
         case 'set': {
-          // Extend/overwrite fields on a copy of input
-          resultData = typeof inputData === 'object' && inputData !== null && !Array.isArray(inputData)
-            ? { ...inputData }
+          let target = inputData;
+          if (target && typeof target === 'object' && target.data && typeof target.data === 'object' && !Array.isArray(target.data)) {
+            target = target.data;
+          }
+          resultData = typeof target === 'object' && target !== null && !Array.isArray(target)
+            ? { ...target }
             : {};
           for (const m of mappings) {
             if (!m.outputField || !String(m.outputField).trim()) continue;

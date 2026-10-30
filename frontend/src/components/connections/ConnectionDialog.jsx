@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Eye, EyeOff, ExternalLink, Mail, Table } from 'lucide-react';
 import API from '../../api/client';
+import { getProviderIcon } from '../../constants/Icons';
 
 /**
  * ConnectionDialog — modal for adding a new connection.
@@ -27,7 +28,13 @@ export default function ConnectionDialog({ onClose, onCreate }) {
 
   const handleProviderSelect = (provider) => {
     setSelectedProvider(provider);
-    setFields({});
+    const initialFields = {};
+    (provider.requiredFields || []).forEach((f) => {
+      if (f.type === 'select' && f.options?.length) {
+        initialFields[f.key] = typeof f.options[0] === 'string' ? f.options[0] : f.options[0].value;
+      }
+    });
+    setFields(initialFields);
     setError('');
     setName(`My ${provider.name}`);
   };
@@ -127,30 +134,33 @@ export default function ConnectionDialog({ onClose, onCreate }) {
               <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading providers…</div>
             ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {providers.map((p) => (
-                  <button
-                    key={p.id}
-                    id={`provider-select-${p.id}`}
-                    onClick={() => handleProviderSelect(p)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '10px 14px',
-                      background: selectedProvider?.id === p.id ? 'rgba(108,99,255,0.15)' : 'var(--bg-elevated)',
-                      border: selectedProvider?.id === p.id ? '1px solid rgba(108,99,255,0.5)' : '1px solid var(--border)',
-                      borderRadius: 'var(--radius-md)',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem', fontWeight: 500,
-                      cursor: 'pointer',
-                      transition: 'all var(--transition)',
-                    }}
-                  >
-                    <span style={{ fontSize: '1.1rem' }}>{p.icon}</span>
-                    {p.name}
-                    {p.supportsOAuth && (
-                      <span style={{ fontSize: '0.65rem', color: 'var(--accent-secondary)', background: 'rgba(34,211,238,0.1)', borderRadius: 4, padding: '1px 5px', marginLeft: 2 }}>OAuth</span>
-                    )}
-                  </button>
-                ))}
+                {providers.map((p) => {
+                  const ProvIcon = getProviderIcon(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      id={`provider-select-${p.id}`}
+                      onClick={() => handleProviderSelect(p)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '10px 14px',
+                        background: selectedProvider?.id === p.id ? 'rgba(108,99,255,0.15)' : 'var(--bg-elevated)',
+                        border: selectedProvider?.id === p.id ? '1px solid rgba(108,99,255,0.5)' : '1px solid var(--border)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.85rem', fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'all var(--transition)',
+                      }}
+                    >
+                      <ProvIcon size={16} style={{ color: selectedProvider?.id === p.id ? 'var(--accent-primary)' : 'var(--text-secondary)' }} />
+                      {p.name}
+                      {p.supportsOAuth && (
+                        <span style={{ fontSize: '0.65rem', color: 'var(--accent-secondary)', background: 'rgba(34,211,238,0.1)', borderRadius: 4, padding: '1px 5px', marginLeft: 2 }}>OAuth</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -248,6 +258,21 @@ export default function ConnectionDialog({ onClose, onCreate }) {
                             />
                             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Enable</span>
                           </label>
+                        ) : f.type === 'select' ? (
+                          <select
+                            id={`cred-${f.key}`}
+                            className="form-input"
+                            value={fields[f.key] || (f.options && f.options[0]) || ''}
+                            onChange={(e) => handleFieldChange(f.key, e.target.value)}
+                          >
+                            {(f.options || []).map((opt) => {
+                              const val = typeof opt === 'string' ? opt : opt.value;
+                              const lbl = typeof opt === 'string'
+                                ? (opt === 'bot_token' ? 'Bot Token' : opt === 'webhook' ? 'Incoming Webhook' : opt)
+                                : opt.label;
+                              return <option key={val} value={val}>{lbl}</option>;
+                            })}
+                          </select>
                         ) : (
                           <div style={{ position: 'relative' }}>
                             <input
@@ -268,6 +293,11 @@ export default function ConnectionDialog({ onClose, onCreate }) {
                                 {showPasswords[f.key] ? <EyeOff size={14} /> : <Eye size={14} />}
                               </button>
                             )}
+                          </div>
+                        )}
+                        {f.helperText && (
+                          <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                            {f.helperText}
                           </div>
                         )}
                       </div>

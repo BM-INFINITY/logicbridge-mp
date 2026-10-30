@@ -1,4 +1,4 @@
-import { NodeTypes } from './NodeTypes';
+import { NodeTypes } from './NodeTypes.js';
 
 export const DefaultNodeData = Object.freeze({
   [NodeTypes.TRIGGER_MANUAL]: { label: 'Manual Start' },
@@ -16,6 +16,11 @@ export const DefaultNodeData = Object.freeze({
   [NodeTypes.ACTION_POSTGRES]: { label: 'PostgreSQL', connectionId: '', operation: 'select', table: '', columns: '*', filters: '', values: '', limit: '10', query: '' },
   [NodeTypes.ACTION_MONGODB]: { label: 'MongoDB', connectionId: '', database: '', collection: '', operation: 'find', filter: '', document: '', update: '', limit: '50' },
   [NodeTypes.ACTION_GOOGLE_SHEETS]: { label: 'Google Sheets', connectionId: '', spreadsheet: '', sheet: 'Sheet1', operation: 'get_rows', rowNumber: '', row: '', searchColumn: '', searchValue: '' },
+  [NodeTypes.ACTION_SLACK]: { label: 'Slack', connectionId: '', operation: 'send_message', channel: '', text: '', userId: '', blocks: '', threadTs: '' },
+  [NodeTypes.ACTION_DISCORD]: { label: 'Discord', connectionId: '', operation: 'send_message', channelId: '', content: '', webhookUrl: '', title: '', description: '', color: '#6c63ff', username: '', avatarUrl: '' },
+  [NodeTypes.ACTION_FILE]: { label: 'File Operations', operation: 'read_file', path: '', format: 'text', encoding: 'utf8', content: '', overwrite: true, append: false, destinationPath: '', ignoreMissing: false },
+  [NodeTypes.ACTION_STORAGE]: { label: 'Storage Operations', provider: 'local', connectionId: '', operation: 'upload', key: '', bucket: '', region: 'us-east-1', content: '', format: 'text', prefix: '', limit: '100' },
+  [NodeTypes.ACTION_LOOP]: { label: 'Loop / Batch', operation: 'loop_items', items: '', batchSize: 1, maxIterations: 500, onError: 'stop' },
   [NodeTypes.LOGIC_CONDITION]: { label: 'If / Condition', leftValue: '', operator: 'equals', rightValue: '' },
 });
 

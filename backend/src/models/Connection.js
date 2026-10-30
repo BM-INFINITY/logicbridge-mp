@@ -19,7 +19,7 @@ const connectionSchema = new mongoose.Schema(
     provider: {
       type: String,
       required: true,
-      enum: ['gmail', 'outlook', 'smtp'],
+      enum: ['gmail', 'outlook', 'smtp', 'http', 'postgres', 'mongodb', 'google_sheets', 'slack', 'discord', 'aws_s3', 's3'],
     },
 
     /** User-defined friendly name, e.g. "My Work Gmail" */

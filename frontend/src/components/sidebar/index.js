@@ -15,6 +15,11 @@ import DateConfig from './DateConfig';
 import PostgresConfig from './PostgresConfig';
 import MongoConfig from './MongoConfig';
 import GoogleSheetsConfig from './GoogleSheetsConfig';
+import SlackConfig from './SlackConfig';
+import DiscordConfig from './DiscordConfig';
+import FileConfig from './FileConfig';
+import StorageConfig from './StorageConfig';
+import LoopConfig from './LoopConfig';
 
 export {
   SidebarHeader,
@@ -34,5 +39,10 @@ export {
   PostgresConfig,
   MongoConfig,
   GoogleSheetsConfig,
+  SlackConfig,
+  DiscordConfig,
+  FileConfig,
+  StorageConfig,
+  LoopConfig,
 };
 

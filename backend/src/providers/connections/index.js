@@ -6,6 +6,9 @@ const HttpConnectionProvider = require('./HttpConnectionProvider');
 const PostgreSQLConnectionProvider = require('./PostgreSQLConnectionProvider');
 const MongoDBConnectionProvider = require('./MongoDBConnectionProvider');
 const GoogleSheetsConnectionProvider = require('./GoogleSheetsConnectionProvider');
+const SlackConnectionProvider = require('./SlackConnectionProvider');
+const DiscordConnectionProvider = require('./DiscordConnectionProvider');
+const S3ConnectionProvider = require('./S3ConnectionProvider');
 
 const { connectionRegistry } = ConnectionRegistry;
 
@@ -19,4 +22,7 @@ module.exports = {
   PostgreSQLConnectionProvider,
   MongoDBConnectionProvider,
   GoogleSheetsConnectionProvider,
+  SlackConnectionProvider,
+  DiscordConnectionProvider,
+  S3ConnectionProvider,
 };

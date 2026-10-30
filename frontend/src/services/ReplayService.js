@@ -94,6 +94,22 @@ export const ReplayService = {
         });
       }
 
+      // Loop branch tracking
+      if (step.nodeType === 'action-loop' && step.output?.selectedBranch) {
+        cumulativeBranches[step.nodeId] = step.output.selectedBranch;
+
+        cumulativeEvents.push({
+          id: `evt_loop_${step.nodeId}_${idx}`,
+          stepIndex,
+          nodeId: step.nodeId,
+          nodeName: step.nodeName,
+          nodeType: step.nodeType,
+          type: 'LOOP_COMPLETED',
+          timestamp: step.finishedAt || step.startedAt,
+          details: `Loop completed ${step.output.iterations ?? 0} of ${step.output.total ?? 0} iterations`,
+        });
+      }
+
       // Final step status events
       if (step.status === 'skipped') {
         cumulativeEvents.push({

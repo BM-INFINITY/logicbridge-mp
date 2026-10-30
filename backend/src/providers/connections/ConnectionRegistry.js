@@ -4,6 +4,9 @@ const HttpConnectionProvider = require('./HttpConnectionProvider');
 const PostgreSQLConnectionProvider = require('./PostgreSQLConnectionProvider');
 const MongoDBConnectionProvider = require('./MongoDBConnectionProvider');
 const GoogleSheetsConnectionProvider = require('./GoogleSheetsConnectionProvider');
+const SlackConnectionProvider = require('./SlackConnectionProvider');
+const DiscordConnectionProvider = require('./DiscordConnectionProvider');
+const S3ConnectionProvider = require('./S3ConnectionProvider');
 
 /**
  * ConnectionRegistry — central registry for all connection providers.
@@ -37,6 +40,9 @@ class ConnectionRegistry {
     if (!provider && (id === 'google-sheets' || id === 'googlesheets')) {
       provider = this._providers.get('google_sheets');
     }
+    if (!provider && (id === 's3' || id === 'aws-s3' || id === 'awss3')) {
+      provider = this._providers.get('aws_s3');
+    }
     if (!provider) {
       const err = new Error(`Unknown connection provider: "${id}"`);
       err.statusCode = 400;
@@ -57,7 +63,9 @@ class ConnectionRegistry {
    * Returns true if a provider with the given ID is registered.
    */
   has(id) {
-    return this._providers.has(id) || (id === 'google-sheets' && this._providers.has('google_sheets'));
+    return this._providers.has(id) ||
+      (id === 'google-sheets' && this._providers.has('google_sheets')) ||
+      ((id === 's3' || id === 'aws-s3') && this._providers.has('aws_s3'));
   }
 }
 
@@ -69,7 +77,10 @@ connectionRegistry
   .register(new HttpConnectionProvider())
   .register(new PostgreSQLConnectionProvider())
   .register(new MongoDBConnectionProvider())
-  .register(new GoogleSheetsConnectionProvider());
+  .register(new GoogleSheetsConnectionProvider())
+  .register(new SlackConnectionProvider())
+  .register(new DiscordConnectionProvider())
+  .register(new S3ConnectionProvider());
 
 module.exports = {
   ConnectionRegistry,

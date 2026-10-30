@@ -16,6 +16,8 @@ import {
   Shuffle,
   Mail,
   Table,
+  MessageSquare,
+  MessageCircle,
   GitBranch,
   Bot,
   Settings,
@@ -59,6 +61,9 @@ import {
   BookOpen,
   Code2,
   Star,
+  HardDrive,
+  Cloud,
+  Repeat,
 } from 'lucide-react';
 
 // ─── Node Type → Icon Component ──────────────────────────────────────────────
@@ -80,6 +85,11 @@ const NODE_ICONS = {
   'action-postgres': Database,
   'action-mongodb': Database,
   'action-google-sheets': Table,
+  'action-slack': MessageSquare,
+  'action-discord': MessageCircle,
+  'action-file': HardDrive,
+  'action-storage': Cloud,
+  'action-loop': Repeat,
   'logic-condition': GitBranch,
 };
 
@@ -103,6 +113,10 @@ const PROVIDER_ICON_MAP = {
   postgres:      Database,
   mongodb:       Database,
   google_sheets: Table,
+  slack:         MessageSquare,
+  discord:       MessageCircle,
+  aws_s3:        Cloud,
+  s3:            Cloud,
 };
 
 /**
@@ -130,6 +144,8 @@ export {
   Shuffle,
   Mail,
   Table,
+  MessageSquare,
+  MessageCircle,
   GitBranch,
   Bot,
   Settings,
@@ -180,6 +196,9 @@ export {
   // Provider / connection icons
   Database,
   Plug,
+  HardDrive,
+  Cloud,
+  Repeat,
 
   // Template / search icons
   Search,

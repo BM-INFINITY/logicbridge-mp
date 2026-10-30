@@ -281,6 +281,238 @@ export class NodeValidator {
       }
     }
 
+    if (type === NodeTypes.ACTION_SLACK) {
+      const { connectionId, token } = data || {};
+      if (!connectionId && !token) {
+        return { valid: false, error: 'Slack connection is required' };
+      }
+      const validOps = ['send_message', 'send_dm', 'send_blocks', 'get_channel'];
+      const rawOp = String(data?.operation || 'send_message').toLowerCase().trim().replace(/[-_\s]+/g, '_');
+      const op = ['send_channel_message', 'post_message', 'message'].includes(rawOp)
+        ? 'send_message'
+        : ['direct_message', 'dm'].includes(rawOp)
+        ? 'send_dm'
+        : ['blocks', 'rich_message'].includes(rawOp)
+        ? 'send_blocks'
+        : ['channel_info', 'get_channel_info', 'channel'].includes(rawOp)
+        ? 'get_channel'
+        : rawOp;
+
+      if (!validOps.includes(op)) {
+        return { valid: false, error: `Invalid operation "${data?.operation}". Supported: ${validOps.join(', ')}` };
+      }
+
+      if (op === 'send_message') {
+        if (!data?.channel || !String(data.channel).trim()) {
+          return { valid: false, error: 'Destination channel is required for Send Message' };
+        }
+        if (!data?.text && !data?.message) {
+          return { valid: false, error: 'Message text is required for Send Message' };
+        }
+      }
+
+      if (op === 'send_dm') {
+        if (!data?.userId && !data?.user) {
+          return { valid: false, error: 'User ID is required for Send Direct Message' };
+        }
+        if (!data?.text && !data?.message) {
+          return { valid: false, error: 'Message text is required for Send Direct Message' };
+        }
+      }
+
+      if (op === 'send_blocks') {
+        if (!data?.channel || !String(data.channel).trim()) {
+          return { valid: false, error: 'Destination channel is required for Send Blocks' };
+        }
+        if (!data?.blocks && !data?.text && !data?.message) {
+          return { valid: false, error: 'Blocks or fallback text is required for Send Blocks' };
+        }
+      }
+
+      if (op === 'get_channel') {
+        if (!data?.channel && !data?.channelId) {
+          return { valid: false, error: 'Channel ID is required for Get Channel Info' };
+        }
+      }
+    }
+
+    if (type === NodeTypes.ACTION_DISCORD) {
+      const { connectionId, botToken, token, webhookUrl } = data || {};
+      if (!connectionId && !botToken && !token && !webhookUrl) {
+        return { valid: false, error: 'Discord connection, Bot Token, or Webhook URL is required' };
+      }
+
+      const validOps = ['send_message', 'send_embed', 'send_webhook', 'get_channel'];
+      const rawOp = String(data?.operation || 'send_message').toLowerCase().trim().replace(/[-_\s]+/g, '_');
+      const op = ['message', 'post_message', 'send_channel_message'].includes(rawOp)
+        ? 'send_message'
+        : ['embed', 'rich_embed'].includes(rawOp)
+        ? 'send_embed'
+        : ['webhook', 'send_message_using_webhook'].includes(rawOp)
+        ? 'send_webhook'
+        : ['channel_info', 'get_channel_info', 'channel'].includes(rawOp)
+        ? 'get_channel'
+        : rawOp;
+
+      if (!validOps.includes(op)) {
+        return { valid: false, error: `Invalid operation "${data?.operation}". Supported: ${validOps.join(', ')}` };
+      }
+
+      if (op === 'send_message') {
+        if (!data?.content && !data?.text && !data?.message) {
+          return { valid: false, error: 'Message content is required for Send Message' };
+        }
+      }
+
+      if (op === 'send_embed') {
+        if (!data?.embed && !data?.embeds && !data?.title && !data?.description && !data?.content) {
+          return { valid: false, error: 'Embed data or title/description is required for Send Embed' };
+        }
+      }
+
+      if (op === 'send_webhook') {
+        if (!webhookUrl && !connectionId) {
+          return { valid: false, error: 'Webhook URL or Webhook Connection is required' };
+        }
+        if (!data?.content && !data?.embeds && !data?.embed) {
+          return { valid: false, error: 'Content or embeds required for Send Webhook' };
+        }
+      }
+
+      if (op === 'get_channel') {
+        if (!data?.channelId && !data?.channel) {
+          return { valid: false, error: 'Channel ID is required for Get Channel Info' };
+        }
+      }
+    }
+
+    if (type === NodeTypes.ACTION_FILE) {
+      const validOps = ['read_file', 'write_file', 'create_file', 'delete_file', 'get_metadata', 'move_file'];
+      const rawOp = String(data?.operation || 'read_file').toLowerCase().trim().replace(/[-_\s]+/g, '_');
+      const op = ['read', 'load_file'].includes(rawOp)
+        ? 'read_file'
+        : ['write', 'save_file'].includes(rawOp)
+        ? 'write_file'
+        : ['create', 'touch_file', 'new_file'].includes(rawOp)
+        ? 'create_file'
+        : ['delete', 'remove_file', 'unlink'].includes(rawOp)
+        ? 'delete_file'
+        : ['metadata', 'stat', 'file_info'].includes(rawOp)
+        ? 'get_metadata'
+        : ['move', 'rename', 'rename_file'].includes(rawOp)
+        ? 'move_file'
+        : rawOp;
+
+      if (!validOps.includes(op)) {
+        return { valid: false, error: `Invalid operation "${data?.operation}". Supported: ${validOps.join(', ')}` };
+      }
+
+      const filePath = data?.path || data?.filePath || data?.filename;
+
+      if (op === 'move_file') {
+        const src = data?.sourcePath || filePath;
+        const dest = data?.destinationPath || data?.newPath;
+        if (!src || !String(src).trim()) {
+          return { valid: false, error: 'Source file path is required for Move / Rename' };
+        }
+        if (!dest || !String(dest).trim()) {
+          return { valid: false, error: 'Destination file path is required for Move / Rename' };
+        }
+      } else {
+        if (!filePath || !String(filePath).trim()) {
+          return { valid: false, error: `File path or filename is required for ${op.replace('_', ' ')}` };
+        }
+      }
+
+      if (op === 'write_file') {
+        if (data?.content === undefined && data?.data === undefined && data?.text === undefined && !data?.sourceStep) {
+          return { valid: false, error: 'Content is required for Write File' };
+        }
+      }
+    }
+
+    if (type === NodeTypes.ACTION_STORAGE) {
+      const validOps = ['upload', 'download', 'list', 'delete', 'get_metadata'];
+      const rawOp = String(data?.operation || 'upload').toLowerCase().trim().replace(/[-_\s]+/g, '_');
+      const op = ['upload_file', 'put_file', 'put_object'].includes(rawOp)
+        ? 'upload'
+        : ['download_file', 'get_file', 'get_object'].includes(rawOp)
+        ? 'download'
+        : ['list_files', 'list_objects'].includes(rawOp)
+        ? 'list'
+        : ['delete_file', 'delete_object'].includes(rawOp)
+        ? 'delete'
+        : ['metadata', 'get_object_metadata', 'head_object', 'stat'].includes(rawOp)
+        ? 'get_metadata'
+        : rawOp;
+
+      if (!validOps.includes(op)) {
+        return { valid: false, error: `Invalid operation "${data?.operation}". Supported: ${validOps.join(', ')}` };
+      }
+
+      const provider = String(data?.provider || 'local').toLowerCase().trim();
+      if (provider === 'aws_s3' || provider === 's3') {
+        const hasCreds = Boolean(data?.connectionId || (data?.accessKeyId && data?.secretAccessKey));
+        if (!hasCreds) {
+          return { valid: false, error: 'AWS S3 connection or Access Key credentials are required' };
+        }
+      }
+
+      if (op === 'upload') {
+        if (!data?.key && !data?.path && !data?.filename) {
+          return { valid: false, error: 'Storage key or path is required for Upload' };
+        }
+        if (data?.content === undefined && data?.file === undefined && data?.data === undefined && data?.text === undefined && !data?.sourceStep) {
+          return { valid: false, error: 'Content or file reference is required for Upload' };
+        }
+      }
+
+      if (['download', 'delete', 'get_metadata'].includes(op)) {
+        if (!data?.key && !data?.path && !data?.filename) {
+          return { valid: false, error: `Storage key is required for ${op.replace('_', ' ')}` };
+        }
+      }
+    }
+
+    if (type === NodeTypes.ACTION_LOOP) {
+      const validOps = ['loop_items', 'loop_batch', 'loop_range'];
+      const op = String(data?.operation || 'loop_items').toLowerCase().trim();
+      if (!validOps.includes(op)) {
+        return { valid: false, error: `Invalid operation "${data?.operation}". Supported: ${validOps.join(', ')}` };
+      }
+
+      if (op === 'loop_items' || op === 'loop_batch') {
+        const hasInput = (data?.items !== undefined && String(data.items).trim() !== '') ||
+          (data?.collection !== undefined && String(data.collection).trim() !== '') ||
+          (data?.array !== undefined && String(data.array).trim() !== '') ||
+          (data?.input !== undefined && String(data.input).trim() !== '');
+        if (!hasInput) {
+          return { valid: false, error: 'Input collection or array expression is required for Loop' };
+        }
+      }
+
+      if (op === 'loop_range') {
+        const count = data?.count ?? data?.times ?? data?.stop;
+        if (count === undefined || count === null || String(count).trim() === '') {
+          return { valid: false, error: 'Count or range limit is required for Loop Range' };
+        }
+      }
+
+      if (data?.batchSize !== undefined && data?.batchSize !== null && String(data.batchSize).trim() !== '') {
+        const bs = parseInt(data.batchSize, 10);
+        if (isNaN(bs) || bs < 1) {
+          return { valid: false, error: 'Batch size must be a positive integer greater than or equal to 1' };
+        }
+      }
+
+      if (data?.maxIterations !== undefined && data?.maxIterations !== null && String(data.maxIterations).trim() !== '') {
+        const mi = parseInt(data.maxIterations, 10);
+        if (isNaN(mi) || mi < 1) {
+          return { valid: false, error: 'Maximum iterations must be a positive integer' };
+        }
+      }
+    }
+
     return { valid: true };
   }
 

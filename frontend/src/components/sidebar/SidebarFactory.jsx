@@ -12,6 +12,11 @@ import DateConfig from './DateConfig';
 import PostgresConfig from './PostgresConfig';
 import MongoConfig from './MongoConfig';
 import GoogleSheetsConfig from './GoogleSheetsConfig';
+import SlackConfig from './SlackConfig';
+import DiscordConfig from './DiscordConfig';
+import FileConfig from './FileConfig';
+import StorageConfig from './StorageConfig';
+import LoopConfig from './LoopConfig';
 
 export default function SidebarFactory({
   nodeType,
@@ -115,6 +120,46 @@ export default function SidebarFactory({
     case 'action-google-sheets':
       return (
         <GoogleSheetsConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-slack':
+      return (
+        <SlackConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-discord':
+      return (
+        <DiscordConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-file':
+      return (
+        <FileConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-storage':
+      return (
+        <StorageConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-loop':
+      return (
+        <LoopConfig
           data={data}
           onChange={onChange}
           onOpenVariablePicker={onOpenVariablePicker}

@@ -17,6 +17,55 @@ class ExecutionContext {
     this.trigger = trigger;
     this.results = initialResults;
     this.lastOutput = null;
+    this.loopStack = [];
+  }
+
+  /**
+   * Pushes a new loop iteration scope onto the loop context stack
+   * @param {object} loopState - { item, index, batch, batchIndex, total, isFirst, isLast, loopNodeId }
+   */
+  pushLoopContext(loopState) {
+    this.loopStack.push(loopState);
+    this.currentLoop = loopState;
+  }
+
+  /**
+   * Pops the current loop iteration scope from the stack
+   * @returns {object|null}
+   */
+  popLoopContext() {
+    const popped = this.loopStack.pop() || null;
+    this.currentLoop = this.loopStack.length > 0 ? this.loopStack[this.loopStack.length - 1] : null;
+    return popped;
+  }
+
+  /**
+   * Current active loop context scope
+   * @returns {object|null}
+   */
+  get loopContext() {
+    return this.currentLoop || (this.loopStack.length > 0 ? this.loopStack[this.loopStack.length - 1] : null);
+  }
+
+  /**
+   * Updates or sets the current loop iteration scope
+   * @param {object} loopState
+   */
+  setLoopContext(loopState) {
+    this.currentLoop = loopState;
+    if (this.loopStack.length > 0) {
+      this.loopStack[this.loopStack.length - 1] = loopState;
+    } else {
+      this.loopStack.push(loopState);
+    }
+  }
+
+  /**
+   * Clears all loop context scopes
+   */
+  clearLoopContext() {
+    this.loopStack = [];
+    this.currentLoop = null;
   }
 
   /**

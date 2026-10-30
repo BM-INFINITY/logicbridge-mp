@@ -21,6 +21,11 @@ const NodeTypes = Object.freeze({
   ACTION_POSTGRES: 'action-postgres',
   ACTION_MONGODB: 'action-mongodb',
   ACTION_GOOGLE_SHEETS: 'action-google-sheets',
+  ACTION_SLACK: 'action-slack',
+  ACTION_DISCORD: 'action-discord',
+  ACTION_FILE: 'action-file',
+  ACTION_STORAGE: 'action-storage',
+  ACTION_LOOP: 'action-loop',
 
   // Logic
   LOGIC_CONDITION: 'logic-condition',

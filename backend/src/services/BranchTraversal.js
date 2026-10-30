@@ -29,9 +29,10 @@ class BranchTraversal {
    * @param {Array} edges - All workflow edges
    * @param {Map|object} executedOutputs - Map of node outputs keyed by node.id
    * @param {Set} skippedNodeIds - Set of node IDs already determined to be skipped
+   * @param {object} [context] - ExecutionContext for loop scope awareness
    * @returns {boolean} - true if node should execute, false if it should be skipped
    */
-  static isNodeExecutable(node, nodes, edges, executedOutputs, skippedNodeIds) {
+  static isNodeExecutable(node, nodes, edges, executedOutputs, skippedNodeIds, context = null) {
     if (!edges || edges.length === 0) return true;
 
     const incomingEdges = edges.filter((e) => e.target === node.id);
@@ -54,6 +55,27 @@ class BranchTraversal {
 
         if (edgeBranch === activeBranch) {
           return true; // Reached via selected condition branch!
+        }
+      } else if (sourceNode.type === NodeTypes.ACTION_LOOP) {
+        // Check if currently executing an iteration of this loop
+        const loopCtx = context?.loopContext || context?.currentLoop;
+        if (loopCtx && loopCtx.loopNodeId === sourceNodeId) {
+          const edgeBranch = edge.sourceHandle || BranchTypes.LOOP;
+          if (edgeBranch === BranchTypes.LOOP) {
+            return true; // Reached inside active loop body!
+          }
+          continue;
+        }
+
+        // Outside loop iterations: loop must be finished and active branch is 'done'
+        const loopOutput = executedOutputs[sourceNodeId];
+        if (!loopOutput) continue;
+
+        const activeBranch = loopOutput.selectedBranch || BranchTypes.DONE;
+        const edgeBranch = edge.sourceHandle || BranchTypes.DONE;
+
+        if (edgeBranch === activeBranch) {
+          return true; // Reached via completed done branch!
         }
       } else {
         // Standard non-condition node path that succeeded

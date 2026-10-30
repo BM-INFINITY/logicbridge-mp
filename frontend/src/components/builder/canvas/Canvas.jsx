@@ -13,6 +13,7 @@ function CustomNode({ data, selected, type }) {
   const NodeIcon = getNodeIcon(type);
   const isFirst = def.category === 'trigger';
   const isCondition = type === 'logic-condition';
+  const isLoop = type === 'action-loop';
   const execStatus = data._execStatus;
   const isActive = data._isActive;
 
@@ -61,6 +62,11 @@ function CustomNode({ data, selected, type }) {
           {data.message}
         </div>
       )}
+      {data._iterationProgress && (
+        <div style={{ fontSize: '0.7rem', color: '#06b6d4', marginTop: 4, fontWeight: 600 }}>
+          {data._iterationProgress}
+        </div>
+      )}
 
       {isCondition ? (
         <>
@@ -84,6 +90,30 @@ function CustomNode({ data, selected, type }) {
           />
           <div style={{ position: 'absolute', right: -42, top: '62%', fontSize: '0.65rem', fontWeight: 700, color: BranchColors.FALSE }}>
             FALSE
+          </div>
+        </>
+      ) : isLoop ? (
+        <>
+          {/* Loop Handle */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="loop"
+            style={{ top: '30%', background: BranchColors.LOOP || '#06b6d4', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+          />
+          <div style={{ position: 'absolute', right: -36, top: '22%', fontSize: '0.65rem', fontWeight: 700, color: BranchColors.LOOP || '#06b6d4' }}>
+            LOOP
+          </div>
+
+          {/* Done Handle */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="done"
+            style={{ top: '70%', background: BranchColors.DONE || '#10b981', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+          />
+          <div style={{ position: 'absolute', right: -36, top: '62%', fontSize: '0.65rem', fontWeight: 700, color: BranchColors.DONE || '#10b981' }}>
+            DONE
           </div>
         </>
       ) : (

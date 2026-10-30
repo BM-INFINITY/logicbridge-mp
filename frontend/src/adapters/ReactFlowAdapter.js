@@ -1,7 +1,7 @@
 import { addEdge } from 'reactflow';
 import toast from 'react-hot-toast';
-import { builderConfig } from '../config/builderConfig';
-import { BranchColors } from '../constants';
+import { builderConfig } from '../config/builderConfig.js';
+import { BranchColors } from '../constants/BranchColors.js';
 
 /**
  * Adapter isolating React Flow specific graph utility functions
@@ -44,10 +44,20 @@ export class ReactFlowAdapter {
 
     const isTrue = params.sourceHandle === 'true';
     const isFalse = params.sourceHandle === 'false';
+    const isLoop = params.sourceHandle === 'loop';
+    const isDone = params.sourceHandle === 'done';
 
-    const branch = isTrue ? 'true' : isFalse ? 'false' : 'default';
-    const edgeColor = isTrue ? BranchColors.TRUE : isFalse ? BranchColors.FALSE : BranchColors.DEFAULT;
-    const labelText = isTrue ? 'True' : isFalse ? 'False' : undefined;
+    const branch = isTrue ? 'true' : isFalse ? 'false' : isLoop ? 'loop' : isDone ? 'done' : 'default';
+    const edgeColor = isTrue
+      ? BranchColors.TRUE
+      : isFalse
+      ? BranchColors.FALSE
+      : isLoop
+      ? (BranchColors.LOOP || '#06b6d4')
+      : isDone
+      ? (BranchColors.DONE || '#10b981')
+      : BranchColors.DEFAULT;
+    const labelText = isTrue ? 'True' : isFalse ? 'False' : isLoop ? 'Loop' : isDone ? 'Done' : undefined;
 
     const edgePayload = {
       ...params,

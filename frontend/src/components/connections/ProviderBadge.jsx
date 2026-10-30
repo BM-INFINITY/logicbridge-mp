@@ -8,6 +8,10 @@ const PROVIDER_COLORS = {
   postgres:      { bg: 'rgba(51,103,145,0.15)', color: '#336791' },
   mongodb:       { bg: 'rgba(0,237,100,0.15)',  color: '#00ed64' },
   google_sheets: { bg: 'rgba(15,157,88,0.15)',  color: '#0f9d58' },
+  slack:         { bg: 'rgba(224,30,90,0.15)',  color: '#e01e5a' },
+  discord:       { bg: 'rgba(88,101,242,0.15)', color: '#5865f2' },
+  aws_s3:        { bg: 'rgba(255,153,0,0.15)',  color: '#ff9900' },
+  s3:            { bg: 'rgba(255,153,0,0.15)',  color: '#ff9900' },
 };
 
 /**

@@ -11,9 +11,10 @@ const {
   redactSecrets,
   registerActiveSecrets,
   clearActiveSecrets,
+  runWithScope,
 } = require('../utils');
 const { ExecutionStatus, NodeTypes, ExecutionEvents, BranchTypes } = require('../constants');
-const { ValidationError } = require('../errors');
+const { ValidationError, ExecutionPauseSignal } = require('../errors');
 const BranchTraversal = require('./BranchTraversal');
 const { validateConditionBranches } = require('../validators/workflowValidator');
 
@@ -186,6 +187,10 @@ async function executeNodeStep(node, context, executionPath, steps, workflow, me
 
     return output;
   } catch (err) {
+    if (err instanceof ExecutionPauseSignal) {
+      throw err;
+    }
+
     step.status = ExecutionStatus.FAILED;
     step.error = err.message;
     step.finishedAt = new Date();
@@ -434,125 +439,612 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
     }
   }
 
-  registerActiveSecrets(secretsMap);
+  return await runWithScope(secretsMap, async () => {
+    registerActiveSecrets(secretsMap);
 
-  const orderedNodes = buildExecutionOrder(workflow.nodes, workflow.edges);
-  const context = new ExecutionContext({
-    workflowId: workflow._id,
-    ownerId,
-    trigger,
-    variables: variablesMap,
-    secrets: secretsMap,
-  });
-  context.triggerPayload = triggerPayload;
-  context.triggerContext = triggerContext;
+    const orderedNodes = buildExecutionOrder(workflow.nodes, workflow.edges);
+    const context = new ExecutionContext({
+      workflowId: workflow._id,
+      ownerId,
+      trigger,
+      variables: variablesMap,
+      secrets: secretsMap,
+    });
+    context.triggerPayload = triggerPayload;
+    context.triggerContext = triggerContext;
 
-  const executionPath = new ExecutionPath();
-  const executedOutputs = {};
-  const handledLoopBodyNodes = new Set();
+    const executionPath = new ExecutionPath();
+    const executedOutputs = {};
+    const handledLoopBodyNodes = new Set();
 
-  try {
-    for (const node of orderedNodes) {
-      // If node was already executed as part of an inner loop body, do not re-run in outer flow
-      if (handledLoopBodyNodes.has(node.id)) {
-        continue;
-      }
+    let checkpointData = null;
+    let approvalData = null;
+    let waitData = null;
 
-      const stepStart = Date.now();
-      const handler = registry.get(node.type);
+    try {
+      for (const node of orderedNodes) {
+        // If node was already executed as part of an inner loop body, do not re-run in outer flow
+        if (handledLoopBodyNodes.has(node.id)) {
+          continue;
+        }
 
-      if (!handler) {
-        console.warn(`No registered handler for node type: ${node.type}`);
-        continue;
-      }
+        const stepStart = Date.now();
+        const handler = registry.get(node.type);
 
-      // Check branch reachability
-      const canExecute = BranchTraversal.isNodeExecutable(
-        node,
-        workflow.nodes,
-        workflow.edges,
-        executedOutputs,
-        executionPath.skippedNodes,
-        context
-      );
+        if (!handler) {
+          console.warn(`No registered handler for node type: ${node.type}`);
+          continue;
+        }
 
-      if (!canExecute) {
-        executionPath.recordSkipped(node.id);
-        executionPath.emitEvent(ExecutionEvents.NODE_SKIPPED, { nodeId: node.id, nodeType: node.type });
+        // Check branch reachability
+        const canExecute = BranchTraversal.isNodeExecutable(
+          node,
+          workflow.nodes,
+          workflow.edges,
+          executedOutputs,
+          executionPath.skippedNodes,
+          context
+        );
 
-        steps.push({
-          nodeId: node.id,
-          nodeName: node.data?.label || node.type,
-          nodeType: node.type,
-          status: ExecutionStatus.SKIPPED,
-          input: { ...node.data, _previousOutput: context.lastOutput },
-          output: { skippedReason: 'Branch not selected' },
-          error: null,
-          duration: 0,
-          startedAt: new Date(stepStart),
-          finishedAt: new Date(stepStart),
-        });
-        continue;
-      }
+        if (!canExecute) {
+          executionPath.recordSkipped(node.id);
+          executionPath.emitEvent(ExecutionEvents.NODE_SKIPPED, { nodeId: node.id, nodeType: node.type });
 
-      // Special orchestration for Loop Node (`action-loop`)
-      if (node.type === NodeTypes.ACTION_LOOP) {
+          steps.push({
+            nodeId: node.id,
+            nodeName: node.data?.label || node.type,
+            nodeType: node.type,
+            status: ExecutionStatus.SKIPPED,
+            input: { ...node.data, _previousOutput: context.lastOutput },
+            output: { skippedReason: 'Branch not selected' },
+            error: null,
+            duration: 0,
+            startedAt: new Date(stepStart),
+            finishedAt: new Date(stepStart),
+          });
+          continue;
+        }
+
+        // Special orchestration for Loop Node (`action-loop`)
+        if (node.type === NodeTypes.ACTION_LOOP) {
+          try {
+            await executeLoopStep(
+              node,
+              context,
+              executionPath,
+              steps,
+              workflow,
+              executedOutputs,
+              handledLoopBodyNodes
+            );
+          } catch (err) {
+            executionStatus = ExecutionStatus.FAILED;
+            executionError = `Loop Node "${node.data?.label || node.id}" failed: ${err.message}`;
+            break;
+          }
+          continue;
+        }
+
+        // Standard linear, approval, wait, or condition node execution
         try {
-          await executeLoopStep(
-            node,
-            context,
-            executionPath,
-            steps,
-            workflow,
-            executedOutputs,
-            handledLoopBodyNodes
-          );
+          const output = await executeNodeStep(node, context, executionPath, steps, workflow);
+          executedOutputs[node.id] = output;
         } catch (err) {
+          if (err instanceof ExecutionPauseSignal) {
+            const pauseStep = {
+              nodeId: node.id,
+              nodeName: node.data?.label || node.type,
+              nodeType: node.type,
+              status: err.pauseType === 'approval' ? 'waiting' : 'paused',
+              input: redactSecrets({
+                ...node.data,
+                _previousOutput: context.lastOutput,
+                _triggerContext: context.triggerContext,
+              }),
+              output: redactSecrets({
+                pauseReason: err.pauseType,
+                ...err.details,
+              }),
+              error: null,
+              duration: Date.now() - stepStart,
+              startedAt: new Date(stepStart),
+              finishedAt: null,
+            };
+            steps.push(pauseStep);
+
+            const isApproval = err.pauseType === 'approval';
+            executionStatus = isApproval ? ExecutionStatus.WAITING_APPROVAL : ExecutionStatus.PAUSED;
+
+            checkpointData = {
+              currentNodeId: node.id,
+              stepIndex: steps.length - 1,
+              completedNodeIds: Object.keys(executedOutputs),
+              executedOutputs: redactSecrets(executedOutputs),
+              lastOutput: redactSecrets(context.lastOutput),
+              variables: context.variables || {},
+              skippedNodes: Array.from(executionPath.skippedNodes),
+              loopStack: context.loopStack || [],
+            };
+
+            if (isApproval) {
+              approvalData = {
+                approvalId: err.details.approvalId,
+                nodeId: node.id,
+                title: err.details.title,
+                description: err.details.description,
+                message: err.details.message,
+                allowedApprovers: err.details.allowedApprovers || [],
+                approverRole: err.details.approverRole || null,
+                status: 'pending',
+                decision: null,
+                decidedBy: null,
+                decidedAt: null,
+                comments: null,
+                timeoutMinutes: err.details.timeoutMinutes,
+                timeoutAt: err.details.timeoutMinutes ? new Date(Date.now() + err.details.timeoutMinutes * 60000) : null,
+                timeoutAction: err.details.timeoutAction || 'reject',
+              };
+            } else {
+              waitData = {
+                waitId: err.details.waitId,
+                nodeId: node.id,
+                type: err.details.type,
+                durationSeconds: err.details.durationSeconds || null,
+                waitUntil: err.details.waitUntil || null,
+                eventName: err.details.eventName || null,
+                resumeToken: err.details.resumeToken || null,
+                status: 'waiting',
+                timeoutAt: err.details.timeoutAt || null,
+                resumedAt: null,
+                resumedBy: null,
+                resumePayload: null,
+              };
+            }
+
+            break;
+          }
+
           executionStatus = ExecutionStatus.FAILED;
-          executionError = `Loop Node "${node.data?.label || node.id}" failed: ${err.message}`;
+          executionError = `Node "${node.data?.label || node.type}" failed: ${err.message}`;
           break;
         }
-        continue;
       }
-
-      // Standard linear or condition node execution
-      try {
-        const output = await executeNodeStep(node, context, executionPath, steps, workflow);
-        executedOutputs[node.id] = output;
-      } catch (err) {
-        executionStatus = ExecutionStatus.FAILED;
-        executionError = `Node "${node.data?.label || node.type}" failed: ${err.message}`;
-        break;
-      }
+    } finally {
+      clearActiveSecrets();
     }
-  } finally {
-    clearActiveSecrets();
+
+    const finishedAt = Date.now();
+    const isPaused = executionStatus === ExecutionStatus.WAITING_APPROVAL || executionStatus === ExecutionStatus.PAUSED;
+
+    const execution = await Execution.create({
+      workflow: workflow._id,
+      owner: ownerId,
+      status: executionStatus,
+      trigger,
+      steps,
+      startedAt: new Date(startedAt),
+      finishedAt: isPaused ? null : new Date(finishedAt),
+      duration: isPaused ? 0 : finishedAt - startedAt,
+      error: executionError,
+      checkpoint: checkpointData,
+      approval: approvalData,
+      wait: waitData,
+    });
+
+    await Workflow.findByIdAndUpdate(workflow._id, {
+      $inc: { runCount: 1 },
+      lastRunAt: new Date(),
+    });
+
+    return execution;
+  });
+}
+
+/**
+ * Resumes a paused execution (waiting for human approval, duration delay, or external event)
+ * Restores state from checkpoint, evaluates dynamic branches, and continues downstream execution.
+ *
+ * @param {string} executionId - Execution Mongo ID
+ * @param {object} resumeOptions - Options: { decision, comments, resumedBy, payload }
+ * @param {object} [user] - Calling user object for permission validation
+ * @returns {Promise<object>} Resumed Execution record
+ */
+async function resume(executionId, resumeOptions = {}, user = null) {
+  const execution = await Execution.findById(executionId);
+  if (!execution) {
+    throw new ValidationError(`Execution ${executionId} not found`);
   }
 
-  const finishedAt = Date.now();
+  if (
+    execution.status !== ExecutionStatus.WAITING_APPROVAL &&
+    execution.status !== ExecutionStatus.PAUSED
+  ) {
+    throw new ValidationError(
+      `Execution ${executionId} is in status "${execution.status}" and cannot be resumed (must be "waiting_approval" or "paused")`
+    );
+  }
 
-  const execution = await Execution.create({
-    workflow: workflow._id,
-    owner: ownerId,
-    status: executionStatus,
-    trigger,
-    steps,
-    startedAt: new Date(startedAt),
-    finishedAt: new Date(finishedAt),
-    duration: finishedAt - startedAt,
-    error: executionError,
+  const workflow = await Workflow.findById(execution.workflow);
+  if (!workflow) {
+    throw new ValidationError(`Workflow for execution ${executionId} not found`);
+  }
+
+  const isApproval = execution.status === ExecutionStatus.WAITING_APPROVAL;
+  const isWait = execution.status === ExecutionStatus.PAUSED;
+
+  // Authorization check for approval decisions
+  if (isApproval) {
+    let { decision, comments } = resumeOptions;
+    if (decision === 'approve') decision = 'approved';
+    if (decision === 'reject') decision = 'rejected';
+    if (!['approved', 'rejected'].includes(decision)) {
+      throw new ValidationError('Approval decision must be either "approved" or "rejected"');
+    }
+    resumeOptions.decision = decision;
+
+    const allowed = execution.approval?.allowedApprovers || [];
+    const role = execution.approval?.approverRole;
+    const userEmail = user?.email;
+    const userId = user?._id ? String(user._id) : null;
+    const ownerId = String(execution.owner);
+
+    const isOwner = userId && userId === ownerId;
+    const isEmailAllowed = userEmail && allowed.some((a) => a.toLowerCase() === userEmail.toLowerCase());
+    const isIdAllowed = userId && allowed.includes(userId);
+    const isRoleAllowed = role && user?.role === role;
+    const isUnrestricted = allowed.length === 0 && !role;
+
+    if (!isOwner && !isEmailAllowed && !isIdAllowed && !isRoleAllowed && !isUnrestricted) {
+      const authErr = new Error('Unauthorized to approve or reject this execution');
+      authErr.statusCode = 403;
+      throw authErr;
+    }
+
+    // Check timeout
+    let finalStatus = decision;
+    if (execution.approval?.timeoutAt && new Date() > new Date(execution.approval.timeoutAt)) {
+      finalStatus = 'timeout';
+      resumeOptions.decision = execution.approval.timeoutAction || 'reject';
+    }
+
+    execution.approval.status = finalStatus;
+    execution.approval.decision = resumeOptions.decision;
+    execution.approval.decidedBy = userEmail || userId || 'system';
+    execution.approval.decidedAt = new Date();
+    execution.approval.comments = comments || '';
+  }
+
+  if (isWait) {
+    let isTimeout = false;
+    if (execution.wait?.timeoutAt && new Date() > new Date(execution.wait.timeoutAt)) {
+      isTimeout = true;
+    }
+
+    execution.wait.status = isTimeout ? 'timeout' : 'resumed';
+    execution.wait.resumedAt = new Date();
+    execution.wait.resumedBy = user?.email || resumeOptions.resumedBy || 'system';
+    execution.wait.resumePayload = resumeOptions.payload || {};
+  }
+
+  // Fetch and decrypt secrets securely for this workflow
+  const secretsMap = {};
+  if (workflow._id && execution.owner) {
+    try {
+      const secretDocs = await WorkflowSecret.find({ workflowId: workflow._id, ownerId: execution.owner });
+      for (const s of secretDocs) {
+        if (s && s.name && s.encryptedValue) {
+          try {
+            secretsMap[s.name] = CredentialService.decrypt(s.encryptedValue);
+          } catch (decErr) {
+            console.warn(`[WorkflowEngine] Could not decrypt secret "${s.name}":`, decErr.message);
+          }
+        }
+      }
+    } catch (secErr) {
+      console.warn(`[WorkflowEngine] Error querying secrets:`, secErr.message);
+    }
+  }
+
+  return await runWithScope(secretsMap, async () => {
+    registerActiveSecrets(secretsMap);
+
+    const checkpoint = execution.checkpoint || {};
+    const context = new ExecutionContext({
+      workflowId: workflow._id,
+      ownerId: execution.owner,
+      trigger: execution.trigger,
+      variables: checkpoint.variables || {},
+      secrets: secretsMap,
+    });
+    context.lastOutput = checkpoint.lastOutput || null;
+    if (checkpoint.executedOutputs) {
+      for (const [k, v] of Object.entries(checkpoint.executedOutputs)) {
+        context.setResult(k, v);
+      }
+    }
+
+    if (isApproval) {
+      context.resumingApproval = {
+        approvalId: execution.approval.approvalId,
+        nodeId: execution.approval.nodeId,
+        status: execution.approval.status,
+        decision: execution.approval.decision,
+        decidedBy: execution.approval.decidedBy,
+        decidedAt: execution.approval.decidedAt,
+        comments: execution.approval.comments,
+      };
+    }
+
+    if (isWait) {
+      context.resumingWait = {
+        waitId: execution.wait.waitId,
+        nodeId: execution.wait.nodeId,
+        status: execution.wait.status,
+        resumedAt: execution.wait.resumedAt,
+        resumedBy: execution.wait.resumedBy,
+        resumePayload: execution.wait.resumePayload,
+      };
+    }
+
+    const executionPath = new ExecutionPath();
+    if (Array.isArray(checkpoint.skippedNodes)) {
+      checkpoint.skippedNodes.forEach((id) => executionPath.recordSkipped(id));
+    }
+
+    const executedOutputs = { ...(checkpoint.executedOutputs || {}) };
+    const handledLoopBodyNodes = new Set();
+    const orderedNodes = buildExecutionOrder(workflow.nodes, workflow.edges);
+    const steps = execution.steps || [];
+
+    const resumeNodeId = checkpoint.currentNodeId;
+    let resumeStarted = false;
+    let executionStatus = ExecutionStatus.SUCCESS;
+    let executionError = null;
+
+    let newCheckpointData = null;
+    let newApprovalData = null;
+    let newWaitData = null;
+
+    try {
+      for (const node of orderedNodes) {
+        if (!resumeStarted) {
+          if (node.id === resumeNodeId) {
+            resumeStarted = true;
+          } else {
+            continue;
+          }
+        }
+
+        if (handledLoopBodyNodes.has(node.id)) {
+          continue;
+        }
+
+        const stepStart = Date.now();
+        const handler = registry.get(node.type);
+        if (!handler) {
+          console.warn(`No registered handler for node type: ${node.type}`);
+          continue;
+        }
+
+        // For the resume node itself: update the waiting step in-place
+        if (node.id === resumeNodeId) {
+          const stepIndex = checkpoint.stepIndex ?? steps.findIndex((s) => s.nodeId === node.id);
+          try {
+            const output = await handler.execute(node, context);
+            executedOutputs[node.id] = output;
+            context.setResult(node.id, output);
+            context.lastOutput = output;
+
+            if (stepIndex >= 0 && steps[stepIndex]) {
+              steps[stepIndex].status = ExecutionStatus.SUCCESS;
+              steps[stepIndex].output = redactSecrets(output);
+              steps[stepIndex].finishedAt = new Date();
+              steps[stepIndex].duration = Date.now() - new Date(steps[stepIndex].startedAt).getTime();
+            }
+          } catch (err) {
+            executionStatus = ExecutionStatus.FAILED;
+            executionError = `Resumed node "${node.data?.label || node.type}" failed: ${err.message}`;
+            if (stepIndex >= 0 && steps[stepIndex]) {
+              steps[stepIndex].status = ExecutionStatus.FAILED;
+              steps[stepIndex].error = err.message;
+              steps[stepIndex].finishedAt = new Date();
+            }
+            break;
+          }
+          continue;
+        }
+
+        // For subsequent nodes: check branch reachability
+        const canExecute = BranchTraversal.isNodeExecutable(
+          node,
+          workflow.nodes,
+          workflow.edges,
+          executedOutputs,
+          executionPath.skippedNodes,
+          context
+        );
+
+        if (!canExecute) {
+          executionPath.recordSkipped(node.id);
+          steps.push({
+            nodeId: node.id,
+            nodeName: node.data?.label || node.type,
+            nodeType: node.type,
+            status: ExecutionStatus.SKIPPED,
+            input: { ...node.data, _previousOutput: context.lastOutput },
+            output: { skippedReason: 'Branch not selected' },
+            error: null,
+            duration: 0,
+            startedAt: new Date(stepStart),
+            finishedAt: new Date(stepStart),
+          });
+          continue;
+        }
+
+        if (node.type === NodeTypes.ACTION_LOOP) {
+          try {
+            await executeLoopStep(node, context, executionPath, steps, workflow, executedOutputs, handledLoopBodyNodes);
+          } catch (err) {
+            executionStatus = ExecutionStatus.FAILED;
+            executionError = `Loop Node "${node.data?.label || node.id}" failed: ${err.message}`;
+            break;
+          }
+          continue;
+        }
+
+        try {
+          const output = await executeNodeStep(node, context, executionPath, steps, workflow);
+          executedOutputs[node.id] = output;
+        } catch (err) {
+          if (err instanceof ExecutionPauseSignal) {
+            const pauseStep = {
+              nodeId: node.id,
+              nodeName: node.data?.label || node.type,
+              nodeType: node.type,
+              status: err.pauseType === 'approval' ? 'waiting' : 'paused',
+              input: redactSecrets({
+                ...node.data,
+                _previousOutput: context.lastOutput,
+              }),
+              output: redactSecrets({
+                pauseReason: err.pauseType,
+                ...err.details,
+              }),
+              error: null,
+              duration: Date.now() - stepStart,
+              startedAt: new Date(stepStart),
+              finishedAt: null,
+            };
+            steps.push(pauseStep);
+
+            const isNewAppr = err.pauseType === 'approval';
+            executionStatus = isNewAppr ? ExecutionStatus.WAITING_APPROVAL : ExecutionStatus.PAUSED;
+
+            newCheckpointData = {
+              currentNodeId: node.id,
+              stepIndex: steps.length - 1,
+              completedNodeIds: Object.keys(executedOutputs),
+              executedOutputs: redactSecrets(executedOutputs),
+              lastOutput: redactSecrets(context.lastOutput),
+              variables: context.variables || {},
+              skippedNodes: Array.from(executionPath.skippedNodes),
+              loopStack: context.loopStack || [],
+            };
+
+            if (isNewAppr) {
+              newApprovalData = {
+                approvalId: err.details.approvalId,
+                nodeId: node.id,
+                title: err.details.title,
+                description: err.details.description,
+                message: err.details.message,
+                allowedApprovers: err.details.allowedApprovers || [],
+                approverRole: err.details.approverRole || null,
+                status: 'pending',
+                timeoutMinutes: err.details.timeoutMinutes,
+                timeoutAt: err.details.timeoutMinutes ? new Date(Date.now() + err.details.timeoutMinutes * 60000) : null,
+                timeoutAction: err.details.timeoutAction || 'reject',
+              };
+            } else {
+              newWaitData = {
+                waitId: err.details.waitId,
+                nodeId: node.id,
+                type: err.details.type,
+                durationSeconds: err.details.durationSeconds || null,
+                waitUntil: err.details.waitUntil || null,
+                eventName: err.details.eventName || null,
+                resumeToken: err.details.resumeToken || null,
+                status: 'waiting',
+                timeoutAt: err.details.timeoutAt || null,
+              };
+            }
+            break;
+          }
+
+          executionStatus = ExecutionStatus.FAILED;
+          executionError = `Node "${node.data?.label || node.type}" failed: ${err.message}`;
+          break;
+        }
+      }
+    } finally {
+      clearActiveSecrets();
+    }
+
+    const isStillPaused = executionStatus === ExecutionStatus.WAITING_APPROVAL || executionStatus === ExecutionStatus.PAUSED;
+
+    execution.status = executionStatus;
+    execution.steps = steps;
+    if (!isStillPaused) {
+      execution.finishedAt = new Date();
+      execution.duration = execution.finishedAt.getTime() - execution.startedAt.getTime();
+      execution.error = executionError;
+      execution.checkpoint = null;
+    } else {
+      execution.checkpoint = newCheckpointData;
+      if (newApprovalData) execution.approval = newApprovalData;
+      if (newWaitData) execution.wait = newWaitData;
+    }
+
+    await execution.save();
+    return execution;
+  });
+}
+
+/**
+ * Sweeps and auto-resolves expired approvals or waits whose timer/waitUntil has passed
+ * @returns {Promise<Array>} List of auto-resumed executions
+ */
+async function sweepTimeouts() {
+  const now = new Date();
+  const swept = [];
+
+  // 1. Expired approvals
+  const expiredApprovals = await Execution.find({
+    status: ExecutionStatus.WAITING_APPROVAL,
+    'approval.timeoutAt': { $lte: now },
+    'approval.status': 'pending',
   });
 
-  await Workflow.findByIdAndUpdate(workflow._id, {
-    $inc: { runCount: 1 },
-    lastRunAt: new Date(),
+  for (const exec of expiredApprovals) {
+    try {
+      const decision = exec.approval?.timeoutAction || 'reject';
+      const resumed = await resume(exec._id, { decision, comments: 'Auto-resolved via approval timeout' });
+      swept.push({ executionId: exec._id, type: 'approval', status: resumed.status });
+    } catch (err) {
+      console.warn(`[SweepTimeouts] Failed to auto-resolve approval for ${exec._id}:`, err.message);
+    }
+  }
+
+  // 2. Expired wait duration/date or event timeout
+  const expiredWaits = await Execution.find({
+    status: ExecutionStatus.PAUSED,
+    'wait.status': 'waiting',
+    $or: [
+      { 'wait.type': { $in: ['duration', 'date'] }, 'wait.waitUntil': { $lte: now } },
+      { 'wait.type': 'event', 'wait.timeoutAt': { $lte: now } },
+    ],
   });
 
-  return execution;
+  for (const exec of expiredWaits) {
+    try {
+      const isTimeout = exec.wait?.type === 'event';
+      const resumed = await resume(exec._id, {
+        resumedBy: isTimeout ? 'timeout' : 'timer',
+        payload: { expiredAt: now.toISOString() },
+      });
+      swept.push({ executionId: exec._id, type: 'wait', status: resumed.status });
+    } catch (err) {
+      console.warn(`[SweepTimeouts] Failed to resume wait for ${exec._id}:`, err.message);
+    }
+  }
+
+  return swept;
 }
 
 module.exports = {
   run,
+  resume,
+  sweepTimeouts,
   buildExecutionOrder,
   findLoopBodyNodeIds,
   executeLoopStep,

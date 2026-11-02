@@ -18,6 +18,8 @@ import FileConfig from './FileConfig';
 import StorageConfig from './StorageConfig';
 import LoopConfig from './LoopConfig';
 import SwitchConfig from './SwitchConfig';
+import ApprovalConfig from './ApprovalConfig';
+import WaitConfig from './WaitConfig';
 
 export default function SidebarFactory({
   nodeType,
@@ -171,6 +173,22 @@ export default function SidebarFactory({
     case 'action-loop':
       return (
         <LoopConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-approval':
+      return (
+        <ApprovalConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-wait':
+      return (
+        <WaitConfig
           data={data}
           onChange={onChange}
           onOpenVariablePicker={onOpenVariablePicker}

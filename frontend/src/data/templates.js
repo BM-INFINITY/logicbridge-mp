@@ -851,6 +851,30 @@ export const NODE_DEFS = {
       { name: 'mode', type: 'select', label: 'Mode', options: ['value', 'rule'] },
     ],
   },
+  'action-approval': {
+    label: 'Human Approval', icon: 'UserCheck', color: '#ec4899', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'title', type: 'text', label: 'Approval Title' },
+      { name: 'description', type: 'text', label: 'Description' },
+      { name: 'message', type: 'text', label: 'Approval Message' },
+      { name: 'allowedApprovers', type: 'text', label: 'Allowed Approvers' },
+      { name: 'approverRole', type: 'text', label: 'Approver Role' },
+      { name: 'timeoutMinutes', type: 'number', label: 'Timeout (Minutes)' },
+      { name: 'timeoutAction', type: 'select', label: 'Timeout Action', options: ['reject', 'approve'] },
+    ],
+  },
+  'action-wait': {
+    label: 'Wait / Delay', icon: 'Clock', color: '#0ea5e9', category: 'action',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'waitType', type: 'select', label: 'Wait Type', options: ['duration', 'date', 'event'] },
+      { name: 'durationSeconds', type: 'number', label: 'Duration (Seconds)' },
+      { name: 'waitUntil', type: 'text', label: 'Target Date / Time' },
+      { name: 'eventName', type: 'text', label: 'Event Name' },
+      { name: 'timeoutMinutes', type: 'number', label: 'Timeout (Minutes)' },
+    ],
+  },
 };
 
 // ── Backward-Compatibility Non-Enumerable Aliases ───────────────────────────

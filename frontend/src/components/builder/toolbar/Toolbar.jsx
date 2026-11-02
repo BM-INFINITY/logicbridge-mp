@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload, Save, KeyRound } from 'lucide-react';
+import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload, Save, KeyRound, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useCanvasStore from '../../../store/canvasStore';
 import { WorkflowSerializer } from '../../../utils';
@@ -12,6 +12,7 @@ export default function Toolbar({
   onSave,
   onRun,
   onOpenVariables,
+  onOpenApprovals,
 }) {
   const { nodes, edges, setNodes, setEdges, running, saving, showAI, setShowAI, showTemplates, setShowTemplates } = useCanvasStore();
   const fileInputRef = useRef(null);
@@ -130,6 +131,14 @@ export default function Toolbar({
           title="Manage Workflow Variables & Secrets"
         >
           <KeyRound size={14} color="var(--accent-primary)" /> Variables & Secrets
+        </button>
+
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={onOpenApprovals}
+          title="Manage Pending Approvals"
+        >
+          <UserCheck size={14} color="#ec4899" /> Approvals
         </button>
 
         <button

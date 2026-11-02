@@ -22,6 +22,8 @@ export const DefaultNodeData = Object.freeze({
   [NodeTypes.ACTION_STORAGE]: { label: 'Storage Operations', provider: 'local', connectionId: '', operation: 'upload', key: '', bucket: '', region: 'us-east-1', content: '', format: 'text', prefix: '', limit: '100' },
   [NodeTypes.ACTION_LOOP]: { label: 'Loop / Batch', operation: 'loop_items', items: '', batchSize: 1, maxIterations: 500, onError: 'stop' },
   [NodeTypes.ACTION_SWITCH]: { label: 'Switch / Router', input: '', mode: 'value', cases: [{ id: 'case_1', label: 'Case 1', operator: 'equals', value: '' }], defaultHandle: 'default' },
+  [NodeTypes.ACTION_APPROVAL]: { label: 'Human Approval', title: 'Approval Required', description: '', message: '', allowedApprovers: '', approverRole: '', timeoutMinutes: '', timeoutAction: 'reject' },
+  [NodeTypes.ACTION_WAIT]: { label: 'Wait / Delay', waitType: 'duration', durationSeconds: 60, waitUntil: '', eventName: '', timeoutMinutes: '' },
   [NodeTypes.LOGIC_SWITCH]: { label: 'Switch / Router', input: '', mode: 'value', cases: [{ id: 'case_1', label: 'Case 1', operator: 'equals', value: '' }], defaultHandle: 'default' },
   [NodeTypes.LOGIC_CONDITION]: { label: 'If / Condition', combinator: 'and', conditions: [], leftValue: '', operator: 'equals', rightValue: '' },
   [NodeTypes.ACTION_CONDITION]: { label: 'If / Condition', combinator: 'and', conditions: [], leftValue: '', operator: 'equals', rightValue: '' },

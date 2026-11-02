@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactFlow, { Background, Controls, MiniMap, Handle, Position } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { CheckCircle2, XCircle, AlertCircle, GitBranch } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, GitBranch, Clock, UserCheck } from 'lucide-react';
 import { NODE_DEFS } from '../../../data/templates';
 import { getNodeIcon } from '../../../constants/Icons';
 import useCanvasStore from '../../../store/canvasStore';
@@ -15,15 +15,41 @@ function CustomNode({ data, selected, type }) {
   const isCondition = type === 'logic-condition' || type === 'action-condition';
   const isLoop = type === 'action-loop';
   const isSwitch = type === 'action-switch' || type === 'logic-switch';
+  const isApproval = type === 'action-approval';
+  const isWait = type === 'action-wait';
   const execStatus = data._execStatus;
   const isActive = data._isActive;
+
+  const isPausedState = execStatus === 'waiting' || execStatus === 'waiting_approval' || execStatus === 'paused';
 
   return (
     <div
       className={`flow-node node-${def.category}`}
       style={{
-        borderColor: isActive ? '#22d3ee' : execStatus === 'success' ? BranchColors.TRUE : execStatus === 'failed' ? BranchColors.FALSE : execStatus === 'skipped' ? BranchColors.SKIPPED : selected ? def.color : undefined,
-        boxShadow: isActive ? '0 0 24px rgba(34,211,238,0.75)' : execStatus === 'success' ? '0 0 16px rgba(34,197,94,0.35)' : execStatus === 'failed' ? '0 0 16px rgba(239,68,68,0.35)' : selected ? `0 0 20px ${def.color}40` : undefined,
+        borderColor: isActive
+          ? '#22d3ee'
+          : execStatus === 'success'
+          ? BranchColors.TRUE
+          : execStatus === 'failed'
+          ? BranchColors.FALSE
+          : execStatus === 'skipped'
+          ? BranchColors.SKIPPED
+          : isPausedState
+          ? '#f59e0b'
+          : selected
+          ? def.color
+          : undefined,
+        boxShadow: isActive
+          ? '0 0 24px rgba(34,211,238,0.75)'
+          : execStatus === 'success'
+          ? '0 0 16px rgba(34,197,94,0.35)'
+          : execStatus === 'failed'
+          ? '0 0 16px rgba(239,68,68,0.35)'
+          : isPausedState
+          ? '0 0 16px rgba(245,158,11,0.45)'
+          : selected
+          ? `0 0 20px ${def.color}40`
+          : undefined,
         opacity: execStatus === 'skipped' ? 0.45 : 1,
         transform: isActive ? 'scale(1.03)' : 'scale(1)',
         transition: 'all 0.2s ease',
@@ -49,6 +75,10 @@ function CustomNode({ data, selected, type }) {
             {execStatus === 'success' && <CheckCircle2 size={14} color={BranchColors.TRUE} />}
             {execStatus === 'failed' && <XCircle size={14} color={BranchColors.FALSE} />}
             {execStatus === 'skipped' && <AlertCircle size={14} color={BranchColors.SKIPPED} />}
+            {(execStatus === 'waiting' || execStatus === 'waiting_approval') && (
+              <UserCheck size={14} color="#f59e0b" title="Waiting for Approval" />
+            )}
+            {execStatus === 'paused' && <Clock size={14} color="#0ea5e9" title="Paused / Waiting" />}
             {execStatus === 'running' && <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />}
           </div>
         )}
@@ -194,6 +224,65 @@ function CustomNode({ data, selected, type }) {
               </>
             );
           })()}
+        </>
+      ) : isApproval ? (
+        <>
+          {/* Approved Handle */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="approved"
+            style={{ top: '25%', background: '#10b981', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+          />
+          <div style={{ position: 'absolute', right: -58, top: '18%', fontSize: '0.62rem', fontWeight: 700, color: '#10b981' }}>
+            APPROVED
+          </div>
+
+          {/* Rejected Handle */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="rejected"
+            style={{ top: '55%', background: '#ef4444', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+          />
+          <div style={{ position: 'absolute', right: -56, top: '48%', fontSize: '0.62rem', fontWeight: 700, color: '#ef4444' }}>
+            REJECTED
+          </div>
+
+          {/* Timeout Handle */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="timeout"
+            style={{ top: '85%', background: '#f59e0b', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+          />
+          <div style={{ position: 'absolute', right: -52, top: '78%', fontSize: '0.62rem', fontWeight: 700, color: '#f59e0b' }}>
+            TIMEOUT
+          </div>
+        </>
+      ) : isWait ? (
+        <>
+          {/* Resumed / Output Handle */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="resumed"
+            style={{ top: '35%', background: '#0ea5e9', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+          />
+          <div style={{ position: 'absolute', right: -52, top: '27%', fontSize: '0.62rem', fontWeight: 700, color: '#0ea5e9' }}>
+            RESUMED
+          </div>
+
+          {/* Timeout Handle */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="timeout"
+            style={{ top: '75%', background: '#f59e0b', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+          />
+          <div style={{ position: 'absolute', right: -50, top: '67%', fontSize: '0.62rem', fontWeight: 700, color: '#f59e0b' }}>
+            TIMEOUT
+          </div>
         </>
       ) : (
         <Handle

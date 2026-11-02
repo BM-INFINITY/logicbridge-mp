@@ -65,6 +65,7 @@ import {
   Cloud,
   Repeat,
   GitFork,
+  UserCheck,
 } from 'lucide-react';
 
 // ─── Node Type → Icon Component ──────────────────────────────────────────────
@@ -92,6 +93,8 @@ const NODE_ICONS = {
   'action-storage': Cloud,
   'action-loop': Repeat,
   'action-switch': GitFork,
+  'action-approval': UserCheck,
+  'action-wait': Clock,
   'logic-switch': GitFork,
   'logic-condition': GitBranch,
   'action-condition': GitBranch,

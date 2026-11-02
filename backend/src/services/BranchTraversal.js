@@ -87,6 +87,26 @@ class BranchTraversal {
         if (edgeBranch === activeBranch) {
           return true; // Reached via completed done branch!
         }
+      } else if (sourceNode.type === NodeTypes.ACTION_APPROVAL) {
+        const approvalOutput = executedOutputs[sourceNodeId];
+        if (!approvalOutput) continue;
+
+        const activeBranch = approvalOutput.selectedBranch || approvalOutput.decision || BranchTypes.APPROVED;
+        const edgeBranch = edge.sourceHandle || BranchTypes.APPROVED;
+
+        if (edgeBranch === activeBranch) {
+          return true; // Reached via selected approval branch!
+        }
+      } else if (sourceNode.type === NodeTypes.ACTION_WAIT) {
+        const waitOutput = executedOutputs[sourceNodeId];
+        if (!waitOutput) continue;
+
+        const activeBranch = waitOutput.selectedBranch || (waitOutput.status === 'timeout' ? BranchTypes.TIMEOUT : BranchTypes.RESUMED);
+        const edgeBranch = edge.sourceHandle || BranchTypes.RESUMED;
+
+        if (edgeBranch === activeBranch || (!edge.sourceHandle && activeBranch === BranchTypes.RESUMED)) {
+          return true; // Reached via wait completion!
+        }
       } else {
         // Standard non-condition node path that succeeded
         return true;

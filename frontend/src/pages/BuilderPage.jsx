@@ -15,6 +15,7 @@ import TemplatesModal from '../components/TemplatesModal';
 import ExecutionPanel from '../components/ExecutionPanel';
 import StepEditorSidebar from '../components/StepEditorSidebar';
 import VariablesModal from '../components/VariablesModal';
+import ApprovalsModal from '../components/ApprovalsModal';
 import { ExecutionTimeline } from '../components/execution';
 import { instantiateTemplate } from '../utils';
 
@@ -52,6 +53,7 @@ function BuilderContent() {
 
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
   const [showVariables, setShowVariables] = useState(false);
+  const [showApprovals, setShowApprovals] = useState(false);
   const wrapperRef = useRef(null);
   const [rfInstance, setRfInstance] = useState(null);
 
@@ -199,6 +201,7 @@ function BuilderContent() {
         onSave={handleSave}
         onRun={handleRun}
         onOpenVariables={() => setShowVariables(true)}
+        onOpenApprovals={() => setShowApprovals(true)}
       />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -248,6 +251,7 @@ function BuilderContent() {
               setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })));
             }}
             onStartReplay={(exec) => startReplay(exec, nodes)}
+            onExecutionUpdate={(updated) => setExecutionResult(updated)}
           />
         )}
 
@@ -260,6 +264,15 @@ function BuilderContent() {
         isOpen={showVariables}
         onClose={() => setShowVariables(false)}
         workflowId={id}
+      />
+      <ApprovalsModal
+        isOpen={showApprovals}
+        onClose={() => setShowApprovals(false)}
+        onDecisionMade={(updated) => {
+          if (executionResult && executionResult._id === updated?._id) {
+            setExecutionResult(updated);
+          }
+        }}
       />
     </div>
   );

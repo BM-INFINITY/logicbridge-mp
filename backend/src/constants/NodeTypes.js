@@ -27,6 +27,8 @@ const NodeTypes = Object.freeze({
   ACTION_STORAGE: 'action-storage',
   ACTION_LOOP: 'action-loop',
   ACTION_SWITCH: 'action-switch',
+  ACTION_APPROVAL: 'action-approval',
+  ACTION_WAIT: 'action-wait',
 
   // Logic
   LOGIC_CONDITION: 'logic-condition',

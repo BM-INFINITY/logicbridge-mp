@@ -6,6 +6,10 @@ const ExecutionStatus = Object.freeze({
   SUCCESS: 'success',
   FAILED: 'failed',
   SKIPPED: 'skipped',
+  PAUSED: 'paused',
+  WAITING_APPROVAL: 'waiting_approval',
+  EXPIRED: 'expired',
+  CANCELLED: 'cancelled',
 });
 
 module.exports = ExecutionStatus;

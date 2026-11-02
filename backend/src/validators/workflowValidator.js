@@ -69,6 +69,18 @@ function validateConditionBranches(nodes = [], edges = []) {
     }
   }
 
+  const approvalNodes = nodes.filter((n) => n.type === NodeTypes.ACTION_APPROVAL);
+  for (const appNode of approvalNodes) {
+    const nodeName = appNode.data?.label || appNode.id;
+    const outgoingEdges = edges.filter((e) => e.source === appNode.id);
+    const hasApproved = outgoingEdges.some(
+      (e) => (e.sourceHandle || BranchTypes.APPROVED) === BranchTypes.APPROVED
+    );
+    if (!hasApproved && outgoingEdges.length > 0) {
+      warnings.push(`Approval node "${nodeName}" is missing an Approved branch connection`);
+    }
+  }
+
   return warnings;
 }
 

@@ -22,6 +22,8 @@ const FileNode = require('./FileNode');
 const StorageNode = require('./StorageNode');
 const LoopNode = require('./LoopNode');
 const SwitchNode = require('./SwitchNode');
+const ApprovalNode = require('./ApprovalNode');
+const WaitNode = require('./WaitNode');
 const { NodeTypes } = require('../constants');
 const registry = require('./registry');
 
@@ -50,6 +52,8 @@ const defaultNodes = [
   new StorageNode(),
   new LoopNode(),
   new SwitchNode(NodeTypes.ACTION_SWITCH),
+  new ApprovalNode(),
+  new WaitNode(),
 ];
 
 defaultNodes.forEach(nodeInstance => registry.register(nodeInstance));
@@ -80,4 +84,6 @@ module.exports = {
   StorageNode,
   LoopNode,
   SwitchNode,
+  ApprovalNode,
+  WaitNode,
 };

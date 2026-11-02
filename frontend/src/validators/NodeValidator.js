@@ -551,6 +551,44 @@ export class NodeValidator {
       }
     }
 
+    if (type === NodeTypes.ACTION_APPROVAL) {
+      if (!data?.title || String(data.title).trim() === '') {
+        return { valid: false, error: 'Approval title is required' };
+      }
+      if (data?.timeoutMinutes !== undefined && data.timeoutMinutes !== null && data.timeoutMinutes !== '') {
+        const tm = parseInt(data.timeoutMinutes, 10);
+        if (isNaN(tm) || tm < 1) {
+          return { valid: false, error: 'Timeout minutes must be a positive integer' };
+        }
+      }
+      if (data?.timeoutAction && !['reject', 'approve'].includes(String(data.timeoutAction).toLowerCase())) {
+        return { valid: false, error: 'Timeout action must be either "reject" or "approve"' };
+      }
+    }
+
+    if (type === NodeTypes.ACTION_WAIT) {
+      const waitType = String(data?.waitType || data?.type || 'duration').toLowerCase().trim();
+      if (!['duration', 'date', 'event'].includes(waitType)) {
+        return { valid: false, error: 'Wait type must be one of: duration, date, event' };
+      }
+      if (waitType === 'duration') {
+        const dur = data?.durationSeconds ?? data?.seconds ?? data?.duration;
+        if (dur === undefined || dur === null || String(dur).trim() === '') {
+          return { valid: false, error: 'Duration in seconds is required for Wait duration' };
+        }
+      } else if (waitType === 'date') {
+        const dt = data?.waitUntil ?? data?.date ?? data?.datetime;
+        if (!dt || String(dt).trim() === '') {
+          return { valid: false, error: 'Target timestamp (waitUntil) is required for Wait date' };
+        }
+      } else if (waitType === 'event') {
+        const ev = data?.eventName ?? data?.event;
+        if (!ev || String(ev).trim() === '') {
+          return { valid: false, error: 'Event name is required for Wait event' };
+        }
+      }
+    }
+
     return { valid: true };
   }
 

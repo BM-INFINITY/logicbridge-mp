@@ -21,6 +21,8 @@ import FileConfig from './FileConfig';
 import StorageConfig from './StorageConfig';
 import LoopConfig from './LoopConfig';
 import SwitchConfig from './SwitchConfig';
+import ApprovalConfig from './ApprovalConfig';
+import WaitConfig from './WaitConfig';
 
 export {
   SidebarHeader,
@@ -46,5 +48,7 @@ export {
   StorageConfig,
   LoopConfig,
   SwitchConfig,
+  ApprovalConfig,
+  WaitConfig,
 };
 

@@ -9,8 +9,18 @@ class ExecutionContext {
    * @param {string} [options.ownerId]
    * @param {string} [options.trigger]
    * @param {object} [options.initialResults]
+   * @param {object} [options.variables]
+   * @param {object} [options.secrets]
    */
-  constructor({ workflowId = null, executionId = null, ownerId = null, trigger = 'manual', initialResults = {} } = {}) {
+  constructor({
+    workflowId = null,
+    executionId = null,
+    ownerId = null,
+    trigger = 'manual',
+    initialResults = {},
+    variables = {},
+    secrets = {},
+  } = {}) {
     this.workflowId = workflowId;
     this.executionId = executionId;
     this.ownerId = ownerId;
@@ -18,6 +28,48 @@ class ExecutionContext {
     this.results = initialResults;
     this.lastOutput = null;
     this.loopStack = [];
+    this.variables = { ...variables };
+    this.secrets = { ...secrets };
+  }
+
+  /**
+   * Retrieves a workflow variable value by name
+   * @param {string} name
+   * @returns {any}
+   */
+  getVariable(name) {
+    if (!name || typeof name !== 'string') return undefined;
+    return this.variables[name];
+  }
+
+  /**
+   * Sets or updates a workflow variable value in execution scope
+   * @param {string} name
+   * @param {any} value
+   */
+  setVariable(name, value) {
+    if (!name || typeof name !== 'string') return;
+    this.variables[name] = value;
+  }
+
+  /**
+   * Retrieves a decrypted workflow secret by name
+   * @param {string} name
+   * @returns {string|any}
+   */
+  getSecret(name) {
+    if (!name || typeof name !== 'string') return undefined;
+    return this.secrets[name];
+  }
+
+  /**
+   * Sets or overrides a decrypted secret in execution scope
+   * @param {string} name
+   * @param {string|any} value
+   */
+  setSecret(name, value) {
+    if (!name || typeof name !== 'string') return;
+    this.secrets[name] = value;
   }
 
   /**

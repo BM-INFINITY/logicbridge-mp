@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload, Save } from 'lucide-react';
+import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload, Save, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useCanvasStore from '../../../store/canvasStore';
 import { WorkflowSerializer } from '../../../utils';
@@ -11,6 +11,7 @@ export default function Toolbar({
   onBack,
   onSave,
   onRun,
+  onOpenVariables,
 }) {
   const { nodes, edges, setNodes, setEdges, running, saving, showAI, setShowAI, showTemplates, setShowTemplates } = useCanvasStore();
   const fileInputRef = useRef(null);
@@ -121,6 +122,14 @@ export default function Toolbar({
 
         <button className="btn btn-secondary btn-sm" onClick={() => fileInputRef.current?.click()} title="Import Workflow JSON">
           <Upload size={14} /> Import
+        </button>
+
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={onOpenVariables}
+          title="Manage Workflow Variables & Secrets"
+        >
+          <KeyRound size={14} color="var(--accent-primary)" /> Variables & Secrets
         </button>
 
         <button

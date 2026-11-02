@@ -41,7 +41,7 @@ export default function StepEditorSidebar({
     const currentVal = data[activePickerField] || '';
     handleDataChange({
       ...data,
-      [activePickerField]: currentVal + ' ' + variableStr,
+      [activePickerField]: currentVal ? `${currentVal} ${variableStr}` : variableStr,
     });
   };
 

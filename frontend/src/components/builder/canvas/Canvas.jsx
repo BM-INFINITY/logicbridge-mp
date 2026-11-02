@@ -12,8 +12,9 @@ function CustomNode({ data, selected, type }) {
   const def = NODE_DEFS[type] || { label: type, icon: 'Settings', color: '#6c63ff', category: 'action' };
   const NodeIcon = getNodeIcon(type);
   const isFirst = def.category === 'trigger';
-  const isCondition = type === 'logic-condition';
+  const isCondition = type === 'logic-condition' || type === 'action-condition';
   const isLoop = type === 'action-loop';
+  const isSwitch = type === 'action-switch' || type === 'logic-switch';
   const execStatus = data._execStatus;
   const isActive = data._isActive;
 
@@ -115,6 +116,84 @@ function CustomNode({ data, selected, type }) {
           <div style={{ position: 'absolute', right: -36, top: '62%', fontSize: '0.65rem', fontWeight: 700, color: BranchColors.DONE || '#10b981' }}>
             DONE
           </div>
+        </>
+      ) : isSwitch ? (
+        <>
+          {(() => {
+            const switchCases = Array.isArray(data.cases) && data.cases.length > 0
+              ? data.cases
+              : [{ id: 'case_1', label: 'Case 1' }];
+            const totalOutputs = switchCases.length + 1; // cases + default
+            const palette = BranchColors.SWITCH_CASES || ['#8b5cf6', '#ec4899', '#f59e0b', '#06b6d4', '#10b981', '#3b82f6'];
+
+            return (
+              <>
+                {switchCases.map((c, i) => {
+                  const handleId = c.id || `case_${i + 1}`;
+                  const topPercent = Math.round(((i + 1) / (totalOutputs + 1)) * 100);
+                  const color = palette[i % palette.length];
+                  const label = (c.label || `Case ${i + 1}`).substring(0, 10).toUpperCase();
+
+                  return (
+                    <React.Fragment key={handleId}>
+                      <Handle
+                        type="source"
+                        position={Position.Right}
+                        id={handleId}
+                        style={{ top: `${topPercent}%`, background: color, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: -48,
+                          top: `calc(${topPercent}% - 6px)`,
+                          fontSize: '0.62rem',
+                          fontWeight: 700,
+                          color,
+                          whiteSpace: 'nowrap',
+                          maxWidth: 50,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                        title={c.label || handleId}
+                      >
+                        {label}
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+
+                {/* Default Fallback Handle */}
+                {(() => {
+                  const defaultTop = Math.round((totalOutputs / (totalOutputs + 1)) * 100);
+                  const defaultColor = BranchColors.SWITCH_DEFAULT || '#64748b';
+                  const defaultId = data.defaultHandle || 'default';
+                  return (
+                    <React.Fragment key="default">
+                      <Handle
+                        type="source"
+                        position={Position.Right}
+                        id={defaultId}
+                        style={{ top: `${defaultTop}%`, background: defaultColor, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: -48,
+                          top: `calc(${defaultTop}% - 6px)`,
+                          fontSize: '0.62rem',
+                          fontWeight: 700,
+                          color: defaultColor,
+                        }}
+                      >
+                        DEFAULT
+                      </div>
+                    </React.Fragment>
+                  );
+                })()}
+              </>
+            );
+          })()}
         </>
       ) : (
         <Handle

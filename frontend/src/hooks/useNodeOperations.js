@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import useCanvasStore from '../store/canvasStore';
 import { NODE_DEFS } from '../data/templates';
+import { normalizeNodeType } from '../constants/NodeTypes.js';
 
 /**
  * Custom hook providing node addition, connection, and drag-and-drop handles
@@ -11,8 +12,9 @@ export function useNodeOperations(rfInstance, wrapperRef) {
   const handleDrop = useCallback(
     (e) => {
       e.preventDefault();
-      const type = e.dataTransfer.getData('application/reactflow');
-      if (!type || !rfInstance || !wrapperRef?.current) return;
+      const rawType = e.dataTransfer.getData('application/reactflow');
+      if (!rawType || !rfInstance || !wrapperRef?.current) return;
+      const type = normalizeNodeType(rawType);
 
       const bounds = wrapperRef.current.getBoundingClientRect();
       const pos = rfInstance.screenToFlowPosition({

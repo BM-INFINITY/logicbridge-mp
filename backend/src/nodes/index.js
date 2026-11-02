@@ -21,6 +21,8 @@ const DiscordNode = require('./DiscordNode');
 const FileNode = require('./FileNode');
 const StorageNode = require('./StorageNode');
 const LoopNode = require('./LoopNode');
+const SwitchNode = require('./SwitchNode');
+const { NodeTypes } = require('../constants');
 const registry = require('./registry');
 
 // Auto-register default node handlers into registry singleton
@@ -32,7 +34,7 @@ const defaultNodes = [
   new LogNode(),
   new DelayNode(),
   new TransformNode(),
-  new ConditionNode(),
+  new ConditionNode(NodeTypes.LOGIC_CONDITION),
   new CsvNode(),
   new EmailNode(),
   new JsonNode(),
@@ -47,6 +49,7 @@ const defaultNodes = [
   new FileNode(),
   new StorageNode(),
   new LoopNode(),
+  new SwitchNode(NodeTypes.ACTION_SWITCH),
 ];
 
 defaultNodes.forEach(nodeInstance => registry.register(nodeInstance));
@@ -76,4 +79,5 @@ module.exports = {
   FileNode,
   StorageNode,
   LoopNode,
+  SwitchNode,
 };

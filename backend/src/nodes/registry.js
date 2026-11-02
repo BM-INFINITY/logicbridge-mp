@@ -6,6 +6,28 @@ const { ConfigurationError } = require('../errors');
 class NodeRegistry {
   constructor() {
     this.nodes = new Map();
+    this.aliases = new Map([
+      ['action-condition', 'logic-condition'],
+      ['logic-switch', 'action-switch'],
+    ]);
+  }
+
+  /**
+   * Registers a legacy type alias pointing to a canonical node type
+   * @param {string} aliasType
+   * @param {string} canonicalType
+   */
+  registerAlias(aliasType, canonicalType) {
+    this.aliases.set(aliasType, canonicalType);
+  }
+
+  /**
+   * Resolves canonical node type from an alias
+   * @param {string} type
+   * @returns {string}
+   */
+  resolveCanonicalType(type) {
+    return this.aliases.get(type) || type;
   }
 
   /**
@@ -37,7 +59,8 @@ class NodeRegistry {
    * @returns {object|undefined}
    */
   get(type) {
-    return this.nodes.get(type);
+    const canonical = this.resolveCanonicalType(type);
+    return this.nodes.get(canonical);
   }
 
   /**
@@ -63,7 +86,8 @@ class NodeRegistry {
    * @returns {boolean}
    */
   has(type) {
-    return this.nodes.has(type);
+    const canonical = this.resolveCanonicalType(type);
+    return this.nodes.has(canonical);
   }
 
   /**

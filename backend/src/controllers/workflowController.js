@@ -224,6 +224,144 @@ const revertWorkflowVersion = async (req, res, next) => {
   }
 };
 
+/**
+ * Get all variables for a workflow
+ * GET /api/workflows/:id/variables
+ */
+const getVariables = async (req, res, next) => {
+  try {
+    const variables = await workflowService.getVariables(req.params.id, req.user._id);
+    return success(res, variables);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
+/**
+ * Create a new variable in a workflow
+ * POST /api/workflows/:id/variables
+ */
+const createVariable = async (req, res, next) => {
+  try {
+    const variable = await workflowService.createVariable(req.params.id, req.user._id, req.body);
+    return success(res, variable, 201);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
+/**
+ * Update an existing variable in a workflow
+ * PUT /api/workflows/:id/variables/:varId
+ */
+const updateVariable = async (req, res, next) => {
+  try {
+    const variable = await workflowService.updateVariable(
+      req.params.id,
+      req.user._id,
+      req.params.varId,
+      req.body
+    );
+    return success(res, variable);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
+/**
+ * Delete a variable from a workflow
+ * DELETE /api/workflows/:id/variables/:varId
+ */
+const deleteVariable = async (req, res, next) => {
+  try {
+    const result = await workflowService.deleteVariable(req.params.id, req.user._id, req.params.varId);
+    return success(res, result);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
+/**
+ * Get all secrets metadata for a workflow
+ * GET /api/workflows/:id/secrets
+ */
+const getSecrets = async (req, res, next) => {
+  try {
+    const secrets = await workflowService.getSecrets(req.params.id, req.user._id);
+    return success(res, secrets);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
+/**
+ * Create a new encrypted secret for a workflow
+ * POST /api/workflows/:id/secrets
+ */
+const createSecret = async (req, res, next) => {
+  try {
+    const secret = await workflowService.createSecret(req.params.id, req.user._id, req.body);
+    return success(res, secret, 201);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
+/**
+ * Update a secret in a workflow (re-encrypts if value updated)
+ * PUT /api/workflows/:id/secrets/:secretId
+ */
+const updateSecret = async (req, res, next) => {
+  try {
+    const secret = await workflowService.updateSecret(
+      req.params.id,
+      req.user._id,
+      req.params.secretId,
+      req.body
+    );
+    return success(res, secret);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
+/**
+ * Delete a secret from a workflow
+ * DELETE /api/workflows/:id/secrets/:secretId
+ */
+const deleteSecret = async (req, res, next) => {
+  try {
+    const result = await workflowService.deleteSecret(req.params.id, req.user._id, req.params.secretId);
+    return success(res, result);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
 module.exports = {
   getWorkflows,
   generateWorkflow,
@@ -236,4 +374,12 @@ module.exports = {
   exportWorkflow,
   importWorkflow,
   revertWorkflowVersion,
+  getVariables,
+  createVariable,
+  updateVariable,
+  deleteVariable,
+  getSecrets,
+  createSecret,
+  updateSecret,
+  deleteSecret,
 };

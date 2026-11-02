@@ -50,32 +50,55 @@ function getStorageRoot() {
  * Resolves and verifies that a relative file path resides strictly inside the storage root.
  * Throws a SecurityError if path traversal or illegal characters are detected.
  *
- * @param {string} userPath - User-supplied path or filename
+ * @param {string|object} userPath - User-supplied path, filename, or file reference object
  * @param {object} [options]
  * @param {string} [options.baseDir] - Override base directory (defaults to storage root)
+ * @param {string} [options.ownerId] - User/owner ID for per-user sandbox isolation
+ * @param {string} [options.userId] - Alias for ownerId
  * @returns {string} Absolute resolved safe path
  */
 function resolveSafePath(userPath, options = {}) {
-  if (userPath === undefined || userPath === null || String(userPath).trim() === '') {
+  // Support file reference object { path: '...' }
+  const actualPath = typeof userPath === 'object' && userPath !== null
+    ? (userPath.path || userPath.filePath || userPath.filename)
+    : userPath;
+
+  if (actualPath === undefined || actualPath === null || String(actualPath).trim() === '') {
     throw new Error('File path or filename is required');
   }
 
-  const rawPath = String(userPath).trim();
+  const rawPath = String(actualPath).trim();
+
+  // Decode percent-encoded characters to catch obfuscated traversal attempts (e.g., %2e%2e)
+  let decodedPath = rawPath;
+  try {
+    decodedPath = decodeURIComponent(rawPath);
+  } catch {
+    // Keep rawPath on malformed URI escape sequences
+  }
 
   // Reject null bytes and control characters
-  if (/\0/.test(rawPath)) {
+  if (/\0/.test(rawPath) || /\0/.test(decodedPath)) {
     throw new Error('Security Error: Null bytes are not permitted in file paths');
   }
 
   // Reject Windows UNC network paths
-  if (/^\\\\[^\\]/.test(rawPath)) {
+  if (/^\\\\[^\\]/.test(rawPath) || /^\\\\[^\\]/.test(decodedPath)) {
     throw new Error('Security Error: UNC network paths are not permitted');
   }
 
-  const storageRoot = options.baseDir ? path.resolve(options.baseDir) : getStorageRoot();
+  const baseStorage = options.baseDir ? path.resolve(options.baseDir) : getStorageRoot();
+  const rawOwner = options.ownerId || options.userId;
+  const storageRoot = rawOwner
+    ? path.resolve(baseStorage, 'users', String(rawOwner).replace(/[^a-zA-Z0-9_-]/g, ''))
+    : baseStorage;
+
+  if (rawOwner && !fs.existsSync(storageRoot)) {
+    fs.mkdirSync(storageRoot, { recursive: true });
+  }
 
   // Strip leading drive letters or absolute root slashes to confine to storageRoot
-  let cleanRelative = rawPath.replace(/^[a-zA-Z]:[/\\]+/, '').replace(/^[/\\]+/, '');
+  let cleanRelative = decodedPath.replace(/^[a-zA-Z]:[/\\]+/, '').replace(/^[/\\]+/, '');
   cleanRelative = path.normalize(cleanRelative);
 
   const resolved = path.resolve(storageRoot, cleanRelative);
@@ -92,10 +115,18 @@ function resolveSafePath(userPath, options = {}) {
 /**
  * Gets relative storage path for a resolved absolute path
  * @param {string} absolutePath
+ * @param {object} [options]
+ * @param {string} [options.ownerId] - User/owner ID for per-user sandbox isolation
+ * @param {string} [options.userId] - Alias for ownerId
  * @returns {string} Forward-slash normalized relative path
  */
-function getRelativeStoragePath(absolutePath) {
-  const storageRoot = getStorageRoot();
+function getRelativeStoragePath(absolutePath, options = {}) {
+  const baseStorage = getStorageRoot();
+  const rawOwner = options.ownerId || options.userId;
+  const storageRoot = rawOwner
+    ? path.resolve(baseStorage, 'users', String(rawOwner).replace(/[^a-zA-Z0-9_-]/g, ''))
+    : baseStorage;
+
   const rel = path.relative(storageRoot, absolutePath);
   return rel.split(path.sep).join('/');
 }

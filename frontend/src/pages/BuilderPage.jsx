@@ -6,6 +6,7 @@ import useWorkflowStore from '../store/workflowStore';
 import useCanvasStore from '../store/canvasStore';
 import useReplayStore from '../store/replayStore';
 import { NODE_DEFS } from '../data/templates';
+import { normalizeNodeType } from '../constants/NodeTypes.js';
 import ReactFlowAdapter from '../adapters/ReactFlowAdapter';
 import ReplayCanvasAdapter from '../adapters/ReplayCanvasAdapter';
 import { BuilderProvider } from '../context/BuilderContext';
@@ -13,6 +14,7 @@ import { Toolbar, Canvas, NodePalette, AIPanel } from '../components/builder';
 import TemplatesModal from '../components/TemplatesModal';
 import ExecutionPanel from '../components/ExecutionPanel';
 import StepEditorSidebar from '../components/StepEditorSidebar';
+import VariablesModal from '../components/VariablesModal';
 import { ExecutionTimeline } from '../components/execution';
 import { instantiateTemplate } from '../utils';
 
@@ -49,6 +51,7 @@ function BuilderContent() {
   } = useReplayStore();
 
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
+  const [showVariables, setShowVariables] = useState(false);
   const wrapperRef = useRef(null);
   const [rfInstance, setRfInstance] = useState(null);
 
@@ -96,8 +99,9 @@ function BuilderContent() {
   const onDrop = useCallback(
     (e) => {
       e.preventDefault();
-      const type = e.dataTransfer.getData('application/reactflow');
-      if (!type || !rfInstance) return;
+      const rawType = e.dataTransfer.getData('application/reactflow');
+      if (!rawType || !rfInstance) return;
+      const type = normalizeNodeType(rawType);
       const pos = ReactFlowAdapter.screenToFlowPosition(rfInstance, wrapperRef, e.clientX, e.clientY);
       const def = NODE_DEFS[type];
       const newNode = ReactFlowAdapter.createNodePayload(type, pos, def?.label || type);
@@ -194,6 +198,7 @@ function BuilderContent() {
         onBack={() => navigate('/dashboard')}
         onSave={handleSave}
         onRun={handleRun}
+        onOpenVariables={() => setShowVariables(true)}
       />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -251,6 +256,11 @@ function BuilderContent() {
       </div>
 
       {showTemplates && <TemplatesModal onClose={() => setShowTemplates(false)} onLoad={loadTemplate} />}
+      <VariablesModal
+        isOpen={showVariables}
+        onClose={() => setShowVariables(false)}
+        workflowId={id}
+      />
     </div>
   );
 }

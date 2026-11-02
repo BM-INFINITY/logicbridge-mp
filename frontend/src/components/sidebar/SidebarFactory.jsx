@@ -17,6 +17,7 @@ import DiscordConfig from './DiscordConfig';
 import FileConfig from './FileConfig';
 import StorageConfig from './StorageConfig';
 import LoopConfig from './LoopConfig';
+import SwitchConfig from './SwitchConfig';
 
 export default function SidebarFactory({
   nodeType,
@@ -46,8 +47,18 @@ export default function SidebarFactory({
         />
       );
     case 'logic-condition':
+    case 'action-condition':
       return (
         <ConditionConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-switch':
+    case 'logic-switch':
+      return (
+        <SwitchConfig
           data={data}
           onChange={onChange}
           onOpenVariablePicker={onOpenVariablePicker}

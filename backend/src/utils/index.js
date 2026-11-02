@@ -9,6 +9,7 @@ const TriggerContext = require('./TriggerContext');
 const WebhookPayload = require('./WebhookPayload');
 const SecretRedactor = require('./SecretRedactor');
 const FileSecurity = require('./FileSecurity');
+const ConditionEvaluator = require('./ConditionEvaluator');
 
 module.exports = {
   VariableResolver,
@@ -22,6 +23,7 @@ module.exports = {
   WebhookPayload,
   SecretRedactor,
   FileSecurity,
+  ConditionEvaluator,
   resolveVariable: VariableResolver.resolveVariable,
   resolveRawValue: VariableResolver.resolveRawValue,
   generateCsvFile: CsvGenerator.generateFile,
@@ -31,6 +33,9 @@ module.exports = {
   success: ResponseHelper.success,
   error: ResponseHelper.error,
   redactSecrets: SecretRedactor.redactSecrets,
+  registerActiveSecrets: SecretRedactor.registerActiveSecrets,
+  clearActiveSecrets: SecretRedactor.clearActiveSecrets,
   resolveSafePath: FileSecurity.resolveSafePath,
   buildFileReference: FileSecurity.buildFileReference,
+  evaluateCondition: ConditionEvaluator.evaluateCondition,
 };

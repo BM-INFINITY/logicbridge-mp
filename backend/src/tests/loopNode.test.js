@@ -38,7 +38,7 @@ async function runTests() {
   console.log('Test Group 1: Node Metadata');
   check(loopNode.type === NodeTypes.ACTION_LOOP, 'LoopNode: type matches NodeTypes.ACTION_LOOP');
   check(loopNode.name === 'Loop / Batch', 'LoopNode: name is Loop / Batch');
-  check(loopNode.category === 'action', 'LoopNode: category is action');
+  check(loopNode.category === 'logic', 'LoopNode: category is logic');
   check(loopNode.icon === 'Repeat', 'LoopNode: icon is Repeat');
 
   // ── Group 2: Validation ─────────────────────────────────────────────────────

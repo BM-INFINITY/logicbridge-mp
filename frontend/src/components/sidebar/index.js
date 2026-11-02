@@ -20,6 +20,7 @@ import DiscordConfig from './DiscordConfig';
 import FileConfig from './FileConfig';
 import StorageConfig from './StorageConfig';
 import LoopConfig from './LoopConfig';
+import SwitchConfig from './SwitchConfig';
 
 export {
   SidebarHeader,
@@ -44,5 +45,6 @@ export {
   FileConfig,
   StorageConfig,
   LoopConfig,
+  SwitchConfig,
 };
 

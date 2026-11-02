@@ -1,5 +1,15 @@
 const mongoose = require('mongoose');
 
+const workflowVariableSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    type: { type: String, enum: ['string', 'number', 'boolean', 'json'], default: 'string' },
+    value: { type: mongoose.Schema.Types.Mixed, default: '' },
+    description: { type: String, default: '', trim: true },
+  },
+  { _id: true, timestamps: true }
+);
+
 const versionSnapshotSchema = new mongoose.Schema({
   version: Number,
   label: { type: String, default: '' },
@@ -8,6 +18,7 @@ const versionSnapshotSchema = new mongoose.Schema({
   description: String,
   nodes: Array,
   edges: Array,
+  variables: [workflowVariableSchema],
   schedule: mongoose.Schema.Types.Mixed,
   createdAt: { type: Date, default: Date.now },
   createdBy: { type: String, default: 'user' },
@@ -23,6 +34,7 @@ const workflowSchema = new mongoose.Schema(
     versionHistory: [versionSnapshotSchema],
     nodes: { type: Array, default: [] },   // React Flow node array
     edges: { type: Array, default: [] },   // React Flow edge array
+    variables: { type: [workflowVariableSchema], default: [] }, // Workflow-scoped variables
     schedule: {
       enabled: { type: Boolean, default: false },
       cron: { type: String, default: '' },  // cron expression e.g. "*/5 * * * *"

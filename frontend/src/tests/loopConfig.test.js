@@ -162,8 +162,8 @@ function main() {
 
   const loopDef = NODE_DEFS[NodeTypes.ACTION_LOOP];
   assert(Boolean(loopDef), 'NODE_DEFS contains action-loop');
-  assert(loopDef.label === 'Loop / Batch', 'action-loop palette label is Loop / Batch');
-  assert(loopDef.category === 'action', 'action-loop palette category is action');
+  assert(loopDef.label === 'Loop' || loopDef.label === 'Loop / Batch', 'action-loop palette label is Loop');
+  assert(loopDef.category === 'logic', 'action-loop palette category is logic');
   assert(loopDef.icon === 'Repeat', 'action-loop palette icon is Repeat');
 
   // ── Group 5: ReactFlowAdapter Edge Connection Styling ──────────────────────

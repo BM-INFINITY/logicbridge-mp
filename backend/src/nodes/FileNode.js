@@ -97,8 +97,11 @@ class FileNode extends BaseNode {
     const operation = this._normalizeOp(data.operation || 'read_file');
 
     // 1. Resolve variables in path and options
-    const rawPath = data.path || data.filePath || data.filename || '';
+    const rawPathObj = data.path || data.filePath || data.filename || '';
+    const rawPath = typeof rawPathObj === 'object' && rawPathObj?.path ? rawPathObj.path : rawPathObj;
     const resolvedPath = rawPath ? resolveVariable(String(rawPath), context) : '';
+
+    const securityOpts = { ownerId: context?.ownerId || data.ownerId };
 
     const rawFormat = data.format || 'text';
     const resolvedFormat = resolveVariable(String(rawFormat), context).toLowerCase();
@@ -111,7 +114,7 @@ class FileNode extends BaseNode {
     try {
       switch (operation) {
         case 'read_file': {
-          const safePath = resolveSafePath(resolvedPath);
+          const safePath = resolveSafePath(resolvedPath, securityOpts);
 
           if (!fs.existsSync(safePath)) {
             throw new Error(`File not found at path "${resolvedPath}"`);
@@ -144,7 +147,7 @@ class FileNode extends BaseNode {
         }
 
         case 'write_file': {
-          const safePath = resolveSafePath(resolvedPath);
+          const safePath = resolveSafePath(resolvedPath, securityOpts);
 
           let rawContent = data.content !== undefined ? data.content : (data.data !== undefined ? data.data : (data.text !== undefined ? data.text : ''));
 
@@ -206,7 +209,7 @@ class FileNode extends BaseNode {
         }
 
         case 'create_file': {
-          const safePath = resolveSafePath(resolvedPath);
+          const safePath = resolveSafePath(resolvedPath, securityOpts);
 
           if (fs.existsSync(safePath) && data.failIfExists) {
             throw new Error(`File already exists at "${resolvedPath}"`);
@@ -235,7 +238,7 @@ class FileNode extends BaseNode {
         }
 
         case 'delete_file': {
-          const safePath = resolveSafePath(resolvedPath);
+          const safePath = resolveSafePath(resolvedPath, securityOpts);
           const ignoreMissing = Boolean(data.ignoreMissing || data.ignoreNotFound);
 
           if (!fs.existsSync(safePath)) {
@@ -244,7 +247,7 @@ class FileNode extends BaseNode {
                 ok: true,
                 operation: 'delete_file',
                 deleted: false,
-                path: getRelativeStoragePath(safePath),
+                path: getRelativeStoragePath(safePath, securityOpts),
                 message: 'File did not exist',
               };
               break;
@@ -263,21 +266,21 @@ class FileNode extends BaseNode {
             ok: true,
             operation: 'delete_file',
             deleted: true,
-            path: getRelativeStoragePath(safePath),
+            path: getRelativeStoragePath(safePath, securityOpts),
             filename: path.basename(safePath),
           };
           break;
         }
 
         case 'get_metadata': {
-          const safePath = resolveSafePath(resolvedPath);
+          const safePath = resolveSafePath(resolvedPath, securityOpts);
 
           if (!fs.existsSync(safePath)) {
             throw new Error(`File not found at path "${resolvedPath}"`);
           }
 
           const stats = fs.statSync(safePath);
-          const relKey = getRelativeStoragePath(safePath);
+          const relKey = getRelativeStoragePath(safePath, securityOpts);
           const fileRef = buildFileReference(safePath, stats, undefined, resolvedFormat);
 
           resultPayload = {
@@ -297,8 +300,8 @@ class FileNode extends BaseNode {
           const resolvedSrc = resolveVariable(String(rawSrc), context);
           const resolvedDest = resolveVariable(String(rawDest), context);
 
-          const safeSrc = resolveSafePath(resolvedSrc);
-          const safeDest = resolveSafePath(resolvedDest);
+          const safeSrc = resolveSafePath(resolvedSrc, securityOpts);
+          const safeDest = resolveSafePath(resolvedDest, securityOpts);
 
           if (!fs.existsSync(safeSrc)) {
             throw new Error(`Source file does not exist at "${resolvedSrc}"`);

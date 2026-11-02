@@ -513,6 +513,44 @@ export class NodeValidator {
       }
     }
 
+    if (type === NodeTypes.LOGIC_CONDITION || type === NodeTypes.ACTION_CONDITION) {
+      if (Array.isArray(data?.conditions) && data.conditions.length > 0) {
+        const comb = String(data.combinator || 'and').toLowerCase();
+        if (!['and', 'or'].includes(comb)) {
+          return { valid: false, error: 'Condition combinator must be "and" or "or"' };
+        }
+      } else if (data?.operator) {
+        const validOps = [
+          'equals', 'not_equals', 'not-equals', 'greater_than', 'greater-than', 'less_than', 'less-than',
+          'greater_or_equal', 'greater-or-equal', 'less_or_equal', 'less-or-equal', 'contains', 'not_contains',
+          'starts_with', 'starts-with', 'ends_with', 'ends-with', 'is_empty', 'is_not_empty', 'exists',
+          'does_not_exist', 'is_true', 'is_false', 'matches_regex', 'does_not_match_regex',
+        ];
+        if (!validOps.includes(data.operator)) {
+          return { valid: false, error: `Unsupported condition operator "${data.operator}"` };
+        }
+      }
+    }
+
+    if (type === NodeTypes.ACTION_SWITCH || type === NodeTypes.LOGIC_SWITCH) {
+      if (data?.cases !== undefined && !Array.isArray(data.cases)) {
+        return { valid: false, error: 'Switch cases must be an array' };
+      }
+      if (Array.isArray(data?.cases)) {
+        const ids = new Set();
+        for (const [idx, c] of data.cases.entries()) {
+          const id = c.id || `case_${idx + 1}`;
+          if (id === 'default') {
+            return { valid: false, error: 'Case ID cannot be "default" (reserved for fallback branch)' };
+          }
+          if (ids.has(id)) {
+            return { valid: false, error: `Duplicate switch case ID "${id}"` };
+          }
+          ids.add(id);
+        }
+      }
+    }
+
     return { valid: true };
   }
 
@@ -523,15 +561,19 @@ export class NodeValidator {
    * @returns {{ valid: boolean, error?: string }}
    */
   static validateConditionConnection(params, edges) {
-    if (params.sourceHandle === 'true' || params.sourceHandle === 'false') {
-      const duplicate = edges.find(
-        (e) => e.source === params.source && e.sourceHandle === params.sourceHandle
-      );
-      if (duplicate) {
-        return {
-          valid: false,
-          error: `Condition node already has a ${params.sourceHandle.toUpperCase()} branch connection`,
-        };
+    if (params.sourceHandle) {
+      const isUniqueHandle = ['true', 'false', 'loop', 'done', 'default'].includes(params.sourceHandle) ||
+        params.sourceHandle.startsWith('case_');
+      if (isUniqueHandle) {
+        const duplicate = edges.find(
+          (e) => e.source === params.source && e.sourceHandle === params.sourceHandle
+        );
+        if (duplicate) {
+          return {
+            valid: false,
+            error: `Node already has a ${params.sourceHandle.toUpperCase()} branch connection`,
+          };
+        }
       }
     }
     return { valid: true };

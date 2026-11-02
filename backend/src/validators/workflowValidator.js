@@ -35,7 +35,9 @@ function validateGenerateWorkflow(body) {
  */
 function validateConditionBranches(nodes = [], edges = []) {
   const warnings = [];
-  const conditionNodes = nodes.filter((n) => n.type === NodeTypes.LOGIC_CONDITION);
+  const conditionNodes = nodes.filter(
+    (n) => n.type === NodeTypes.LOGIC_CONDITION || n.type === NodeTypes.ACTION_CONDITION
+  );
 
   for (const condNode of conditionNodes) {
     const nodeName = condNode.data?.label || condNode.id;
@@ -49,6 +51,21 @@ function validateConditionBranches(nodes = [], edges = []) {
     }
     if (!hasFalseBranch) {
       warnings.push(`Condition node "${nodeName}" is missing a False branch connection`);
+    }
+  }
+
+  const switchNodes = nodes.filter(
+    (n) => n.type === NodeTypes.ACTION_SWITCH || n.type === NodeTypes.LOGIC_SWITCH
+  );
+
+  for (const swNode of switchNodes) {
+    const nodeName = swNode.data?.label || swNode.id;
+    const outgoingEdges = edges.filter((e) => e.source === swNode.id);
+    const defaultHandle = swNode.data?.defaultHandle || 'default';
+
+    const hasDefault = outgoingEdges.some((e) => (e.sourceHandle || 'default') === defaultHandle);
+    if (!hasDefault && outgoingEdges.length > 0) {
+      warnings.push(`Switch node "${nodeName}" is missing a Default fallback branch connection`);
     }
   }
 

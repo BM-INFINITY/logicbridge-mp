@@ -824,7 +824,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-loop': {
-    label: 'Loop / Batch', icon: 'Repeat', color: '#06b6d4', category: 'action',
+    label: 'Loop', icon: 'Repeat', color: '#06b6d4', category: 'logic',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'operation', type: 'select', label: 'Operation', options: ['loop_items', 'loop_batch', 'loop_range'] },
@@ -835,7 +835,7 @@ export const NODE_DEFS = {
     ],
   },
   'logic-condition': {
-    label: 'If / Condition', icon: 'GitBranch', color: '#f59e0b', category: 'logic',
+    label: 'Condition', icon: 'GitBranch', color: '#f59e0b', category: 'logic',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'leftValue', type: 'text', label: 'Left Field' },
@@ -843,4 +843,29 @@ export const NODE_DEFS = {
       { name: 'rightValue', type: 'text', label: 'Right Value' },
     ],
   },
+  'action-switch': {
+    label: 'Switch / Router', icon: 'GitFork', color: '#8b5cf6', category: 'logic',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'input', type: 'text', label: 'Input Expression' },
+      { name: 'mode', type: 'select', label: 'Mode', options: ['value', 'rule'] },
+    ],
+  },
 };
+
+// ── Backward-Compatibility Non-Enumerable Aliases ───────────────────────────
+// These ensure legacy node types resolve in canvas and lookups without creating
+// duplicate visual entries in Object.entries(NODE_DEFS) used by the NodePalette.
+Object.defineProperty(NODE_DEFS, 'action-condition', {
+  value: NODE_DEFS['logic-condition'],
+  enumerable: false,
+  configurable: true,
+  writable: true,
+});
+
+Object.defineProperty(NODE_DEFS, 'logic-switch', {
+  value: NODE_DEFS['action-switch'],
+  enumerable: false,
+  configurable: true,
+  writable: true,
+});

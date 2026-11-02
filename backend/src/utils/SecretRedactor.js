@@ -13,12 +13,48 @@ const AWS_ACCESS_KEY_REGEX = /\b(AKIA|ASIA|AROA)[0-9A-Z]{16}\b/g;
 const AWS_SIGNATURE_REGEX = /(Signature=)[0-9a-fA-F]{64}/gi;
 const AWS_SIGNED_URL_REGEX = /(X-Amz-(?:Signature|Security-Token)=)[^&\s]+/gi;
 
+// Active workflow secrets registered during execution
+const activeSecretValues = new Set();
+const activeSecretKeys = new Set();
+
 /**
- * Redacts database URIs and webhook URLs that include sensitive tokens/passwords
+ * Registers active secret values and keys for runtime redaction.
+ * @param {Array<string>|object} secrets
  */
-function redactUriString(str) {
+function registerActiveSecrets(secrets) {
+  if (!secrets) return;
+  if (Array.isArray(secrets)) {
+    for (const val of secrets) {
+      if (typeof val === 'string' && val.trim().length >= 3) {
+        activeSecretValues.add(val.trim());
+      }
+    }
+  } else if (typeof secrets === 'object') {
+    for (const [key, val] of Object.entries(secrets)) {
+      if (key && typeof key === 'string') {
+        activeSecretKeys.add(key.toLowerCase().trim());
+      }
+      if (typeof val === 'string' && val.trim().length >= 3) {
+        activeSecretValues.add(val.trim());
+      }
+    }
+  }
+}
+
+/**
+ * Clears registered active secrets
+ */
+function clearActiveSecrets() {
+  activeSecretValues.clear();
+  activeSecretKeys.clear();
+}
+
+/**
+ * Redacts database URIs, webhook URLs, and active registered secret values from strings
+ */
+function redactUriString(str, extraSecretValues = null) {
   if (typeof str !== 'string') return str;
-  return str
+  let result = str
     .replace(DB_URI_REGEX, '$1[REDACTED]$2')
     .replace(DISCORD_WEBHOOK_REGEX, '$1[REDACTED]')
     .replace(SLACK_WEBHOOK_REGEX, '$1[REDACTED]')
@@ -26,25 +62,62 @@ function redactUriString(str) {
     .replace(AWS_ACCESS_KEY_REGEX, '$1[REDACTED]')
     .replace(AWS_SIGNATURE_REGEX, '$1[REDACTED]')
     .replace(AWS_SIGNED_URL_REGEX, '$1[REDACTED]');
+
+  // Redact active registered secrets
+  const allSecretValues = new Set(activeSecretValues);
+  if (Array.isArray(extraSecretValues)) {
+    extraSecretValues.forEach((s) => {
+      if (typeof s === 'string' && s.trim().length >= 3) allSecretValues.add(s.trim());
+    });
+  }
+
+  if (allSecretValues.size > 0) {
+    for (const secretVal of allSecretValues) {
+      if (result.includes(secretVal)) {
+        const escaped = secretVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        result = result.replace(new RegExp(escaped, 'g'), '[REDACTED]');
+      }
+    }
+  }
+
+  return result;
 }
 
 /**
  * Recursively redacts sensitive values from an object or array.
  * @param {any} data - Input object, array, or primitive
+ * @param {Array<string>|object} [additionalSecrets] - Optional extra secrets to redact
  * @returns {any} - Deep copy with sensitive fields replaced with '[REDACTED]'
  */
-function redactSecrets(data) {
+function redactSecrets(data, additionalSecrets = null) {
   if (data === null || data === undefined) return data;
-  if (typeof data === 'string') return redactUriString(data);
+
+  let extraSecretValues = null;
+  const extraSecretKeys = new Set();
+  if (additionalSecrets) {
+    if (Array.isArray(additionalSecrets)) {
+      extraSecretValues = additionalSecrets;
+    } else if (typeof additionalSecrets === 'object') {
+      extraSecretValues = Object.values(additionalSecrets);
+      Object.keys(additionalSecrets).forEach((k) => extraSecretKeys.add(k.toLowerCase().trim()));
+    }
+  }
+
+  if (typeof data === 'string') return redactUriString(data, extraSecretValues);
   if (typeof data !== 'object') return data;
 
   if (Array.isArray(data)) {
-    return data.map((item) => redactSecrets(item));
+    return data.map((item) => redactSecrets(item, additionalSecrets));
   }
 
   const redacted = {};
   for (const [key, value] of Object.entries(data)) {
-    if (SENSITIVE_KEYS_REGEX.test(key)) {
+    const isSensitive =
+      SENSITIVE_KEYS_REGEX.test(key) ||
+      activeSecretKeys.has(key.toLowerCase()) ||
+      extraSecretKeys.has(key.toLowerCase());
+
+    if (isSensitive) {
       if (typeof value === 'string' && /^Bearer\s+/i.test(value)) {
         redacted[key] = 'Bearer [REDACTED]';
       } else if (typeof value === 'string' && /^Basic\s+/i.test(value)) {
@@ -57,9 +130,9 @@ function redactSecrets(data) {
     } else if (typeof value === 'string' && /^Basic\s+/i.test(value)) {
       redacted[key] = 'Basic [REDACTED]';
     } else if (typeof value === 'string') {
-      redacted[key] = redactUriString(value);
+      redacted[key] = redactUriString(value, extraSecretValues);
     } else if (typeof value === 'object' && value !== null) {
-      redacted[key] = redactSecrets(value);
+      redacted[key] = redactSecrets(value, additionalSecrets);
     } else {
       redacted[key] = value;
     }
@@ -71,4 +144,7 @@ function redactSecrets(data) {
 module.exports = {
   redactSecrets,
   redact: redactSecrets,
+  redactUriString,
+  registerActiveSecrets,
+  clearActiveSecrets,
 };

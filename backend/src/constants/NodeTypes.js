@@ -26,9 +26,12 @@ const NodeTypes = Object.freeze({
   ACTION_FILE: 'action-file',
   ACTION_STORAGE: 'action-storage',
   ACTION_LOOP: 'action-loop',
+  ACTION_SWITCH: 'action-switch',
 
   // Logic
   LOGIC_CONDITION: 'logic-condition',
+  ACTION_CONDITION: 'action-condition',
+  LOGIC_SWITCH: 'logic-switch',
 });
 
 module.exports = NodeTypes;

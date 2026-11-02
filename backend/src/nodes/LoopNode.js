@@ -15,7 +15,7 @@ class LoopNode extends BaseNode {
     super({
       type: NodeTypes.ACTION_LOOP,
       name: 'Loop / Batch',
-      category: 'action',
+      category: 'logic',
       icon: 'Repeat',
       description: 'Iterates through arrays or batches of items and executes connected actions',
     });
@@ -297,9 +297,6 @@ class LoopNode extends BaseNode {
       } catch (err) {
         errors.push({ index: idx, item: currentItem, error: err.message });
         if (!isContinueOnError) {
-          if (typeof context?.popLoopContext === 'function') {
-            context.popLoopContext();
-          }
           throw new NodeExecutionError(
             `Loop failed at iteration ${idx}: ${err.message}`,
             { nodeId: node.id, nodeType: this.type, originalError: err }

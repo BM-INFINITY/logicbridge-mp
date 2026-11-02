@@ -34,6 +34,18 @@ router.post('/:id/run', protect, workflowController.runWorkflow);
 // POST /api/workflows/:id/revert/:version — revert workflow to version
 router.post('/:id/revert/:version', protect, workflowController.revertWorkflowVersion);
 
+// Workflow Variables
+router.get('/:id/variables', protect, workflowController.getVariables);
+router.post('/:id/variables', protect, workflowController.createVariable);
+router.put('/:id/variables/:varId', protect, workflowController.updateVariable);
+router.delete('/:id/variables/:varId', protect, workflowController.deleteVariable);
+
+// Workflow Secrets (metadata only, encrypted at rest)
+router.get('/:id/secrets', protect, workflowController.getSecrets);
+router.post('/:id/secrets', protect, workflowController.createSecret);
+router.put('/:id/secrets/:secretId', protect, workflowController.updateSecret);
+router.delete('/:id/secrets/:secretId', protect, workflowController.deleteSecret);
+
 // POST /api/workflows/:id/webhook — public webhook trigger endpoint
 router.post('/:id/webhook', workflowController.handleWebhook);
 router.get('/:id/webhook', workflowController.handleWebhook);

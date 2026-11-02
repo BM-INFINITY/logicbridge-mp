@@ -3,12 +3,15 @@
  * e.g. {{ steps.step_1.data }}, {{ prev.fieldName }}, or {{ trigger.body.user }}
  */
 
+const BLOCKED_PROPS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function getNestedValue(obj, pathStr) {
   if (obj === null || obj === undefined) return undefined;
   if (pathStr === undefined || pathStr === null || String(pathStr).trim() === '') return obj;
   const parts = String(pathStr).split('.').map((s) => s.trim()).filter(Boolean);
   let current = obj;
   for (const part of parts) {
+    if (BLOCKED_PROPS.has(part.toLowerCase())) return undefined;
     if (current === null || current === undefined) return undefined;
     current = current[part];
   }
@@ -80,6 +83,36 @@ function resolveVariable(str, context) {
         }
       }
 
+      // 2c. Workflow Variables: {{ variables.xxx }}, {{ variable.xxx }}, {{ vars.xxx }}
+      if (val === undefined && /^(variables|variable|vars)(\.|$)/i.test(trimmedPath)) {
+        const varPath = trimmedPath.replace(/^(variables|variable|vars)\.?/i, '');
+        const varsObj = context.variables || (typeof context.getVariable === 'function' ? null : undefined);
+        if (varsObj) {
+          val = getNestedValue(varsObj, varPath);
+        } else if (typeof context.getVariable === 'function') {
+          const parts = varPath.split('.');
+          const first = parts[0];
+          const rest = parts.slice(1).join('.');
+          const baseVar = context.getVariable(first);
+          val = rest ? getNestedValue(baseVar, rest) : baseVar;
+        }
+      }
+
+      // 2d. Workflow Secrets: {{ secrets.xxx }}, {{ secret.xxx }}
+      if (val === undefined && /^(secrets|secret)(\.|$)/i.test(trimmedPath)) {
+        const secretPath = trimmedPath.replace(/^(secrets|secret)\.?/i, '');
+        const secretsObj = context.secrets || (typeof context.getSecret === 'function' ? null : undefined);
+        if (secretsObj) {
+          val = getNestedValue(secretsObj, secretPath);
+        } else if (typeof context.getSecret === 'function') {
+          const parts = secretPath.split('.');
+          const first = parts[0];
+          const rest = parts.slice(1).join('.');
+          const baseSecret = context.getSecret(first);
+          val = rest ? getNestedValue(baseSecret, rest) : baseSecret;
+        }
+      }
+
       // 3. Check step/node reference: {{ steps.node_1.data }}, {{ step_1.data }}, {{ n1.data }}
       if (val === undefined) {
         const stepMatch = trimmedPath.match(/^(?:steps?\.)?([a-zA-Z0-9_-]+)(?:\.(.+))?$/);
@@ -120,15 +153,31 @@ function resolveVariable(str, context) {
           }
         }
       }
+
+      // 5b. Fallback to workflow variables (bare name)
+      if (val === undefined && context.variables) {
+        val = getNestedValue(context.variables, trimmedPath);
+      }
     } else {
       // Context is a plain object (e.g. previous step output or dataset object)
-      const cleanPath = trimmedPath.replace(/^(step_\w+|prev)\./, '');
-      val = getNestedValue(context, cleanPath);
-      if (val === undefined && context?.data) {
-        val = getNestedValue(context.data, cleanPath);
-      }
-      if (val === undefined) {
-        val = getNestedValue(context, trimmedPath);
+      if (/^(variables|variable|vars)\./i.test(trimmedPath) && context.variables) {
+        const varPath = trimmedPath.replace(/^(variables|variable|vars)\./i, '');
+        val = getNestedValue(context.variables, varPath);
+      } else if (/^(secrets|secret)\./i.test(trimmedPath) && context.secrets) {
+        const secretPath = trimmedPath.replace(/^(secrets|secret)\./i, '');
+        val = getNestedValue(context.secrets, secretPath);
+      } else {
+        const cleanPath = trimmedPath.replace(/^(step_\w+|prev)\./, '');
+        val = getNestedValue(context, cleanPath);
+        if (val === undefined && context?.data) {
+          val = getNestedValue(context.data, cleanPath);
+        }
+        if (val === undefined) {
+          val = getNestedValue(context, trimmedPath);
+        }
+        if (val === undefined && context.variables) {
+          val = getNestedValue(context.variables, trimmedPath);
+        }
       }
     }
 
@@ -208,6 +257,36 @@ function resolveRawValue(expr, context) {
       }
     }
 
+    // 2c. Workflow Variables: {{ variables.xxx }}, {{ variable.xxx }}, {{ vars.xxx }}
+    if (val === undefined && /^(variables|variable|vars)(\.|$)/i.test(rawPath)) {
+      const varPath = rawPath.replace(/^(variables|variable|vars)\.?/i, '');
+      const varsObj = context.variables || (typeof context.getVariable === 'function' ? null : undefined);
+      if (varsObj) {
+        val = getNestedValue(varsObj, varPath);
+      } else if (typeof context.getVariable === 'function') {
+        const parts = varPath.split('.');
+        const first = parts[0];
+        const rest = parts.slice(1).join('.');
+        const baseVar = context.getVariable(first);
+        val = rest ? getNestedValue(baseVar, rest) : baseVar;
+      }
+    }
+
+    // 2d. Workflow Secrets: {{ secrets.xxx }}, {{ secret.xxx }}
+    if (val === undefined && /^(secrets|secret)(\.|$)/i.test(rawPath)) {
+      const secretPath = rawPath.replace(/^(secrets|secret)\.?/i, '');
+      const secretsObj = context.secrets || (typeof context.getSecret === 'function' ? null : undefined);
+      if (secretsObj) {
+        val = getNestedValue(secretsObj, secretPath);
+      } else if (typeof context.getSecret === 'function') {
+        const parts = secretPath.split('.');
+        const first = parts[0];
+        const rest = parts.slice(1).join('.');
+        const baseSecret = context.getSecret(first);
+        val = rest ? getNestedValue(baseSecret, rest) : baseSecret;
+      }
+    }
+
     if (val === undefined) {
       const stepMatch = rawPath.match(/^(?:steps?\.)?([a-zA-Z0-9_-]+)(?:\.(.+))?$/);
       if (stepMatch) {
@@ -244,14 +323,31 @@ function resolveRawValue(expr, context) {
         }
       }
     }
-  } else {
-    const cleanPath = rawPath.replace(/^(step_\w+|prev)\./, '');
-    val = getNestedValue(context, cleanPath);
-    if (val === undefined && context?.data) {
-      val = getNestedValue(context.data, cleanPath);
+
+    // Fallback to workflow variables (bare name)
+    if (val === undefined && context.variables) {
+      val = getNestedValue(context.variables, rawPath);
     }
-    if (val === undefined) {
-      val = getNestedValue(context, rawPath);
+  } else {
+    // Context is a plain object
+    if (/^(variables|variable|vars)\./i.test(rawPath) && context.variables) {
+      const varPath = rawPath.replace(/^(variables|variable|vars)\./i, '');
+      val = getNestedValue(context.variables, varPath);
+    } else if (/^(secrets|secret)\./i.test(rawPath) && context.secrets) {
+      const secretPath = rawPath.replace(/^(secrets|secret)\./i, '');
+      val = getNestedValue(context.secrets, secretPath);
+    } else {
+      const cleanPath = rawPath.replace(/^(step_\w+|prev)\./, '');
+      val = getNestedValue(context, cleanPath);
+      if (val === undefined && context?.data) {
+        val = getNestedValue(context.data, cleanPath);
+      }
+      if (val === undefined) {
+        val = getNestedValue(context, rawPath);
+      }
+      if (val === undefined && context.variables) {
+        val = getNestedValue(context.variables, rawPath);
+      }
     }
   }
 

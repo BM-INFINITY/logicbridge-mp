@@ -46,15 +46,25 @@ class BranchTraversal {
       const sourceNode = nodes.find((n) => n.id === sourceNodeId);
       if (!sourceNode) continue;
 
-      if (sourceNode.type === NodeTypes.LOGIC_CONDITION) {
+      if (sourceNode.type === NodeTypes.LOGIC_CONDITION || sourceNode.type === NodeTypes.ACTION_CONDITION) {
         const condOutput = executedOutputs[sourceNodeId];
         if (!condOutput) continue; // Source condition hasn't executed yet
 
-        const activeBranch = this.getActiveBranch(Boolean(condOutput.passed));
+        const activeBranch = condOutput.selectedBranch || this.getActiveBranch(Boolean(condOutput.passed));
         const edgeBranch = edge.sourceHandle || BranchTypes.TRUE; // Default edge fallback to TRUE
 
         if (edgeBranch === activeBranch) {
           return true; // Reached via selected condition branch!
+        }
+      } else if (sourceNode.type === NodeTypes.ACTION_SWITCH || sourceNode.type === NodeTypes.LOGIC_SWITCH) {
+        const switchOutput = executedOutputs[sourceNodeId];
+        if (!switchOutput) continue; // Source switch hasn't executed yet
+
+        const activeBranch = switchOutput.selectedBranch || 'default';
+        const edgeBranch = edge.sourceHandle || 'default';
+
+        if (edgeBranch === activeBranch) {
+          return true; // Reached via selected switch branch!
         }
       } else if (sourceNode.type === NodeTypes.ACTION_LOOP) {
         // Check if currently executing an iteration of this loop

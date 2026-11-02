@@ -110,6 +110,36 @@ export const ReplayService = {
         });
       }
 
+      // Switch / Router branch tracking
+      if (
+        (step.nodeType === 'action-switch' || step.nodeType === 'logic-switch') &&
+        step.output?.selectedBranch
+      ) {
+        cumulativeBranches[step.nodeId] = step.output.selectedBranch;
+
+        cumulativeEvents.push({
+          id: `evt_switch_${step.nodeId}_${idx}`,
+          stepIndex,
+          nodeId: step.nodeId,
+          nodeName: step.nodeName,
+          nodeType: step.nodeType,
+          type: 'SWITCH_EVALUATED',
+          timestamp: step.finishedAt || step.startedAt,
+          details: `Switch routed to branch "${step.output.selectedBranch}" (${step.output.matchedCaseLabel || step.output.selectedBranch})`,
+        });
+
+        cumulativeEvents.push({
+          id: `evt_branch_${step.nodeId}_${idx}`,
+          stepIndex,
+          nodeId: step.nodeId,
+          nodeName: step.nodeName,
+          nodeType: step.nodeType,
+          type: 'BRANCH_SELECTED',
+          timestamp: step.finishedAt || step.startedAt,
+          details: `Selected branch "${step.output.selectedBranch.toUpperCase()}"`,
+        });
+      }
+
       // Final step status events
       if (step.status === 'skipped') {
         cumulativeEvents.push({

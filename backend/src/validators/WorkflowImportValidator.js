@@ -47,6 +47,11 @@ class WorkflowImportValidator {
         errors.push(edgeValidation.error);
       }
 
+      // Validate variables if present
+      if (workflowData.variables !== undefined && !Array.isArray(workflowData.variables)) {
+        errors.push('"variables" must be an array');
+      }
+
       // Checksum validation if present in manifest
       if (manifest.checksum) {
         try {

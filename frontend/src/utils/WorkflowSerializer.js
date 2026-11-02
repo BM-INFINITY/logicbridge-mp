@@ -1,3 +1,5 @@
+import { normalizeNodeType } from '../constants/NodeTypes.js';
+
 const SCHEMA_VERSION = '1.0.0';
 const PLATFORM = 'LogicBridge';
 
@@ -26,7 +28,7 @@ export class WorkflowSerializer {
   static serialize(workflow = {}, options = {}) {
     const nodes = (workflow.nodes || []).map((node) => ({
       id: String(node.id),
-      type: String(node.type),
+      type: normalizeNodeType(String(node.type)),
       position: node.position || { x: 0, y: 0 },
       data: { ...(node.data || {}) },
     }));
@@ -69,6 +71,14 @@ export class WorkflowSerializer {
         version: workflow.version || 1,
         nodes,
         edges,
+        variables: Array.isArray(workflow.variables)
+          ? workflow.variables.map((v) => ({
+              name: v.name,
+              type: v.type || 'string',
+              value: v.value,
+              description: v.description || '',
+            }))
+          : [],
         schedule: workflow.schedule || { enabled: false, cron: '' },
       },
       statistics: {
@@ -122,13 +132,19 @@ export class WorkflowSerializer {
     }
 
     const wfData = serializedData.workflow || serializedData;
+    const nodes = (wfData.nodes || []).map((node) => ({
+      ...node,
+      type: normalizeNodeType(String(node.type)),
+    }));
+
     return {
       name: wfData.name || 'Untitled Workflow',
       description: wfData.description || '',
       status: wfData.status || 'draft',
       version: wfData.version || 1,
-      nodes: wfData.nodes || [],
+      nodes,
       edges: wfData.edges || [],
+      variables: Array.isArray(wfData.variables) ? wfData.variables : [],
       schedule: wfData.schedule || { enabled: false, cron: '' },
     };
   }

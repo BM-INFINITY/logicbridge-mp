@@ -1,55 +1,58 @@
 const BaseNode = require('./BaseNode');
 const { NodeTypes, BranchTypes } = require('../constants');
-const { resolveVariable } = require('../utils');
+const { evaluateCondition, normalizeOperator } = require('../utils/ConditionEvaluator');
+
+const VALID_OPERATORS = [
+  'equals', 'not_equals', 'greater_than', 'less_than', 'greater_or_equal', 'less_or_equal',
+  'contains', 'not_contains', 'starts_with', 'ends_with', 'is_empty', 'is_not_empty',
+  'exists', 'does_not_exist', 'is_true', 'is_false', 'matches_regex', 'does_not_match_regex',
+];
 
 class ConditionNode extends BaseNode {
-  constructor() {
+  constructor(nodeType = NodeTypes.LOGIC_CONDITION) {
     super({
-      type: NodeTypes.LOGIC_CONDITION,
+      type: nodeType,
       name: 'If / Condition',
       category: 'logic',
-      icon: '🔀',
-      description: 'Evaluates conditional logic expressions (equals, contains, numeric comparison)',
-      version: '1.0.0',
+      icon: 'GitBranch',
+      description: 'Evaluates advanced conditional logic with AND/OR groups, type-aware comparisons, and regex',
+      version: '2.0.0',
     });
   }
 
+  validate(node) {
+    const data = node?.data || {};
+
+    if (Array.isArray(data.conditions) && data.conditions.length > 0) {
+      const combinator = String(data.combinator || 'and').toLowerCase();
+      if (!['and', 'or'].includes(combinator)) {
+        return { valid: false, error: 'Condition combinator must be "and" or "or"' };
+      }
+      return { valid: true };
+    }
+
+    if (data.operator) {
+      const norm = normalizeOperator(data.operator);
+      if (!VALID_OPERATORS.includes(norm)) {
+        return { valid: false, error: `Unsupported condition operator "${data.operator}"` };
+      }
+    }
+
+    return { valid: true };
+  }
+
   async execute(node, context) {
-    let { leftValue = '', operator = 'equals', rightValue = '' } = node.data || {};
-    const prev = context?.lastOutput;
-
-    let left = String(leftValue).includes('{{') ? resolveVariable(String(leftValue), context) : String(leftValue);
-    let right = String(rightValue).includes('{{') ? resolveVariable(String(rightValue), context) : String(rightValue);
-
-    // Allow fallback {{prev.fieldName}} references
-    if (prev && String(left).startsWith('{{')) {
-      const path = left.replace('{{', '').replace('}}', '').replace('prev.', '').trim();
-      left = String(path.split('.').reduce((o, k) => o?.[k], prev) ?? left);
-    }
-
-    let passed = false;
-    switch (operator) {
-      case 'equals':       passed = String(left) === String(right); break;
-      case 'not-equals':   passed = String(left) !== String(right); break;
-      case 'contains':     passed = String(left).includes(String(right)); break;
-      case 'greater-than': passed = Number(left) > Number(right); break;
-      case 'less-than':    passed = Number(left) < Number(right); break;
-      default:             passed = Boolean(left);
-    }
+    const data = node?.data || {};
+    const { passed, reason, evaluation } = evaluateCondition(data, context);
 
     const branch = passed ? BranchTypes.TRUE : BranchTypes.FALSE;
-    const reason = `Condition evaluated to ${passed ? 'TRUE' : 'FALSE'} (${left} ${operator} ${right})`;
 
     return {
       passed,
       branch,
       selectedBranch: branch,
       reason,
-      evaluation: {
-        leftValue: left,
-        operator,
-        rightValue: right,
-      },
+      evaluation,
       timestamp: new Date().toISOString(),
       result: reason,
     };

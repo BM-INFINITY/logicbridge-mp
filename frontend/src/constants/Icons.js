@@ -64,6 +64,7 @@ import {
   HardDrive,
   Cloud,
   Repeat,
+  GitFork,
 } from 'lucide-react';
 
 // ─── Node Type → Icon Component ──────────────────────────────────────────────
@@ -90,7 +91,10 @@ const NODE_ICONS = {
   'action-file': HardDrive,
   'action-storage': Cloud,
   'action-loop': Repeat,
+  'action-switch': GitFork,
+  'logic-switch': GitFork,
   'logic-condition': GitBranch,
+  'action-condition': GitBranch,
 };
 
 /**
@@ -199,6 +203,7 @@ export {
   HardDrive,
   Cloud,
   Repeat,
+  GitFork,
 
   // Template / search icons
   Search,

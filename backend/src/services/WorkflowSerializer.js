@@ -56,6 +56,12 @@ class WorkflowSerializer {
       version,
       nodes,
       edges,
+      variables: (rawWorkflow.variables || []).map((v) => ({
+        name: v.name,
+        type: v.type || 'string',
+        value: v.value,
+        description: v.description || '',
+      })),
       schedule: rawWorkflow.schedule || { enabled: false, cron: '' },
     };
 
@@ -114,6 +120,14 @@ class WorkflowSerializer {
 
     const nodes = serializationRegistry.deserializeNodes(wfData.nodes || []);
     const edges = serializationRegistry.deserializeEdges(wfData.edges || []);
+    const variables = Array.isArray(wfData.variables)
+      ? wfData.variables.map((v) => ({
+          name: v.name,
+          type: v.type || 'string',
+          value: v.value,
+          description: v.description || '',
+        }))
+      : [];
 
     return {
       name: wfData.name || 'Untitled Workflow',
@@ -122,6 +136,7 @@ class WorkflowSerializer {
       version: wfData.version || 1,
       nodes,
       edges,
+      variables,
       schedule: wfData.schedule || { enabled: false, cron: '' },
       warnings: validation.warnings || [],
     };
@@ -149,6 +164,7 @@ class WorkflowSerializer {
       checksumValid: Boolean(secondPass.manifest.checksum),
       nodeIdsPreserved: firstNodeIds === secondNodeIds,
       edgeIdsPreserved: firstEdgeIds === secondEdgeIds,
+      variablesPreserved: JSON.stringify(firstPass.workflow.variables || []) === JSON.stringify(secondPass.workflow.variables || []),
       nameMatch: firstPass.workflow.name === secondPass.workflow.name,
     };
 

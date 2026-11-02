@@ -31,14 +31,18 @@ export class ReactFlowAdapter {
    * @returns {Array} - Updated edges array
    */
   static connectEdges(params, existingEdges) {
-    // Check condition handle duplicate connection rules
-    if (params.sourceHandle === 'true' || params.sourceHandle === 'false') {
-      const duplicate = existingEdges.find(
-        (e) => e.source === params.source && e.sourceHandle === params.sourceHandle
-      );
-      if (duplicate) {
-        toast.error(`Condition node already has a ${params.sourceHandle.toUpperCase()} branch connected.`);
-        return existingEdges;
+    // Check condition and switch handle duplicate connection rules
+    if (params.sourceHandle && params.sourceHandle !== 'null') {
+      const isUniqueHandle = ['true', 'false', 'loop', 'done', 'default'].includes(params.sourceHandle) ||
+        params.sourceHandle.startsWith('case_');
+      if (isUniqueHandle) {
+        const duplicate = existingEdges.find(
+          (e) => e.source === params.source && e.sourceHandle === params.sourceHandle
+        );
+        if (duplicate) {
+          toast.error(`Node already has a connection from branch "${params.sourceHandle.toUpperCase()}".`);
+          return existingEdges;
+        }
       }
     }
 
@@ -46,8 +50,19 @@ export class ReactFlowAdapter {
     const isFalse = params.sourceHandle === 'false';
     const isLoop = params.sourceHandle === 'loop';
     const isDone = params.sourceHandle === 'done';
+    const isSwitchCase = params.sourceHandle && params.sourceHandle.startsWith('case_');
+    const isSwitchDefault = params.sourceHandle === 'default';
 
-    const branch = isTrue ? 'true' : isFalse ? 'false' : isLoop ? 'loop' : isDone ? 'done' : 'default';
+    const branch = isTrue
+      ? 'true'
+      : isFalse
+      ? 'false'
+      : isLoop
+      ? 'loop'
+      : isDone
+      ? 'done'
+      : (params.sourceHandle || 'default');
+
     const edgeColor = isTrue
       ? BranchColors.TRUE
       : isFalse
@@ -56,8 +71,25 @@ export class ReactFlowAdapter {
       ? (BranchColors.LOOP || '#06b6d4')
       : isDone
       ? (BranchColors.DONE || '#10b981')
+      : isSwitchCase
+      ? (BranchColors.SWITCH || '#8b5cf6')
+      : isSwitchDefault
+      ? (BranchColors.SWITCH_DEFAULT || '#64748b')
       : BranchColors.DEFAULT;
-    const labelText = isTrue ? 'True' : isFalse ? 'False' : isLoop ? 'Loop' : isDone ? 'Done' : undefined;
+
+    const labelText = isTrue
+      ? 'True'
+      : isFalse
+      ? 'False'
+      : isLoop
+      ? 'Loop'
+      : isDone
+      ? 'Done'
+      : isSwitchCase
+      ? params.sourceHandle.replace('case_', 'Case ')
+      : isSwitchDefault
+      ? 'Default'
+      : undefined;
 
     const edgePayload = {
       ...params,

@@ -21,7 +21,10 @@ export const DefaultNodeData = Object.freeze({
   [NodeTypes.ACTION_FILE]: { label: 'File Operations', operation: 'read_file', path: '', format: 'text', encoding: 'utf8', content: '', overwrite: true, append: false, destinationPath: '', ignoreMissing: false },
   [NodeTypes.ACTION_STORAGE]: { label: 'Storage Operations', provider: 'local', connectionId: '', operation: 'upload', key: '', bucket: '', region: 'us-east-1', content: '', format: 'text', prefix: '', limit: '100' },
   [NodeTypes.ACTION_LOOP]: { label: 'Loop / Batch', operation: 'loop_items', items: '', batchSize: 1, maxIterations: 500, onError: 'stop' },
-  [NodeTypes.LOGIC_CONDITION]: { label: 'If / Condition', leftValue: '', operator: 'equals', rightValue: '' },
+  [NodeTypes.ACTION_SWITCH]: { label: 'Switch / Router', input: '', mode: 'value', cases: [{ id: 'case_1', label: 'Case 1', operator: 'equals', value: '' }], defaultHandle: 'default' },
+  [NodeTypes.LOGIC_SWITCH]: { label: 'Switch / Router', input: '', mode: 'value', cases: [{ id: 'case_1', label: 'Case 1', operator: 'equals', value: '' }], defaultHandle: 'default' },
+  [NodeTypes.LOGIC_CONDITION]: { label: 'If / Condition', combinator: 'and', conditions: [], leftValue: '', operator: 'equals', rightValue: '' },
+  [NodeTypes.ACTION_CONDITION]: { label: 'If / Condition', combinator: 'and', conditions: [], leftValue: '', operator: 'equals', rightValue: '' },
 });
 
 export default DefaultNodeData;

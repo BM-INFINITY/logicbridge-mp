@@ -1,7 +1,17 @@
 const Execution = require('../models/Execution');
 const Workflow = require('../models/Workflow');
+const WorkflowSecret = require('../models/WorkflowSecret');
+const CredentialService = require('./CredentialService');
 const { registry } = require('../nodes');
-const { logError, ExecutionContext, ExecutionPath, TriggerContext, redactSecrets } = require('../utils');
+const {
+  logError,
+  ExecutionContext,
+  ExecutionPath,
+  TriggerContext,
+  redactSecrets,
+  registerActiveSecrets,
+  clearActiveSecrets,
+} = require('../utils');
 const { ExecutionStatus, NodeTypes, ExecutionEvents, BranchTypes } = require('../constants');
 const { ValidationError } = require('../errors');
 const BranchTraversal = require('./BranchTraversal');
@@ -151,9 +161,20 @@ async function executeNodeStep(node, context, executionPath, steps, workflow, me
     step.output = redactSecrets(output);
     context.setResult(node.id, output);
 
-    if (node.type === NodeTypes.LOGIC_CONDITION && output?.selectedBranch) {
+    if ((node.type === NodeTypes.LOGIC_CONDITION || node.type === NodeTypes.ACTION_CONDITION) && output?.selectedBranch) {
       executionPath.recordBranch(node.id, output.selectedBranch);
       executionPath.emitEvent(ExecutionEvents.CONDITION_EVALUATED, { nodeId: node.id, passed: output.passed });
+      executionPath.emitEvent(ExecutionEvents.BRANCH_SELECTED, { nodeId: node.id, selectedBranch: output.selectedBranch });
+    }
+
+    if ((node.type === NodeTypes.ACTION_SWITCH || node.type === NodeTypes.LOGIC_SWITCH) && output?.selectedBranch) {
+      executionPath.recordBranch(node.id, output.selectedBranch);
+      executionPath.emitEvent(ExecutionEvents.SWITCH_EVALUATED, {
+        nodeId: node.id,
+        selectedBranch: output.selectedBranch,
+        matchedCaseLabel: output.matchedCaseLabel,
+        matched: output.matched,
+      });
       executionPath.emitEvent(ExecutionEvents.BRANCH_SELECTED, { nodeId: node.id, selectedBranch: output.selectedBranch });
     }
 
@@ -371,11 +392,57 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
     console.warn(`[WorkflowEngine] Branch Warnings for workflow ${workflow._id}:`, branchWarnings);
   }
 
+  // Load and type-cast workflow variables
+  const variablesMap = {};
+  if (Array.isArray(workflow.variables)) {
+    for (const v of workflow.variables) {
+      if (v && v.name) {
+        let val = v.value;
+        if (v.type === 'number') {
+          val = Number(val);
+        } else if (v.type === 'boolean') {
+          val = val === true || val === 'true' || val === 1;
+        } else if (v.type === 'json' && typeof val === 'string') {
+          try {
+            val = JSON.parse(val);
+          } catch {
+            // Keep raw if invalid JSON
+          }
+        }
+        variablesMap[v.name] = val;
+      }
+    }
+  }
+
+  // Fetch and decrypt workflow secrets
+  const secretsMap = {};
+  if (workflow._id && ownerId) {
+    try {
+      const secretDocs = await WorkflowSecret.find({ workflowId: workflow._id, ownerId });
+      for (const s of secretDocs) {
+        if (s && s.name && s.encryptedValue) {
+          try {
+            const dec = CredentialService.decrypt(s.encryptedValue);
+            secretsMap[s.name] = dec;
+          } catch (decErr) {
+            console.warn(`[WorkflowEngine] Could not decrypt secret "${s.name}":`, decErr.message);
+          }
+        }
+      }
+    } catch (secErr) {
+      console.warn(`[WorkflowEngine] Error querying secrets for workflow ${workflow._id}:`, secErr.message);
+    }
+  }
+
+  registerActiveSecrets(secretsMap);
+
   const orderedNodes = buildExecutionOrder(workflow.nodes, workflow.edges);
   const context = new ExecutionContext({
     workflowId: workflow._id,
     ownerId,
     trigger,
+    variables: variablesMap,
+    secrets: secretsMap,
   });
   context.triggerPayload = triggerPayload;
   context.triggerContext = triggerContext;
@@ -384,78 +451,82 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
   const executedOutputs = {};
   const handledLoopBodyNodes = new Set();
 
-  for (const node of orderedNodes) {
-    // If node was already executed as part of an inner loop body, do not re-run in outer flow
-    if (handledLoopBodyNodes.has(node.id)) {
-      continue;
-    }
+  try {
+    for (const node of orderedNodes) {
+      // If node was already executed as part of an inner loop body, do not re-run in outer flow
+      if (handledLoopBodyNodes.has(node.id)) {
+        continue;
+      }
 
-    const stepStart = Date.now();
-    const handler = registry.get(node.type);
+      const stepStart = Date.now();
+      const handler = registry.get(node.type);
 
-    if (!handler) {
-      console.warn(`No registered handler for node type: ${node.type}`);
-      continue;
-    }
+      if (!handler) {
+        console.warn(`No registered handler for node type: ${node.type}`);
+        continue;
+      }
 
-    // Check branch reachability
-    const canExecute = BranchTraversal.isNodeExecutable(
-      node,
-      workflow.nodes,
-      workflow.edges,
-      executedOutputs,
-      executionPath.skippedNodes,
-      context
-    );
+      // Check branch reachability
+      const canExecute = BranchTraversal.isNodeExecutable(
+        node,
+        workflow.nodes,
+        workflow.edges,
+        executedOutputs,
+        executionPath.skippedNodes,
+        context
+      );
 
-    if (!canExecute) {
-      executionPath.recordSkipped(node.id);
-      executionPath.emitEvent(ExecutionEvents.NODE_SKIPPED, { nodeId: node.id, nodeType: node.type });
+      if (!canExecute) {
+        executionPath.recordSkipped(node.id);
+        executionPath.emitEvent(ExecutionEvents.NODE_SKIPPED, { nodeId: node.id, nodeType: node.type });
 
-      steps.push({
-        nodeId: node.id,
-        nodeName: node.data?.label || node.type,
-        nodeType: node.type,
-        status: ExecutionStatus.SKIPPED,
-        input: { ...node.data, _previousOutput: context.lastOutput },
-        output: { skippedReason: 'Branch not selected' },
-        error: null,
-        duration: 0,
-        startedAt: new Date(stepStart),
-        finishedAt: new Date(stepStart),
-      });
-      continue;
-    }
+        steps.push({
+          nodeId: node.id,
+          nodeName: node.data?.label || node.type,
+          nodeType: node.type,
+          status: ExecutionStatus.SKIPPED,
+          input: { ...node.data, _previousOutput: context.lastOutput },
+          output: { skippedReason: 'Branch not selected' },
+          error: null,
+          duration: 0,
+          startedAt: new Date(stepStart),
+          finishedAt: new Date(stepStart),
+        });
+        continue;
+      }
 
-    // Special orchestration for Loop Node (`action-loop`)
-    if (node.type === NodeTypes.ACTION_LOOP) {
+      // Special orchestration for Loop Node (`action-loop`)
+      if (node.type === NodeTypes.ACTION_LOOP) {
+        try {
+          await executeLoopStep(
+            node,
+            context,
+            executionPath,
+            steps,
+            workflow,
+            executedOutputs,
+            handledLoopBodyNodes
+          );
+        } catch (err) {
+          executionStatus = ExecutionStatus.FAILED;
+          executionError = `Loop Node "${node.data?.label || node.id}" failed: ${err.message}`;
+          break;
+        }
+        continue;
+      }
+
+      // Standard linear or condition node execution
       try {
-        await executeLoopStep(
-          node,
-          context,
-          executionPath,
-          steps,
-          workflow,
-          executedOutputs,
-          handledLoopBodyNodes
-        );
+        const output = await executeNodeStep(node, context, executionPath, steps, workflow);
+        executedOutputs[node.id] = output;
       } catch (err) {
         executionStatus = ExecutionStatus.FAILED;
-        executionError = `Loop Node "${node.data?.label || node.id}" failed: ${err.message}`;
+        executionError = `Node "${node.data?.label || node.type}" failed: ${err.message}`;
         break;
       }
-      continue;
     }
-
-    // Standard linear or condition node execution
-    try {
-      const output = await executeNodeStep(node, context, executionPath, steps, workflow);
-      executedOutputs[node.id] = output;
-    } catch (err) {
-      executionStatus = ExecutionStatus.FAILED;
-      executionError = `Node "${node.data?.label || node.type}" failed: ${err.message}`;
-      break;
-    }
+  } finally {
+    clearActiveSecrets();
   }
 
   const finishedAt = Date.now();

@@ -1,11 +1,24 @@
+const NODE_TYPE_ALIASES = {
+  'action-condition': 'logic-condition',
+  'logic-switch': 'action-switch',
+};
+
+function normalizeNodeType(type) {
+  return NODE_TYPE_ALIASES[type] || type;
+}
+
 /**
  * Serializer for workflow React Flow node graphs
  */
 class NodeSerializer {
+  static normalizeNodeType(type) {
+    return normalizeNodeType(type);
+  }
+
   static serialize(nodes = []) {
     return nodes.map((node) => ({
       id: String(node.id),
-      type: String(node.type),
+      type: normalizeNodeType(String(node.type)),
       position: node.position || { x: 0, y: 0 },
       data: { ...(node.data || {}) },
     }));

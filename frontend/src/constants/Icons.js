@@ -95,6 +95,11 @@ const NODE_ICONS = {
   'action-switch': GitFork,
   'action-approval': UserCheck,
   'action-wait': Clock,
+  'action-ai-generate': Sparkles,
+  'action-ai-chat': MessageSquare,
+  'action-ai-structured': Braces,
+  'action-ai-classify': Tag,
+  'action-ai-embeddings': Brain,
   'logic-switch': GitFork,
   'logic-condition': GitBranch,
   'action-condition': GitBranch,
@@ -124,6 +129,10 @@ const PROVIDER_ICON_MAP = {
   discord:       MessageCircle,
   aws_s3:        Cloud,
   s3:            Cloud,
+  openai:        Sparkles,
+  openrouter:    Globe,
+  anthropic:     Bot,
+  ollama:        Brain,
 };
 
 /**

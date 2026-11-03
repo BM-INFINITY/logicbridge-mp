@@ -10,7 +10,7 @@
  * 6. Serialization round-trip preservation
  */
 
-import { NodeTypes } from '../constants/NodeTypes.js';
+import { NodeTypes, NODE_TYPE_ALIASES } from '../constants/NodeTypes.js';
 import { DefaultNodeData } from '../constants/DefaultNodeData.js';
 import { NODE_DEFS } from '../data/templates.js';
 import { getNodeIcon } from '../constants/Icons.js';
@@ -60,6 +60,8 @@ async function runTests() {
   const waitEntries = paletteKeys.filter((k) => k === NodeTypes.ACTION_WAIT);
   check(approvalEntries.length === 1, 'Exactly one visible palette entry for action-approval');
   check(waitEntries.length === 1, 'Exactly one visible palette entry for action-wait');
+  check(!paletteKeys.includes('action-delay'), 'action-delay is not an enumerable key in NODE_DEFS (no palette duplicate)');
+  check(Boolean(NODE_DEFS['action-delay']), 'NODE_DEFS["action-delay"] remains accessible for legacy resolution');
 
   // ── Group 3: DefaultNodeData Configurations ───────────────────────────────
   console.log('\nGroup 3: DefaultNodeData Configurations');
@@ -191,6 +193,31 @@ async function runTests() {
     check(deserialized.nodes.length === 3, 'Deserialized all 3 nodes');
     const deserializedApproval = deserialized.nodes.find((n) => n.type === NodeTypes.ACTION_APPROVAL);
     check(deserializedApproval.data.title === 'Expense Approval', 'Preserved approval configuration across round-trip');
+  }
+
+  // ── Group 7: Legacy Delay Compatibility & Normalization ───────────────────
+  console.log('\nGroup 7: Legacy Delay Compatibility & Normalization');
+  {
+    check(NODE_TYPE_ALIASES['action-delay'] === 'action-wait', 'NODE_TYPE_ALIASES maps action-delay to action-wait');
+
+    const legacyValidation = NodeValidator.validateNode({
+      type: 'action-delay',
+      data: { seconds: 30 },
+    });
+    check(legacyValidation.valid, 'NodeValidator accepts legacy action-delay with seconds');
+
+    const legacyPkg = {
+      schemaVersion: '1.0.0',
+      workflow: {
+        nodes: [
+          { id: 'd1', type: 'action-delay', data: { seconds: 15, label: 'Delay 15s' } },
+        ],
+        edges: [],
+      },
+    };
+    const normalized = WorkflowSerializer.deserialize(legacyPkg);
+    check(normalized.nodes[0].type === NodeTypes.ACTION_WAIT, 'WorkflowSerializer normalizes action-delay to action-wait');
+    check(normalized.nodes[0].data.seconds === 15, 'WorkflowSerializer preserves seconds config');
   }
 
   console.log(`\nApproval & Wait Frontend Tests: ${passed} passed, ${failed} failed\n`);

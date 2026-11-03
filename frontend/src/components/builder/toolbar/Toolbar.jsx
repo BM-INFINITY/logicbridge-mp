@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload, Save, KeyRound, UserCheck } from 'lucide-react';
+import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload, Save, KeyRound, UserCheck, Calendar, Webhook } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useCanvasStore from '../../../store/canvasStore';
 import { WorkflowSerializer } from '../../../utils';
@@ -13,6 +13,8 @@ export default function Toolbar({
   onRun,
   onOpenVariables,
   onOpenApprovals,
+  onOpenSchedules,
+  onOpenWebhookEvents,
 }) {
   const { nodes, edges, setNodes, setEdges, running, saving, showAI, setShowAI, showTemplates, setShowTemplates } = useCanvasStore();
   const fileInputRef = useRef(null);
@@ -140,6 +142,24 @@ export default function Toolbar({
         >
           <UserCheck size={14} color="#ec4899" /> Approvals
         </button>
+
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={onOpenSchedules}
+          title="Manage Workflow Schedules & Recurrence"
+        >
+          <Calendar size={14} color="#38bdf8" /> Schedules
+        </button>
+
+        {nodes.some((n) => n.type === 'trigger-webhook') && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={onOpenWebhookEvents}
+            title="Inspect Incoming Webhook Deliveries"
+          >
+            <Webhook size={14} color="#22c55e" /> Webhooks
+          </button>
+        )}
 
         <button
           className="btn btn-secondary btn-sm"

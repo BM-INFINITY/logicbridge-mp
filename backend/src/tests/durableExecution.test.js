@@ -373,7 +373,7 @@ async function runTests() {
   try {
     await executionService.resumeByToken(resumeToken, { extra: 'retry' });
   } catch (err) {
-    duplicateResumeError = err.message.includes('no longer in a waiting state');
+    duplicateResumeError = err.message.includes('no longer in a waiting state') || err.message.includes('Invalid resume token');
   }
   check('Duplicate resume call safely rejected (idempotent)', duplicateResumeError);
 

@@ -784,6 +784,8 @@ async function resume(executionId, resumeOptions = {}, user = null) {
         resumedBy: execution.wait.resumedBy,
         resumePayload: execution.wait.resumePayload,
       };
+      // Enforce single-use token: invalidate resumeToken immediately upon resumption
+      execution.wait.resumeToken = null;
     }
 
     const executionPath = new ExecutionPath();

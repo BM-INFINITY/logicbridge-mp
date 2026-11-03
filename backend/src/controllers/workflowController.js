@@ -1,4 +1,4 @@
-const { workflowService, workflowEngine, aiGenerator, WorkflowSerializer } = require('../services');
+const { workflowService, workflowEngine, aiGenerator, WorkflowSerializer, webhookService } = require('../services');
 const { workflowValidator } = require('../validators');
 const { success, error } = require('../utils/ResponseHelper');
 const { WebhookPayload } = require('../utils');
@@ -138,14 +138,11 @@ const handleWebhook = async (req, res, next) => {
       return error(res, 'Workflow not found', 404);
     }
 
-    const webhookPayload = WebhookPayload.fromRequest(req);
-    const execution = await workflowEngine.run(workflow, workflow.owner, 'webhook', webhookPayload);
-    return success(res, {
-      message: 'Webhook received and workflow executed successfully',
-      executionId: execution._id,
-      status: execution.status,
-      duration: execution.duration,
-    });
+    const result = await webhookService.processWebhook(workflow, req, req.rawBody);
+    if (result.headers) {
+      res.set(result.headers);
+    }
+    return res.status(result.status).json(result.body);
   } catch (err) {
     return next(err);
   }

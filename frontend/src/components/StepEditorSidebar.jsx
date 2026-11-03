@@ -165,6 +165,7 @@ export default function StepEditorSidebar({
               setActivePickerField(fieldName);
               setShowVariablePicker(true);
             }}
+            workflowId={workflowId}
           />
         )}
 

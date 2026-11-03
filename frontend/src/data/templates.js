@@ -655,13 +655,6 @@ export const NODE_DEFS = {
       { name: 'message', type: 'text', label: 'Message' },
     ],
   },
-  'action-delay': {
-    label: 'Delay', icon: 'Timer', color: '#6c63ff', category: 'action',
-    configSchema: [
-      { name: 'label', type: 'text', label: 'Label' },
-      { name: 'seconds', type: 'number', label: 'Wait Seconds' },
-    ],
-  },
   'action-transform': {
     label: 'Transform Data', icon: 'Shuffle', color: '#8b5cf6', category: 'action',
     configSchema: [
@@ -875,6 +868,60 @@ export const NODE_DEFS = {
       { name: 'timeoutMinutes', type: 'number', label: 'Timeout (Minutes)' },
     ],
   },
+  'action-ai-generate': {
+    label: 'AI Generate', icon: 'Sparkles', color: '#8b5cf6', category: 'ai',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'anthropic', 'ollama'] },
+      { name: 'model', type: 'text', label: 'Model' },
+      { name: 'prompt', type: 'code', label: 'Prompt' },
+      { name: 'systemPrompt', type: 'text', label: 'System Prompt' },
+      { name: 'temperature', type: 'number', label: 'Temperature' },
+      { name: 'maxTokens', type: 'number', label: 'Max Tokens' },
+    ],
+  },
+  'action-ai-chat': {
+    label: 'AI Chat', icon: 'MessageSquare', color: '#8b5cf6', category: 'ai',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'anthropic', 'ollama'] },
+      { name: 'model', type: 'text', label: 'Model' },
+      { name: 'systemPrompt', type: 'text', label: 'System Prompt' },
+      { name: 'temperature', type: 'number', label: 'Temperature' },
+      { name: 'maxTokens', type: 'number', label: 'Max Tokens' },
+    ],
+  },
+  'action-ai-structured': {
+    label: 'AI Structured Output', icon: 'Braces', color: '#8b5cf6', category: 'ai',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'anthropic', 'ollama'] },
+      { name: 'model', type: 'text', label: 'Model' },
+      { name: 'prompt', type: 'code', label: 'Prompt' },
+      { name: 'schema', type: 'code', label: 'JSON Schema' },
+      { name: 'schemaName', type: 'text', label: 'Schema Name' },
+    ],
+  },
+  'action-ai-classify': {
+    label: 'AI Classification', icon: 'Tag', color: '#8b5cf6', category: 'ai',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'anthropic', 'ollama'] },
+      { name: 'model', type: 'text', label: 'Model' },
+      { name: 'input', type: 'text', label: 'Input Text' },
+      { name: 'categories', type: 'text', label: 'Categories' },
+    ],
+  },
+  'action-ai-embeddings': {
+    label: 'AI Embeddings', icon: 'Brain', color: '#8b5cf6', category: 'ai',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'ollama'] },
+      { name: 'model', type: 'text', label: 'Model' },
+      { name: 'input', type: 'text', label: 'Input Text' },
+      { name: 'dimensions', type: 'number', label: 'Dimensions' },
+    ],
+  },
 };
 
 // ── Backward-Compatibility Non-Enumerable Aliases ───────────────────────────
@@ -889,6 +936,13 @@ Object.defineProperty(NODE_DEFS, 'action-condition', {
 
 Object.defineProperty(NODE_DEFS, 'logic-switch', {
   value: NODE_DEFS['action-switch'],
+  enumerable: false,
+  configurable: true,
+  writable: true,
+});
+
+Object.defineProperty(NODE_DEFS, 'action-delay', {
+  value: NODE_DEFS['action-wait'],
   enumerable: false,
   configurable: true,
   writable: true,

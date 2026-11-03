@@ -164,6 +164,12 @@ async function resumeByToken(resumeToken, payload = {}) {
     throw error;
   }
 
+  if (execution.wait?.timeoutAt && new Date() > new Date(execution.wait.timeoutAt)) {
+    const error = new Error('Wait timeout has expired');
+    error.statusCode = 410;
+    throw error;
+  }
+
   return workflowEngine.resume(execution._id, {
     resumedBy: 'webhook_token',
     payload,

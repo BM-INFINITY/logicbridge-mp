@@ -410,6 +410,8 @@ h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; line-height: 1.25; }
 .node-action .flow-node-icon { background: rgba(108,99,255,0.2); color: var(--accent-primary); }
 /* Logic node */
 .node-logic .flow-node-icon { background: rgba(245,158,11,0.2); color: var(--accent-warning); }
+/* AI node */
+.node-ai .flow-node-icon { background: rgba(139,92,246,0.2); color: #8b5cf6; }
 
 /* ─── Builder Toolbar ─────────────────────────────────────── */
 .builder-toolbar {

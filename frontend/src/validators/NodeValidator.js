@@ -566,7 +566,7 @@ export class NodeValidator {
       }
     }
 
-    if (type === NodeTypes.ACTION_WAIT) {
+    if (type === NodeTypes.ACTION_WAIT || type === NodeTypes.ACTION_DELAY) {
       const waitType = String(data?.waitType || data?.type || 'duration').toLowerCase().trim();
       if (!['duration', 'date', 'event'].includes(waitType)) {
         return { valid: false, error: 'Wait type must be one of: duration, date, event' };
@@ -585,6 +585,104 @@ export class NodeValidator {
         const ev = data?.eventName ?? data?.event;
         if (!ev || String(ev).trim() === '') {
           return { valid: false, error: 'Event name is required for Wait event' };
+        }
+      }
+    }
+
+    if (type === NodeTypes.TRIGGER_WEBHOOK) {
+      const authType = String(data?.authType || 'none').toLowerCase().trim();
+      if (!['none', 'bearer', 'apikey', 'api_key', 'hmac'].includes(authType)) {
+        return { valid: false, error: 'Auth type must be one of: none, bearer, apiKey, hmac' };
+      }
+      if (authType === 'bearer' && (!data?.authToken || !String(data.authToken).trim())) {
+        return { valid: false, error: 'Bearer token is required when Bearer Auth is selected' };
+      }
+      if ((authType === 'apikey' || authType === 'api_key') && (!data?.apiKeyValue || !String(data.apiKeyValue).trim())) {
+        return { valid: false, error: 'API Key value is required when API Key Auth is selected' };
+      }
+      if (authType === 'hmac') {
+        if (!data?.hmacSecret || !String(data.hmacSecret).trim()) {
+          return { valid: false, error: 'HMAC secret is required when HMAC Signature is selected' };
+        }
+        const algo = String(data?.hmacAlgorithm || 'sha256').toLowerCase().trim();
+        if (!['sha256', 'sha512', 'sha1', 'md5'].includes(algo)) {
+          return { valid: false, error: `Invalid HMAC algorithm "${algo}". Supported: sha256, sha512, sha1` };
+        }
+      }
+      if (data?.responseStatus !== undefined && data?.responseStatus !== null && data?.responseStatus !== '') {
+        const status = parseInt(data.responseStatus, 10);
+        if (isNaN(status) || status < 100 || status > 599) {
+          return { valid: false, error: 'Response status code must be a valid HTTP status between 100 and 599' };
+        }
+      }
+    }
+
+    // AI / LLM Nodes
+    const isAiNode = [
+      NodeTypes.ACTION_AI_GENERATE,
+      NodeTypes.ACTION_AI_CHAT,
+      NodeTypes.ACTION_AI_STRUCTURED,
+      NodeTypes.ACTION_AI_CLASSIFY,
+      NodeTypes.ACTION_AI_EMBEDDINGS,
+    ].includes(type);
+
+    if (isAiNode) {
+      const provider = String(data?.provider || 'openai').toLowerCase().trim();
+      const validProviders = ['openai', 'openrouter', 'anthropic', 'ollama'];
+      if (!validProviders.includes(provider)) {
+        return { valid: false, error: `Invalid AI provider "${provider}". Supported: ${validProviders.join(', ')}` };
+      }
+
+      if (type === NodeTypes.ACTION_AI_EMBEDDINGS && provider === 'anthropic') {
+        return { valid: false, error: 'Anthropic does not support embeddings. Please select OpenAI, OpenRouter, or Ollama.' };
+      }
+
+      if (type === NodeTypes.ACTION_AI_GENERATE) {
+        if (!data?.prompt || !String(data.prompt).trim()) {
+          return { valid: false, error: 'Prompt is required for AI Generate' };
+        }
+      }
+
+      if (type === NodeTypes.ACTION_AI_CHAT) {
+        const hasMessages = Array.isArray(data?.messages) && data.messages.length > 0 && data.messages.some(m => String(m.content || '').trim().length > 0);
+        const hasPrompt = Boolean(data?.prompt && String(data.prompt).trim());
+        if (!hasMessages && !hasPrompt) {
+          return { valid: false, error: 'At least one message or prompt is required for AI Chat' };
+        }
+      }
+
+      if (type === NodeTypes.ACTION_AI_STRUCTURED) {
+        if (!data?.prompt || !String(data.prompt).trim()) {
+          return { valid: false, error: 'Prompt is required for AI Structured Output' };
+        }
+        if (!data?.schema || !String(data.schema).trim()) {
+          return { valid: false, error: 'JSON Schema is required for AI Structured Output' };
+        }
+        if (typeof data.schema === 'string') {
+          try {
+            JSON.parse(data.schema);
+          } catch {
+            return { valid: false, error: 'Invalid JSON Schema syntax' };
+          }
+        }
+      }
+
+      if (type === NodeTypes.ACTION_AI_CLASSIFY) {
+        if (!data?.input && !data?.text) {
+          return { valid: false, error: 'Input text is required for AI Classification' };
+        }
+        let cats = data?.categories;
+        if (typeof cats === 'string') {
+          cats = cats.split(',').map(c => c.trim()).filter(Boolean);
+        }
+        if (!Array.isArray(cats) || cats.length < 2) {
+          return { valid: false, error: 'At least two categories are required for AI Classification' };
+        }
+      }
+
+      if (type === NodeTypes.ACTION_AI_EMBEDDINGS) {
+        if (!data?.input && !data?.text) {
+          return { valid: false, error: 'Input text is required for AI Embeddings' };
         }
       }
     }

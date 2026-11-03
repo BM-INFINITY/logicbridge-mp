@@ -1,68 +1,80 @@
-const cron = require('node-cron');
-const Workflow = require('../models/Workflow');
-const workflowEngine = require('./workflowEngine');
-
-const activeTasks = new Map(); // workflowId → cron task
+const Schedule = require('../models/Schedule');
+const scheduleManager = require('./scheduleManager');
 
 /**
- * Start cron job for a single workflow
+ * Ensures a durable Schedule document exists for a workflow with trigger-schedule
+ * @param {object} workflow
  */
-function scheduleWorkflow(workflow) {
-  const cronExpr = workflow.nodes?.find(n => n.type === 'trigger-schedule')?.data?.cron;
-  if (!cronExpr) return;
-  if (!cron.validate(cronExpr)) {
-    console.warn(`[Scheduler] Invalid cron "${cronExpr}" for workflow "${workflow.name}"`);
-    return;
-  }
+async function scheduleWorkflow(workflow) {
+  try {
+    const cronExpr = workflow.nodes?.find((n) => n.type === 'trigger-schedule')?.data?.cron || workflow.schedule?.cron;
+    if (!cronExpr) return;
 
-  // Cancel existing task if re-scheduling
-  if (activeTasks.has(String(workflow._id))) {
-    activeTasks.get(String(workflow._id)).stop();
-  }
-
-  const task = cron.schedule(cronExpr, async () => {
-    console.log(`[Scheduler] Running workflow "${workflow.name}" (${workflow._id})`);
-    try {
-      const fresh = await Workflow.findById(workflow._id);
-      if (!fresh || fresh.status !== 'active') return;
-      await workflowEngine.run(fresh, fresh.owner, 'schedule');
-      console.log(`[Scheduler] ✅ Workflow "${workflow.name}" completed`);
-    } catch (err) {
-      console.error(`[Scheduler] ❌ Workflow "${workflow.name}" failed:`, err.message);
+    // Check if a schedule already exists for this workflow
+    let schedule = await Schedule.findOne({ workflow: workflow._id, owner: workflow.owner });
+    if (!schedule) {
+      schedule = await scheduleManager.createSchedule(
+        {
+          workflowId: workflow._id,
+          name: `${workflow.name} Schedule`,
+          type: 'recurring',
+          recurrence: 'cron',
+          cronExpression: cronExpr,
+          timezone: 'UTC',
+          enabled: true,
+        },
+        workflow.owner
+      );
+      console.log(`[Scheduler] Created durable schedule for "${workflow.name}" (${cronExpr})`);
+    } else {
+      schedule.cronExpression = cronExpr;
+      schedule.recurrence = 'cron';
+      schedule.enabled = true;
+      schedule.status = 'active';
+      schedule.nextRunAt = scheduleManager.calculateNextRun(schedule, new Date());
+      await schedule.save();
+      console.log(`[Scheduler] Updated durable schedule for "${workflow.name}" (${cronExpr})`);
     }
-  }, { timezone: 'Asia/Kolkata' });
-
-  activeTasks.set(String(workflow._id), task);
-  console.log(`[Scheduler] Scheduled "${workflow.name}" → cron: ${cronExpr} (IST)`);
-}
-
-/**
- * Stop a scheduled workflow
- */
-function unscheduleWorkflow(workflowId) {
-  const id = String(workflowId);
-  if (activeTasks.has(id)) {
-    activeTasks.get(id).stop();
-    activeTasks.delete(id);
-    console.log(`[Scheduler] Stopped schedule for workflow ${id}`);
+  } catch (err) {
+    console.error(`[Scheduler] scheduleWorkflow failed for ${workflow._id}:`, err.message);
   }
 }
 
 /**
- * Load all active scheduled workflows from DB on server start
+ * Pauses or disables the durable schedule for a workflow
+ * @param {string} workflowId
+ */
+async function unscheduleWorkflow(workflowId) {
+  try {
+    const schedule = await Schedule.findOne({ workflow: workflowId });
+    if (schedule) {
+      schedule.enabled = false;
+      schedule.status = 'paused';
+      schedule.nextRunAt = null;
+      await schedule.save();
+      console.log(`[Scheduler] Paused durable schedule for workflow ${workflowId}`);
+    }
+  } catch (err) {
+    console.error(`[Scheduler] unscheduleWorkflow failed for ${workflowId}:`, err.message);
+  }
+}
+
+/**
+ * Initializes durable schedule manager on backend startup
  */
 async function initScheduler() {
   try {
-    const workflows = await Workflow.find({ status: 'active' });
-    let count = 0;
-    for (const wf of workflows) {
-      const hasScheduleTrigger = wf.nodes?.some(n => n.type === 'trigger-schedule');
-      if (hasScheduleTrigger) { scheduleWorkflow(wf); count++; }
-    }
-    console.log(`[Scheduler] Initialized ${count} scheduled workflow(s)`);
+    // Start durable polling worker
+    scheduleManager.start(10000);
+    console.log('[Scheduler] Durable ScheduleManager initialized successfully');
   } catch (err) {
     console.error('[Scheduler] Init failed:', err.message);
   }
 }
 
-module.exports = { scheduleWorkflow, unscheduleWorkflow, initScheduler };
+module.exports = {
+  scheduleWorkflow,
+  unscheduleWorkflow,
+  initScheduler,
+  scheduleManager,
+};

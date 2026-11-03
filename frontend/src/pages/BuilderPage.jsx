@@ -16,6 +16,8 @@ import ExecutionPanel from '../components/ExecutionPanel';
 import StepEditorSidebar from '../components/StepEditorSidebar';
 import VariablesModal from '../components/VariablesModal';
 import ApprovalsModal from '../components/ApprovalsModal';
+import ScheduleModal from '../components/ScheduleModal';
+import WebhookEventsModal from '../components/WebhookEventsModal';
 import { ExecutionTimeline } from '../components/execution';
 import { instantiateTemplate } from '../utils';
 
@@ -54,6 +56,8 @@ function BuilderContent() {
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
   const [showVariables, setShowVariables] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
+  const [showSchedules, setShowSchedules] = useState(false);
+  const [showWebhookEvents, setShowWebhookEvents] = useState(false);
   const wrapperRef = useRef(null);
   const [rfInstance, setRfInstance] = useState(null);
 
@@ -202,6 +206,8 @@ function BuilderContent() {
         onRun={handleRun}
         onOpenVariables={() => setShowVariables(true)}
         onOpenApprovals={() => setShowApprovals(true)}
+        onOpenSchedules={() => setShowSchedules(true)}
+        onOpenWebhookEvents={() => setShowWebhookEvents(true)}
       />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -273,6 +279,18 @@ function BuilderContent() {
             setExecutionResult(updated);
           }
         }}
+      />
+      <ScheduleModal
+        isOpen={showSchedules}
+        onClose={() => setShowSchedules(false)}
+        workflowId={id}
+        workflowName={workflowName}
+      />
+      <WebhookEventsModal
+        isOpen={showWebhookEvents}
+        onClose={() => setShowWebhookEvents(false)}
+        workflowId={id}
+        workflowName={workflowName}
       />
     </div>
   );

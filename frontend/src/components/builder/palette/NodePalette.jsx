@@ -16,10 +16,10 @@ export default function NodePalette() {
       <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 12 }}>
         Drag onto canvas →
       </div>
-      {['trigger', 'action', 'logic'].map((cat) => (
+      {['trigger', 'action', 'logic', 'ai'].map((cat) => (
         <div key={cat} style={{ marginBottom: 12 }}>
           <div className="palette-section-title">
-            {cat === 'trigger' ? 'Triggers' : cat === 'action' ? 'Actions' : 'Logic'}
+            {cat === 'trigger' ? 'Triggers' : cat === 'action' ? 'Actions' : cat === 'logic' ? 'Logic' : 'AI / LLM'}
           </div>
           {Object.entries(NODE_DEFS)
             .filter(([, d]) => d.category === cat)

@@ -18,6 +18,8 @@ const SLACK_TOKEN_REGEX = /xox[baprs]-[A-Za-z0-9-]+/g;
 const AWS_ACCESS_KEY_REGEX = /\b(AKIA|ASIA|AROA)[0-9A-Z]{16}\b/g;
 const AWS_SIGNATURE_REGEX = /(Signature=)[0-9a-fA-F]{64}/gi;
 const AWS_SIGNED_URL_REGEX = /(X-Amz-(?:Signature|Security-Token)=)[^&\s]+/gi;
+const OPENAI_KEY_REGEX = /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/g;
+const ANTHROPIC_KEY_REGEX = /\bsk-ant-[A-Za-z0-9_-]{20,}\b/g;
 
 /**
  * Isolated redaction scope for an individual workflow execution.
@@ -187,7 +189,9 @@ function redactUriString(str, extraSecretValues = null, scopeOverride = null) {
     .replace(SLACK_TOKEN_REGEX, '[REDACTED]')
     .replace(AWS_ACCESS_KEY_REGEX, '$1[REDACTED]')
     .replace(AWS_SIGNATURE_REGEX, '$1[REDACTED]')
-    .replace(AWS_SIGNED_URL_REGEX, '$1[REDACTED]');
+    .replace(AWS_SIGNED_URL_REGEX, '$1[REDACTED]')
+    .replace(OPENAI_KEY_REGEX, '[REDACTED]')
+    .replace(ANTHROPIC_KEY_REGEX, '[REDACTED]');
 
   // Determine active scope
   const activeScope = scopeOverride || getActiveScope();

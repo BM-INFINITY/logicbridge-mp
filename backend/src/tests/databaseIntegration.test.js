@@ -52,6 +52,36 @@ async function runTests() {
     connectionString: 'mongodb://app_user:supersecretpassword123@localhost:27017/analytics',
   });
 
+  const axios = require('axios');
+  const originalAdapter = axios.defaults.adapter;
+  axios.defaults.adapter = async (config) => {
+    if (config.url && config.url.includes('posts/1')) {
+      return {
+        data: { id: 1, title: 'Sample Post' },
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json' },
+        config,
+      };
+    }
+    if (config.url && config.url.includes('users/1')) {
+      return {
+        data: { id: 1, name: 'Leanne Graham', email: 'Sincere@april.biz' },
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json' },
+        config,
+      };
+    }
+    return {
+      data: {},
+      status: 200,
+      statusText: 'OK',
+      headers: { 'content-type': 'application/json' },
+      config,
+    };
+  };
+
   try {
     // ── Chain 1: Database → Transform ─────────────────────────────────────────
     console.log('Chain 1: Database → Transform');
@@ -314,6 +344,7 @@ async function runTests() {
 
   } finally {
     ConnectionService.getDecryptedCredentials = originalGetCreds;
+    axios.defaults.adapter = originalAdapter;
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`);

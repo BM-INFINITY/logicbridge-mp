@@ -8,6 +8,8 @@ const workflowRoutes = require('./routes/workflows');
 const executionRoutes = require('./routes/executions');
 const connectionRoutes = require('./routes/connections');
 const oauthRoutes = require('./routes/oauth');
+const scheduleRoutes = require('./routes/schedules');
+const webhookRoutes = require('./routes/webhooks');
 const { initScheduler } = require('./services/scheduler');
 const { mailProvider } = require('./providers');
 
@@ -15,7 +17,14 @@ const app = express();
 
 // Middleware
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+    limit: '10mb',
+  })
+);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'LogicBridge API' }));
@@ -26,6 +35,8 @@ app.use('/api/workflows', workflowRoutes);
 app.use('/api/executions', executionRoutes);
 app.use('/api/connections', connectionRoutes);
 app.use('/api/oauth', oauthRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));

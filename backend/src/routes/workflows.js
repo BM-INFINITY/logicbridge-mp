@@ -46,8 +46,7 @@ router.post('/:id/secrets', protect, workflowController.createSecret);
 router.put('/:id/secrets/:secretId', protect, workflowController.updateSecret);
 router.delete('/:id/secrets/:secretId', protect, workflowController.deleteSecret);
 
-// POST /api/workflows/:id/webhook — public webhook trigger endpoint
-router.post('/:id/webhook', workflowController.handleWebhook);
-router.get('/:id/webhook', workflowController.handleWebhook);
+// ALL /api/workflows/:id/webhook — public webhook trigger endpoint (POST, GET, PUT, PATCH, DELETE)
+router.all('/:id/webhook', workflowController.handleWebhook);
 
 module.exports = router;

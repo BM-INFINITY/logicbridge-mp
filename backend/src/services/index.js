@@ -3,6 +3,8 @@ const workflowService = require('./workflowService');
 const executionService = require('./executionService');
 const workflowEngine = require('./workflowEngine');
 const scheduler = require('./scheduler');
+const scheduleManager = require('./scheduleManager');
+const webhookService = require('./webhookService');
 const aiGenerator = require('./aiGenerator');
 const BranchTraversal = require('./BranchTraversal');
 const WorkflowSerializer = require('./WorkflowSerializer');
@@ -16,6 +18,8 @@ module.exports = {
   executionService,
   workflowEngine,
   scheduler,
+  scheduleManager,
+  webhookService,
   aiGenerator,
   BranchTraversal,
   WorkflowSerializer,

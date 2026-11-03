@@ -1,6 +1,7 @@
 const NODE_TYPE_ALIASES = {
   'action-condition': 'logic-condition',
   'logic-switch': 'action-switch',
+  'action-delay': 'action-wait',
 };
 
 function normalizeNodeType(type) {

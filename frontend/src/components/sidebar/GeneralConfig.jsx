@@ -1,5 +1,5 @@
 import React from 'react';
-import { TextField, NumberField } from '../forms';
+import { TextField } from '../forms';
 
 export default function GeneralConfig({ nodeType, data, onChange, onOpenVariablePicker }) {
   const updateField = (key, val) => onChange({ ...data, [key]: val });
@@ -26,25 +26,9 @@ export default function GeneralConfig({ nodeType, data, onChange, onOpenVariable
         />
       )}
 
-      {nodeType === 'action-delay' && (
-        <NumberField
-          label="Seconds to wait"
-          value={data.seconds}
-          onChange={(val) => updateField('seconds', val)}
-          min={1}
-          max={3600}
-        />
-      )}
-
       {nodeType === 'trigger-manual' && (
         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
           Manual trigger node starts the workflow when clicked in the builder interface or via API execution endpoint.
-        </div>
-      )}
-
-      {nodeType === 'trigger-webhook' && (
-        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-          Webhook trigger node listens for incoming HTTP POST payloads to trigger workflow execution.
         </div>
       )}
     </div>

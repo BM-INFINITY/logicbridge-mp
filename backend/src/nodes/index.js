@@ -24,6 +24,12 @@ const LoopNode = require('./LoopNode');
 const SwitchNode = require('./SwitchNode');
 const ApprovalNode = require('./ApprovalNode');
 const WaitNode = require('./WaitNode');
+const BaseAINode = require('./BaseAINode');
+const AIGenerateNode = require('./AIGenerateNode');
+const AIChatNode = require('./AIChatNode');
+const AIStructuredOutputNode = require('./AIStructuredOutputNode');
+const AIClassifyNode = require('./AIClassifyNode');
+const AIEmbeddingsNode = require('./AIEmbeddingsNode');
 const { NodeTypes } = require('../constants');
 const registry = require('./registry');
 
@@ -54,6 +60,11 @@ const defaultNodes = [
   new SwitchNode(NodeTypes.ACTION_SWITCH),
   new ApprovalNode(),
   new WaitNode(),
+  new AIGenerateNode(),
+  new AIChatNode(),
+  new AIStructuredOutputNode(),
+  new AIClassifyNode(),
+  new AIEmbeddingsNode(),
 ];
 
 defaultNodes.forEach(nodeInstance => registry.register(nodeInstance));
@@ -86,4 +97,10 @@ module.exports = {
   SwitchNode,
   ApprovalNode,
   WaitNode,
+  BaseAINode,
+  AIGenerateNode,
+  AIChatNode,
+  AIStructuredOutputNode,
+  AIClassifyNode,
+  AIEmbeddingsNode,
 };

@@ -9,6 +9,7 @@ class NodeRegistry {
     this.aliases = new Map([
       ['action-condition', 'logic-condition'],
       ['logic-switch', 'action-switch'],
+      ['action-delay', 'action-wait'],
     ]);
   }
 

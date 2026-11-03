@@ -20,6 +20,8 @@ import LoopConfig from './LoopConfig';
 import SwitchConfig from './SwitchConfig';
 import ApprovalConfig from './ApprovalConfig';
 import WaitConfig from './WaitConfig';
+import WebhookConfig from './WebhookConfig';
+import AIConfig from './AIConfig';
 
 export default function SidebarFactory({
   nodeType,
@@ -28,6 +30,7 @@ export default function SidebarFactory({
   onAutoDetectCsv,
   autoDetectingCsv,
   onOpenVariablePicker,
+  workflowId,
 }) {
   switch (nodeType) {
     case 'action-http':
@@ -187,8 +190,31 @@ export default function SidebarFactory({
         />
       );
     case 'action-wait':
+    case 'action-delay':
       return (
         <WaitConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'trigger-webhook':
+      return (
+        <WebhookConfig
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+          workflowId={workflowId}
+        />
+      );
+    case 'action-ai-generate':
+    case 'action-ai-chat':
+    case 'action-ai-structured':
+    case 'action-ai-classify':
+    case 'action-ai-embeddings':
+      return (
+        <AIConfig
+          nodeType={nodeType}
           data={data}
           onChange={onChange}
           onOpenVariablePicker={onOpenVariablePicker}

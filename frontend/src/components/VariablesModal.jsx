@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useWorkflowStore from '../store/workflowStore';
+import ConfirmDialog from './ConfirmDialog';
 
 const BLOCKED_NAMES = new Set([
   '__proto__',
@@ -51,6 +52,21 @@ export default function VariablesModal({ isOpen, onClose, workflowId }) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [copiedKey, setCopiedKey] = useState(null);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (itemToDelete) setItemToDelete(null);
+        else if (isAdding || editingItem) resetForms();
+        else onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, itemToDelete, isAdding, editingItem, onClose]);
 
   // Variable Form State
   const [varName, setVarName] = useState('');
@@ -176,13 +192,30 @@ export default function VariablesModal({ isOpen, onClose, workflowId }) {
     }
   };
 
-  const handleDeleteVariable = async (varId, name) => {
-    if (!window.confirm(`Are you sure you want to delete variable "${name}"?`)) return;
+  const handleDeleteVariable = (varId, name) => {
+    setItemToDelete({ type: 'variable', id: varId, name });
+  };
+
+  const handleDeleteSecret = (secretId, name) => {
+    setItemToDelete({ type: 'secret', id: secretId, name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    setIsDeleting(true);
     try {
-      await deleteVariable(workflowId, varId);
-      toast.success(`Variable "${name}" deleted`);
+      if (itemToDelete.type === 'variable') {
+        await deleteVariable(workflowId, itemToDelete.id);
+        toast.success(`Variable "${itemToDelete.name}" deleted`);
+      } else {
+        await deleteSecret(workflowId, itemToDelete.id);
+        toast.success(`Secret "${itemToDelete.name}" deleted`);
+      }
+      setItemToDelete(null);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to delete variable');
+      toast.error(err.response?.data?.message || 'Failed to delete');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -236,15 +269,7 @@ export default function VariablesModal({ isOpen, onClose, workflowId }) {
     }
   };
 
-  const handleDeleteSecret = async (secretId, name) => {
-    if (!window.confirm(`Are you sure you want to delete secret "${name}"?`)) return;
-    try {
-      await deleteSecret(workflowId, secretId);
-      toast.success(`Secret "${name}" deleted`);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to delete secret');
-    }
-  };
+
 
   const renderTypeIcon = (type) => {
     switch (type) {
@@ -975,6 +1000,17 @@ export default function VariablesModal({ isOpen, onClose, workflowId }) {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(itemToDelete)}
+        title={itemToDelete?.type === 'secret' ? 'Delete Secret' : 'Delete Variable'}
+        message={`Are you sure you want to delete ${itemToDelete?.type === 'secret' ? 'secret' : 'variable'} "${itemToDelete?.name}"? Upstream or downstream steps referencing this expression may fail.`}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onClose={() => setItemToDelete(null)}
+      />
     </div>
   );
 }

@@ -13,20 +13,34 @@ export default function KeyValueTable({
   helperText,
 }) {
   return (
-    <div className="form-group">
+    <div className="form-group" style={{ width: '100%', minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        {title && <label className="form-label" style={{ margin: 0 }}>{title}</label>}
+        {title && (
+          <label
+            className="form-label"
+            style={{
+              margin: 0,
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+            }}
+          >
+            {title}
+          </label>
+        )}
         {onAdd && (
           <button
             type="button"
             onClick={onAdd}
             style={{
+              flexShrink: 0,
               background: 'none',
               border: 'none',
               color: 'var(--accent-primary)',
               fontSize: '0.72rem',
               cursor: 'pointer',
               fontWeight: 600,
+              padding: '2px 4px',
             }}
           >
             + Add Row
@@ -34,18 +48,39 @@ export default function KeyValueTable({
         )}
       </div>
       {items.map((item, i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center', width: '100%' }}>
           <input
             className="form-input"
-            style={{ fontSize: '0.75rem', padding: '5px', flex: 1 }}
+            style={{
+              fontSize: '0.75rem',
+              padding: '6px 8px',
+              flex: 1,
+              minWidth: 0,
+              boxSizing: 'border-box',
+              background: 'var(--bg-elevated)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm, 6px)',
+            }}
             placeholder={keyPlaceholder}
             value={item.key || ''}
             onChange={(e) => onUpdate(i, 'key', e.target.value)}
           />
-          <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1.2, minWidth: 0, display: 'flex', alignItems: 'center' }}>
             <input
               className="form-input"
-              style={{ fontSize: '0.75rem', padding: '5px', paddingRight: onInsertValueVariable ? '24px' : '5px', width: '100%' }}
+              style={{
+                fontSize: '0.75rem',
+                padding: '6px 8px',
+                paddingRight: onInsertValueVariable ? '26px' : '8px',
+                width: '100%',
+                minWidth: 0,
+                boxSizing: 'border-box',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm, 6px)',
+              }}
               placeholder={valuePlaceholder}
               value={item.value || ''}
               onChange={(e) => onUpdate(i, 'value', e.target.value)}
@@ -75,7 +110,15 @@ export default function KeyValueTable({
             <button
               type="button"
               onClick={() => onRemove(i)}
-              style={{ background: 'none', border: 'none', color: 'var(--accent-danger)', cursor: 'pointer', padding: 2 }}
+              style={{
+                flexShrink: 0,
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-danger)',
+                cursor: 'pointer',
+                padding: 4,
+              }}
+              title="Remove row"
             >
               <Trash2 size={13} />
             </button>
@@ -83,7 +126,7 @@ export default function KeyValueTable({
         </div>
       ))}
       {helperText && (
-        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>
+        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.4 }}>
           {helperText}
         </div>
       )}

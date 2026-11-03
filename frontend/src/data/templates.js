@@ -1591,26 +1591,26 @@ export const TEMPLATES = [
 
 export const NODE_DEFS = {
   'trigger-manual': {
-    label: 'Manual Trigger', icon: 'Zap', color: '#22c55e', category: 'trigger',
+    label: 'Manual Trigger', icon: 'Zap', color: '#22c55e', category: 'trigger', description: 'Trigger workflow execution manually on demand',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
     ],
   },
   'trigger-schedule': {
-    label: 'Schedule Trigger', icon: 'Clock', color: '#22c55e', category: 'trigger',
+    label: 'Schedule Trigger', icon: 'Clock', color: '#22c55e', category: 'trigger', description: 'Execute workflows on recurring cron schedule',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'cron', type: 'text', label: 'Cron Expression' },
     ],
   },
   'trigger-webhook': {
-    label: 'Webhook', icon: 'Webhook', color: '#22c55e', category: 'trigger',
+    label: 'Webhook', icon: 'Webhook', color: '#22c55e', category: 'trigger', description: 'Trigger execution via incoming HTTP webhook payload',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
     ],
   },
   'action-http': {
-    label: 'HTTP Request', icon: 'Globe', color: '#6c63ff', category: 'action',
+    label: 'HTTP Request', icon: 'Globe', color: '#6c63ff', category: 'action', description: 'Send REST API requests with auth, headers, and params',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'url', type: 'text', label: 'URL' },
@@ -1621,14 +1621,14 @@ export const NODE_DEFS = {
     ],
   },
   'action-log': {
-    label: 'Log Output', icon: 'FileText', color: '#6c63ff', category: 'action',
+    label: 'Log Output', icon: 'FileText', color: '#6c63ff', category: 'action', description: 'Log structured messages and variables to output console',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'message', type: 'text', label: 'Message' },
     ],
   },
   'action-transform': {
-    label: 'Transform Data', icon: 'Shuffle', color: '#8b5cf6', category: 'action',
+    label: 'Transform Data', icon: 'Shuffle', color: '#8b5cf6', category: 'action', description: 'Map, pick, omit, and reshape JSON and array structures',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'operation', type: 'select', label: 'Operation', options: ['map', 'pick', 'omit', 'set', 'remove', 'array-map', 'array-filter', 'array-find', 'array-first', 'array-last', 'array-length'] },
@@ -1638,7 +1638,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-email': {
-    label: 'Send Email', icon: 'Mail', color: '#6c63ff', category: 'action',
+    label: 'Send Email', icon: 'Mail', color: '#6c63ff', category: 'action', description: 'Send emails via SMTP or cloud email service',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'to', type: 'text', label: 'Recipient Email' },
@@ -1647,7 +1647,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-csv': {
-    label: 'Generate CSV', icon: 'Table', color: '#10b981', category: 'action',
+    label: 'Generate CSV', icon: 'Table', color: '#10b981', category: 'action', description: 'Generate, parse, and format CSV tabular data',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'columns', type: 'columns', label: 'CSV Columns' },
@@ -1657,7 +1657,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-json': {
-    label: 'JSON', icon: 'Braces', color: '#f59e0b', category: 'action',
+    label: 'JSON', icon: 'Braces', color: '#f59e0b', category: 'action', description: 'Parse, query, set, or stringify nested JSON data',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'operation', type: 'select', label: 'Operation', options: ['parse', 'stringify', 'get', 'set', 'remove'] },
@@ -1668,7 +1668,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-text': {
-    label: 'Text', icon: 'Type', color: '#06b6d4', category: 'action',
+    label: 'Text', icon: 'Type', color: '#06b6d4', category: 'action', description: 'Transform, split, join, or slice text string values',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'operation', type: 'select', label: 'Operation', options: ['uppercase', 'lowercase', 'trim', 'replace', 'contains', 'startsWith', 'endsWith', 'split', 'join', 'length', 'substring'] },
@@ -1676,7 +1676,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-math': {
-    label: 'Math', icon: 'Calculator', color: '#8b5cf6', category: 'action',
+    label: 'Math', icon: 'Calculator', color: '#8b5cf6', category: 'action', description: 'Perform arithmetic, rounding, and math operations',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'operation', type: 'select', label: 'Operation', options: ['add', 'subtract', 'multiply', 'divide', 'modulo', 'round', 'floor', 'ceil', 'absolute', 'min', 'max', 'percentage'] },
@@ -1685,7 +1685,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-date': {
-    label: 'Date & Time', icon: 'Calendar', color: '#ec4899', category: 'action',
+    label: 'Date & Time', icon: 'Calendar', color: '#ec4899', category: 'action', description: 'Parse, format, manipulate, and compare dates',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'operation', type: 'select', label: 'Operation', options: ['now', 'parse', 'format', 'add', 'subtract', 'compare', 'difference'] },
@@ -1696,7 +1696,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-postgres': {
-    label: 'PostgreSQL', icon: 'Database', color: '#336791', category: 'action',
+    label: 'PostgreSQL', icon: 'Database', color: '#336791', category: 'action', description: 'Execute SQL queries and CRUD operations on PostgreSQL',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'connectionId', type: 'select', label: 'Connection' },
@@ -1710,7 +1710,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-mongodb': {
-    label: 'MongoDB', icon: 'Database', color: '#13aa52', category: 'action',
+    label: 'MongoDB', icon: 'Database', color: '#13aa52', category: 'action', description: 'Query and manipulate documents in MongoDB database',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'connectionId', type: 'select', label: 'Connection' },
@@ -1723,7 +1723,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-google-sheets': {
-    label: 'Google Sheets', icon: 'Table', color: '#0f9d58', category: 'action',
+    label: 'Google Sheets', icon: 'Table', color: '#0f9d58', category: 'action', description: 'Read, write, and update rows in Google Sheets',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'connectionId', type: 'select', label: 'Connection' },
@@ -1737,7 +1737,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-slack': {
-    label: 'Slack', icon: 'MessageSquare', color: '#e01e5a', category: 'action',
+    label: 'Slack', icon: 'MessageSquare', color: '#e01e5a', category: 'action', description: 'Post messages and blocks to Slack channels',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'connectionId', type: 'select', label: 'Connection' },
@@ -1750,7 +1750,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-discord': {
-    label: 'Discord', icon: 'MessageCircle', color: '#5865f2', category: 'action',
+    label: 'Discord', icon: 'MessageCircle', color: '#5865f2', category: 'action', description: 'Send messages, embeds, or webhook alerts to Discord',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'connectionId', type: 'select', label: 'Connection' },
@@ -1766,7 +1766,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-file': {
-    label: 'File Operations', icon: 'HardDrive', color: '#10b981', category: 'action',
+    label: 'File Operations', icon: 'HardDrive', color: '#10b981', category: 'action', description: 'Read, write, move, or delete local filesystem files',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'operation', type: 'select', label: 'Operation', options: ['read_file', 'write_file', 'create_file', 'delete_file', 'get_metadata', 'move_file'] },
@@ -1777,7 +1777,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-storage': {
-    label: 'Storage', icon: 'Cloud', color: '#ff9900', category: 'action',
+    label: 'Storage', icon: 'Cloud', color: '#ff9900', category: 'action', description: 'Upload, download, and manage files in AWS S3 storage',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'provider', type: 'select', label: 'Provider', options: ['local', 'aws_s3'] },
@@ -1789,7 +1789,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-loop': {
-    label: 'Loop', icon: 'Repeat', color: '#06b6d4', category: 'logic',
+    label: 'Loop', icon: 'Repeat', color: '#06b6d4', category: 'logic', description: 'Iterate over collections, arrays, batches, or ranges',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'operation', type: 'select', label: 'Operation', options: ['loop_items', 'loop_batch', 'loop_range'] },
@@ -1800,7 +1800,7 @@ export const NODE_DEFS = {
     ],
   },
   'logic-condition': {
-    label: 'Condition', icon: 'GitBranch', color: '#f59e0b', category: 'logic',
+    label: 'Condition', icon: 'GitBranch', color: '#f59e0b', category: 'logic', description: 'Branch workflow execution conditionally based on IF/ELSE',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'leftValue', type: 'text', label: 'Left Field' },
@@ -1809,7 +1809,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-switch': {
-    label: 'Switch / Router', icon: 'GitFork', color: '#8b5cf6', category: 'logic',
+    label: 'Switch / Router', icon: 'GitFork', color: '#8b5cf6', category: 'logic', description: 'Route execution across multiple branches based on rules',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'input', type: 'text', label: 'Input Expression' },
@@ -1817,7 +1817,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-approval': {
-    label: 'Human Approval', icon: 'UserCheck', color: '#ec4899', category: 'action',
+    label: 'Human Approval', icon: 'UserCheck', color: '#ec4899', category: 'action', description: 'Pause workflow execution until human approves or rejects',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'title', type: 'text', label: 'Approval Title' },
@@ -1830,7 +1830,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-wait': {
-    label: 'Wait / Delay', icon: 'Clock', color: '#0ea5e9', category: 'action',
+    label: 'Wait / Delay', icon: 'Clock', color: '#0ea5e9', category: 'action', description: 'Pause workflow execution for duration, timestamp, or event',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'waitType', type: 'select', label: 'Wait Type', options: ['duration', 'date', 'event'] },
@@ -1841,7 +1841,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-ai-generate': {
-    label: 'AI Generate', icon: 'Sparkles', color: '#8b5cf6', category: 'ai',
+    label: 'AI Generate', icon: 'Sparkles', color: '#8b5cf6', category: 'ai', description: 'Generate text or code using LLM provider',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'anthropic', 'ollama'] },
@@ -1853,7 +1853,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-ai-chat': {
-    label: 'AI Chat', icon: 'MessageSquare', color: '#8b5cf6', category: 'ai',
+    label: 'AI Chat', icon: 'MessageSquare', color: '#8b5cf6', category: 'ai', description: 'Multi-turn conversational completion with LLM models',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'anthropic', 'ollama'] },
@@ -1864,7 +1864,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-ai-structured': {
-    label: 'AI Structured Output', icon: 'Braces', color: '#8b5cf6', category: 'ai',
+    label: 'AI Structured Output', icon: 'Braces', color: '#8b5cf6', category: 'ai', description: 'Extract structured JSON matching a strict schema',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'anthropic', 'ollama'] },
@@ -1875,7 +1875,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-ai-classify': {
-    label: 'AI Classification', icon: 'Tag', color: '#8b5cf6', category: 'ai',
+    label: 'AI Classification', icon: 'Tag', color: '#8b5cf6', category: 'ai', description: 'Classify text into designated categories using AI',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'anthropic', 'ollama'] },
@@ -1885,7 +1885,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-ai-embeddings': {
-    label: 'AI Embeddings', icon: 'Brain', color: '#8b5cf6', category: 'ai',
+    label: 'AI Embeddings', icon: 'Brain', color: '#8b5cf6', category: 'ai', description: 'Generate vector embeddings for semantic search',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'ollama'] },
@@ -1895,7 +1895,7 @@ export const NODE_DEFS = {
     ],
   },
   'action-ai-agent': {
-    label: 'AI Agent', icon: 'Bot', color: '#8b5cf6', category: 'ai',
+    label: 'AI Agent', icon: 'Bot', color: '#8b5cf6', category: 'ai', description: 'Autonomous AI Agent with multi-step reasoning and tool calling',
     configSchema: [
       { name: 'label', type: 'text', label: 'Label' },
       { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'anthropic', 'ollama'] },

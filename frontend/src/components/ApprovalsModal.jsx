@@ -34,6 +34,15 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !decidingId) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, decidingId, onClose]);
+
   const handleDecide = async (executionId, decision) => {
     setDecidingId(executionId);
     try {
@@ -84,7 +93,7 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
           background: 'var(--bg-surface)',
           border: '1px solid var(--border-color)',
           borderRadius: 'var(--radius-lg)',
-          width: '100%',
+          width: 'min(640px, 94vw)',
           maxWidth: 640,
           maxHeight: '85vh',
           display: 'flex',

@@ -65,7 +65,7 @@ export default function TemplateDetailsModal({
         id="template-details-modal"
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '100%', maxWidth: 860,
+          width: 'min(860px, 95vw)', maxWidth: 860,
           background: 'var(--bg-base)',
           border: '1px solid var(--border)',
           borderRadius: 24,

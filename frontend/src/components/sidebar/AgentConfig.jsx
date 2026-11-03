@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Wrench,
-  Shield,
   Key,
   Sliders,
   Code,
@@ -11,100 +10,17 @@ import {
   CheckSquare,
   Square,
 } from 'lucide-react';
+import { TextField, SelectField, CodeEditor, NumberField, SwitchField } from '../forms';
+import SidebarSection from './SidebarSection';
+import { Badge } from '../ui';
 
-const PROVIDER_OPTIONS = [
-  { value: 'openai', label: 'OpenAI', defaultBaseUrl: 'https://api.openai.com/v1' },
-  { value: 'openrouter', label: 'OpenRouter', defaultBaseUrl: 'https://openrouter.ai/api/v1' },
-  { value: 'anthropic', label: 'Anthropic (Claude)', defaultBaseUrl: 'https://api.anthropic.com/v1' },
-  { value: 'ollama', label: 'Ollama (Local)', defaultBaseUrl: 'http://localhost:11434' },
-];
-
-const SUGGESTED_MODELS = {
-  openai: ['gpt-4o-mini', 'gpt-4o'],
-  openrouter: ['openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet', 'meta-llama/llama-3.1-8b-instruct'],
-  anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'],
-  ollama: ['llama3', 'mistral', 'qwen2.5'],
-};
-
-const AVAILABLE_TOOLS = [
-  {
-    id: 'http_request',
-    name: 'HTTP Request',
-    category: 'Network',
-    description: 'Execute GET/POST/PUT/DELETE web requests to APIs',
-    sensitive: false,
-  },
-  {
-    id: 'transform_data',
-    name: 'Transform Data',
-    category: 'Data',
-    description: 'Map, extract, or pick fields from JSON objects and arrays',
-    sensitive: false,
-  },
-  {
-    id: 'json_utility',
-    name: 'JSON Utility',
-    category: 'Utility',
-    description: 'Parse, stringify, get, or set nested JSON properties',
-    sensitive: false,
-  },
-  {
-    id: 'text_utility',
-    name: 'Text Utility',
-    category: 'Utility',
-    description: 'Case conversion, find/replace, substring, trimming',
-    sensitive: false,
-  },
-  {
-    id: 'math_utility',
-    name: 'Math Utility',
-    category: 'Utility',
-    description: 'Calculations: add, subtract, multiply, divide, round, power',
-    sensitive: false,
-  },
-  {
-    id: 'date_utility',
-    name: 'Date Utility',
-    category: 'Utility',
-    description: 'Current timestamp, format date, diff, time add/subtract',
-    sensitive: false,
-  },
-  {
-    id: 'database_query',
-    name: 'Database Query',
-    category: 'Database',
-    description: 'Query PostgreSQL or MongoDB collections (mutations are sensitive)',
-    sensitive: false,
-  },
-  {
-    id: 'google_sheets',
-    name: 'Google Sheets',
-    category: 'Database',
-    description: 'Read or append rows in spreadsheets (append is sensitive)',
-    sensitive: false,
-  },
-  {
-    id: 'slack_message',
-    name: 'Slack Message',
-    category: 'Communication',
-    description: 'Send messages or query Slack channels',
-    sensitive: true,
-  },
-  {
-    id: 'discord_message',
-    name: 'Discord Message',
-    category: 'Communication',
-    description: 'Post messages or alerts to Discord channels',
-    sensitive: true,
-  },
-  {
-    id: 'file_storage',
-    name: 'File Storage',
-    category: 'Storage',
-    description: 'Read and write sandboxed files in workspace (write is sensitive)',
-    sensitive: false,
-  },
-];
+import {
+  PROVIDER_OPTIONS,
+  SUGGESTED_MODELS,
+  AVAILABLE_TOOLS,
+  CATEGORY_FILTERS,
+} from '../../constants/AgentTools';
+export { AVAILABLE_TOOLS };
 
 export default function AgentConfig({
   data = {},
@@ -113,6 +29,7 @@ export default function AgentConfig({
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSchema, setShowSchema] = useState(Boolean(data.responseSchema));
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState('all');
 
   const provider = data.provider || 'openai';
   const currentModels = SUGGESTED_MODELS[provider] || [];
@@ -140,54 +57,82 @@ export default function AgentConfig({
   };
 
   const selectUtilityTools = () => {
-    handleFieldChange('tools', ['http_request', 'json_utility', 'text_utility', 'math_utility', 'date_utility']);
+    handleFieldChange(
+      'tools',
+      AVAILABLE_TOOLS.filter((t) => t.categoryGroup === 'utility').map((t) => t.id)
+    );
   };
 
   const deselectAllTools = () => {
     handleFieldChange('tools', []);
   };
 
+  const filteredTools = activeCategoryFilter === 'all'
+    ? AVAILABLE_TOOLS
+    : AVAILABLE_TOOLS.filter((t) => t.categoryGroup === activeCategoryFilter);
+
   return (
-    <div className="space-y-4 text-xs" style={{ padding: '4px 0' }}>
-      {/* Provider & Model Header */}
-      <div>
-        <label className="block text-gray-300 font-medium mb-1">
-          LLM Provider <span className="text-red-400">*</span>
-        </label>
-        <select
-          value={provider}
-          onChange={(e) => {
-            const nextProv = e.target.value;
-            const defaultModel = SUGGESTED_MODELS[nextProv]?.[0] || '';
-            onChange({
-              ...data,
-              provider: nextProv,
-              model: defaultModel,
-            });
-          }}
-          className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none"
-        >
-          {PROVIDER_OPTIONS.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0, width: '100%' }}>
+      {/* ── 1. Provider & Model ────────────────────────────────────────────── */}
+      <SelectField
+        label="LLM Provider"
+        required
+        value={provider}
+        onChange={(nextProv) => {
+          const defaultModel = SUGGESTED_MODELS[nextProv]?.[0] || '';
+          onChange({
+            ...data,
+            provider: nextProv,
+            model: defaultModel,
+          });
+        }}
+        options={PROVIDER_OPTIONS}
+      />
 
       <div>
-        <div className="flex justify-between items-center mb-1">
-          <label className="block text-gray-300 font-medium">Model</label>
-          <span className="text-gray-500 text-[10px]">e.g. gpt-4o-mini</span>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            marginBottom: 2,
+            minWidth: 0,
+          }}
+        >
+          <label
+            className="form-label"
+            style={{
+              margin: 0,
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+            }}
+          >
+            Model Name
+          </label>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            e.g. {SUGGESTED_MODELS[provider]?.[0] || 'gpt-4o-mini'}
+          </span>
         </div>
-        <div className="relative">
+        <div style={{ position: 'relative', width: '100%' }}>
           <input
             type="text"
             list="agent-model-suggestions"
             value={data.model || ''}
             onChange={(e) => handleFieldChange('model', e.target.value)}
-            placeholder="Select or enter model identifier..."
-            className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none"
+            placeholder="Select or type model identifier..."
+            className="form-input"
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              fontSize: '0.8rem',
+              padding: '8px 10px',
+              borderRadius: 'var(--radius-sm, 8px)',
+              background: 'var(--bg-elevated)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
           />
           <datalist id="agent-model-suggestions">
             {currentModels.map((m) => (
@@ -197,145 +142,276 @@ export default function AgentConfig({
         </div>
       </div>
 
-      {/* Authentication & Endpoint */}
-      <div className="border border-gray-800 rounded p-3 bg-gray-900/50 space-y-3">
-        <div className="flex items-center gap-1.5 font-medium text-gray-300">
-          <Key size={13} className="text-purple-400" />
-          <span>Authentication</span>
+      {/* ── 2. Authentication & Endpoint ─────────────────────────────────── */}
+      <div
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm, 8px)',
+          padding: 12,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          minWidth: 0,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: '0.78rem',
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+          }}
+        >
+          <Key size={13} style={{ color: 'var(--accent-primary)' }} />
+          <span>Authentication & Endpoint</span>
         </div>
 
         {provider !== 'ollama' && (
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-gray-400">API Key / Secret Expression</label>
-              <button
-                type="button"
-                onClick={() => onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('apiKey', val))}
-                className="text-[10px] text-purple-400 hover:text-purple-300"
-              >
-                + Variable
-              </button>
-            </div>
-            <input
-              type="password"
-              value={data.apiKey || ''}
-              onChange={(e) => handleFieldChange('apiKey', e.target.value)}
-              placeholder="{{secrets.OPENAI_API_KEY}} or sk-..."
-              className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none"
-            />
-          </div>
+          <TextField
+            label="API Key / Secret Expression"
+            placeholder="{{secrets.OPENAI_API_KEY}} or sk-..."
+            type="password"
+            value={data.apiKey || ''}
+            onChange={(val) => handleFieldChange('apiKey', val)}
+            onInsertVariable={() =>
+              onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('apiKey', val))
+            }
+            helperText="Use {{secrets.KEY}} to safely load encrypted credentials."
+          />
         )}
 
-        <div>
-          <label className="block text-gray-400 mb-1">
-            Base URL {provider === 'ollama' ? '(Default: http://localhost:11434)' : '(Optional custom proxy)'}
-          </label>
-          <input
-            type="text"
-            value={data.baseUrl || ''}
-            onChange={(e) => handleFieldChange('baseUrl', e.target.value)}
-            placeholder={
-              provider === 'ollama'
-                ? 'http://localhost:11434'
-                : PROVIDER_OPTIONS.find((p) => p.value === provider)?.defaultBaseUrl || ''
-            }
-            className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none"
-          />
-        </div>
-      </div>
-
-      {/* System Instructions & User Prompt */}
-      <div>
-        <div className="flex justify-between items-center mb-1">
-          <label className="text-gray-300 font-medium">System Instructions</label>
-          <button
-            type="button"
-            onClick={() => onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('systemPrompt', (data.systemPrompt || '') + val))}
-            className="text-[10px] text-purple-400 hover:text-purple-300"
-          >
-            + Variable
-          </button>
-        </div>
-        <textarea
-          rows={2}
-          value={data.systemPrompt || ''}
-          onChange={(e) => handleFieldChange('systemPrompt', e.target.value)}
-          placeholder="You are an autonomous AI Agent that solves tasks step-by-step using available tools."
-          className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none font-mono"
+        <TextField
+          label={`Base URL ${provider === 'ollama' ? '(Default: http://localhost:11434)' : '(Optional Custom Proxy)'}`}
+          placeholder={
+            provider === 'ollama'
+              ? 'http://localhost:11434'
+              : PROVIDER_OPTIONS.find((p) => p.value === provider)?.defaultBaseUrl || 'https://api.openai.com/v1'
+          }
+          value={data.baseUrl || ''}
+          onChange={(val) => handleFieldChange('baseUrl', val)}
         />
       </div>
 
-      <div>
-        <div className="flex justify-between items-center mb-1">
-          <label className="text-gray-300 font-medium">
-            Task / Objective Prompt <span className="text-red-400">*</span>
-          </label>
-          <button
-            type="button"
-            onClick={() => onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('prompt', (data.prompt || '') + val))}
-            className="text-[10px] text-purple-400 hover:text-purple-300"
-          >
-            + Variable
-          </button>
-        </div>
-        <textarea
-          rows={4}
-          value={data.prompt || ''}
-          onChange={(e) => handleFieldChange('prompt', e.target.value)}
-          placeholder="Fetch customer data for order {{steps.trigger.orderId}} and summarize the status..."
-          className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none font-mono"
-        />
-      </div>
+      {/* ── 3. System Instructions & User Prompt ─────────────────────────── */}
+      <CodeEditor
+        label="System Instructions"
+        placeholder="You are an autonomous AI Agent that solves tasks step-by-step using authorized tools."
+        value={data.systemPrompt || ''}
+        onChange={(val) => handleFieldChange('systemPrompt', val)}
+        onInsertVariable={() =>
+          onOpenVariablePicker &&
+          onOpenVariablePicker((val) => handleFieldChange('systemPrompt', (data.systemPrompt || '') + val))
+        }
+        minLines={3}
+        helperText="Defines the agent persona, role, reasoning behavior, and constraints."
+      />
 
-      {/* Available Tools Allowlist */}
-      <div className="border border-gray-800 rounded p-3 bg-gray-900/50 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 font-medium text-gray-300">
-            <Wrench size={13} className="text-purple-400" />
-            <span>Authorized Tools ({selectedTools.length})</span>
+      <CodeEditor
+        label="Objective / Task Prompt"
+        required
+        placeholder="Fetch customer data for order {{steps.trigger.orderId}} and summarize the status..."
+        value={data.prompt || ''}
+        onChange={(val) => handleFieldChange('prompt', val)}
+        onInsertVariable={() =>
+          onOpenVariablePicker &&
+          onOpenVariablePicker((val) => handleFieldChange('prompt', (data.prompt || '') + val))
+        }
+        minLines={4}
+        helperText="Main goal or question the agent will solve using available tools."
+      />
+
+      {/* ── 4. Authorized Tools Allowlist ─────────────────────────────────── */}
+      <div
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm, 8px)',
+          padding: 12,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          minWidth: 0,
+        }}
+      >
+        {/* Header row with wrap support */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 8,
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+            }}
+          >
+            <Wrench size={13} style={{ color: 'var(--accent-primary)' }} />
+            <span>Authorized Tools</span>
+            <Badge size="sm" variant="primary">{selectedTools.length}/{AVAILABLE_TOOLS.length}</Badge>
           </div>
-          <div className="flex items-center gap-2 text-[10px]">
-            <button type="button" onClick={selectAllTools} className="text-purple-400 hover:text-purple-300">
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={selectAllTools}
+              style={{
+                fontSize: '0.68rem',
+                padding: '2px 7px',
+                borderRadius: 'var(--radius-xs, 4px)',
+                background: 'rgba(108, 99, 255, 0.15)',
+                color: 'var(--accent-primary)',
+                border: '1px solid rgba(108, 99, 255, 0.3)',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
               All
             </button>
-            <span className="text-gray-600">|</span>
-            <button type="button" onClick={selectUtilityTools} className="text-purple-400 hover:text-purple-300">
+            <button
+              type="button"
+              onClick={selectUtilityTools}
+              style={{
+                fontSize: '0.68rem',
+                padding: '2px 7px',
+                borderRadius: 'var(--radius-xs, 4px)',
+                background: 'rgba(108, 99, 255, 0.15)',
+                color: 'var(--accent-primary)',
+                border: '1px solid rgba(108, 99, 255, 0.3)',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
               Utilities
             </button>
-            <span className="text-gray-600">|</span>
-            <button type="button" onClick={deselectAllTools} className="text-gray-400 hover:text-gray-300">
+            <button
+              type="button"
+              onClick={deselectAllTools}
+              style={{
+                fontSize: '0.68rem',
+                padding: '2px 7px',
+                borderRadius: 'var(--radius-xs, 4px)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-muted)',
+                border: '1px solid var(--border)',
+                cursor: 'pointer',
+              }}
+            >
               None
             </button>
           </div>
         </div>
 
-        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-          {AVAILABLE_TOOLS.map((tool) => {
+        {/* Category Filter Pills */}
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {CATEGORY_FILTERS.map((cat) => {
+            const isActive = activeCategoryFilter === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveCategoryFilter(cat.id)}
+                style={{
+                  fontSize: '0.68rem',
+                  padding: '3px 8px',
+                  borderRadius: 12,
+                  border: isActive ? '1px solid var(--accent-primary)' : '1px solid var(--border)',
+                  background: isActive ? 'rgba(108, 99, 255, 0.2)' : 'var(--bg-elevated)',
+                  color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontWeight: isActive ? 600 : 400,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tools Selection List */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            maxHeight: 220,
+            overflowY: 'auto',
+            paddingRight: 2,
+          }}
+        >
+          {filteredTools.map((tool) => {
             const isChecked = selectedTools.includes(tool.id);
             return (
               <div
                 key={tool.id}
                 onClick={() => toggleTool(tool.id)}
-                className={`flex items-start gap-2 p-1.5 rounded cursor-pointer border transition-colors ${
-                  isChecked
-                    ? 'bg-purple-950/30 border-purple-800/60 text-gray-200'
-                    : 'bg-gray-850 border-gray-800 text-gray-400 hover:bg-gray-800'
-                }`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 8,
+                  padding: '7px 8px',
+                  borderRadius: 'var(--radius-sm, 6px)',
+                  border: isChecked ? '1px solid rgba(108, 99, 255, 0.5)' : '1px solid var(--border)',
+                  background: isChecked ? 'rgba(108, 99, 255, 0.1)' : 'var(--bg-elevated)',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease, border-color 0.15s ease',
+                  minWidth: 0,
+                }}
               >
-                <div className="mt-0.5 text-purple-400">
-                  {isChecked ? <CheckSquare size={13} /> : <Square size={13} />}
+                <div style={{ color: isChecked ? 'var(--accent-primary)' : 'var(--text-muted)', marginTop: 2, flexShrink: 0 }}>
+                  {isChecked ? <CheckSquare size={14} /> : <Square size={14} />}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-[11px] text-white">{tool.name}</span>
-                    <span className="text-[9px] px-1 rounded bg-gray-700 text-gray-300">{tool.category}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span
+                      style={{
+                        fontWeight: 600,
+                        fontSize: '0.78rem',
+                        color: 'var(--text-primary)',
+                      }}
+                    >
+                      {tool.name}
+                    </span>
                     {tool.sensitive && (
-                      <span className="text-[9px] px-1 rounded bg-amber-900/60 text-amber-300 flex items-center gap-0.5">
+                      <span
+                        style={{
+                          fontSize: '0.65rem',
+                          padding: '1px 5px',
+                          borderRadius: 4,
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          color: 'var(--accent-warning)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 3,
+                          fontWeight: 500,
+                        }}
+                      >
                         <AlertTriangle size={9} /> Sensitive
                       </span>
                     )}
                   </div>
-                  <div className="text-[10px] text-gray-400 truncate">{tool.description}</div>
+                  <div
+                    style={{
+                      fontSize: '0.7rem',
+                      color: 'var(--text-muted)',
+                      marginTop: 2,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {tool.description}
+                  </div>
                 </div>
               </div>
             );
@@ -343,123 +419,127 @@ export default function AgentConfig({
         </div>
       </div>
 
-      {/* Sensitive Actions Policy */}
-      <div className="p-2.5 rounded border border-gray-800 bg-gray-900/40 space-y-1.5">
-        <label className="flex items-start gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={Boolean(data.allowSensitiveActions)}
-            onChange={(e) => handleFieldChange('allowSensitiveActions', e.target.checked)}
-            className="mt-0.5 accent-purple-500"
-          />
-          <div>
-            <span className="font-medium text-gray-200 block text-[11px] flex items-center gap-1">
-              <Shield size={12} className="text-purple-400" />
-              Allow Sensitive & Mutation Actions
-            </span>
-            <span className="text-[10px] text-gray-400 block mt-0.5 leading-snug">
-              When checked, allows the agent to send Slack/Discord messages, write files, and mutate databases. If unchecked, sensitive tool executions will be blocked.
-            </span>
-          </div>
-        </label>
+      {/* ── 5. Sensitive Actions Policy ───────────────────────────────────── */}
+      <div
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm, 8px)',
+          padding: 10,
+        }}
+      >
+        <SwitchField
+          label="Allow Sensitive & Mutation Actions"
+          value={Boolean(data.allowSensitiveActions)}
+          onChange={(checked) => handleFieldChange('allowSensitiveActions', checked)}
+          helperText="When enabled, permits the agent to send Slack/Discord messages, write files, and mutate databases. When disabled, sensitive tool calls are blocked."
+        />
       </div>
 
-      {/* Optional Structured Response Schema */}
-      <div className="border border-gray-800 rounded p-2 bg-gray-900/30">
-        <button
-          type="button"
-          onClick={() => setShowSchema(!showSchema)}
-          className="flex items-center gap-1.5 text-gray-300 hover:text-white font-medium w-full text-left"
-        >
-          {showSchema ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-          <Code size={13} className="text-purple-400" />
-          <span>Structured Response Schema (Optional)</span>
-        </button>
+      {/* ── 6. Optional Structured Response Schema ────────────────────────── */}
+      <SidebarSection
+        title="Structured Response Schema"
+        icon={<Code size={13} />}
+        collapsible
+        defaultOpen={showSchema}
+        onToggle={setShowSchema}
+      >
+        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+          Constrain final response to adhere to a JSON schema:
+        </span>
+        <CodeEditor
+          placeholder={'{\n  "type": "object",\n  "properties": {\n    "summary": { "type": "string" }\n  }\n}'}
+          value={
+            typeof data.responseSchema === 'object'
+              ? JSON.stringify(data.responseSchema, null, 2)
+              : data.responseSchema || ''
+          }
+          onChange={(val) => handleFieldChange('responseSchema', val)}
+          minLines={4}
+        />
+      </SidebarSection>
 
-        {showSchema && (
-          <div className="mt-2 space-y-1">
-            <span className="text-[10px] text-gray-400 block">
-              Constrain the final agent response to adhere to a JSON schema:
-            </span>
-            <textarea
-              rows={4}
-              value={
-                typeof data.responseSchema === 'object'
-                  ? JSON.stringify(data.responseSchema, null, 2)
-                  : data.responseSchema || ''
-              }
-              onChange={(e) => handleFieldChange('responseSchema', e.target.value)}
-              placeholder={'{\n  "type": "object",\n  "properties": {\n    "summary": { "type": "string" }\n  }\n}'}
-              className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-green-400 text-xs font-mono focus:outline-none"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Advanced Parameters */}
-      <div className="border-t border-gray-800 pt-2">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center gap-1.5 text-gray-400 hover:text-white font-medium py-1 w-full text-left"
-        >
-          {showAdvanced ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          <Sliders size={13} className="text-purple-400" />
-          <span>Execution Limits & Model Parameters</span>
-        </button>
-
-        {showAdvanced && (
-          <div className="mt-2 space-y-3 pl-3 border-l-2 border-purple-500/30">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-gray-400 mb-1">Max Iterations</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="25"
-                  value={data.maxIterations ?? 10}
-                  onChange={(e) => handleFieldChange('maxIterations', parseInt(e.target.value, 10) || '')}
-                  className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-400 mb-1">Max Tool Calls</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="50"
-                  value={data.maxToolCalls ?? 15}
-                  onChange={(e) => handleFieldChange('maxToolCalls', parseInt(e.target.value, 10) || '')}
-                  className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-gray-400 mb-1">Timeout (ms)</label>
-                <input
-                  type="number"
-                  value={data.timeout ?? 60000}
-                  onChange={(e) => handleFieldChange('timeout', parseInt(e.target.value, 10) || 60000)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-400 mb-1">Max Tokens</label>
-                <input
-                  type="number"
-                  value={data.maxTokens ?? 2048}
-                  onChange={(e) => handleFieldChange('maxTokens', parseInt(e.target.value, 10) || 2048)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white text-xs"
-                />
-              </div>
+      {/* ── 7. Execution Limits & Model Parameters (Advanced) ─────────────── */}
+      <SidebarSection
+        title="Execution Limits & Parameters"
+        icon={<Sliders size={13} />}
+        collapsible
+        defaultOpen={showAdvanced}
+        onToggle={setShowAdvanced}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Responsive grid that wraps on 360px without squeezing */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                gap: 10,
+              }}
+            >
+              <NumberField
+                label="Max Iterations"
+                min={1}
+                max={25}
+                value={data.maxIterations ?? 10}
+                onChange={(val) => handleFieldChange('maxIterations', val || 10)}
+                helperText="Loop guard (1-25)"
+              />
+              <NumberField
+                label="Max Tool Calls"
+                min={1}
+                max={50}
+                value={data.maxToolCalls ?? 15}
+                onChange={(val) => handleFieldChange('maxToolCalls', val || 15)}
+                helperText="Tool call cap (1-50)"
+              />
+              <NumberField
+                label="Timeout (ms)"
+                min={1000}
+                step={1000}
+                value={data.timeout ?? 60000}
+                onChange={(val) => handleFieldChange('timeout', val || 60000)}
+                helperText="Agent max runtime"
+              />
+              <NumberField
+                label="Max Tokens"
+                min={100}
+                step={256}
+                value={data.maxTokens ?? 2048}
+                onChange={(val) => handleFieldChange('maxTokens', val || 2048)}
+                helperText="Completion tokens"
+              />
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-gray-400">Temperature</label>
-                <span className="text-gray-300 font-mono text-[11px]">{data.temperature ?? 0.2}</span>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 4,
+                }}
+              >
+                <label
+                  className="form-label"
+                  style={{
+                    margin: 0,
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  Temperature
+                </label>
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    fontFamily: 'monospace',
+                    color: 'var(--accent-primary)',
+                    fontWeight: 600,
+                  }}
+                >
+                  {data.temperature ?? 0.2}
+                </span>
               </div>
               <input
                 type="range"
@@ -468,16 +548,23 @@ export default function AgentConfig({
                 step="0.05"
                 value={data.temperature ?? 0.2}
                 onChange={(e) => handleFieldChange('temperature', parseFloat(e.target.value))}
-                className="w-full accent-purple-500"
+                style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
               />
-              <div className="flex justify-between text-[10px] text-gray-500">
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '0.68rem',
+                  color: 'var(--text-muted)',
+                  marginTop: 2,
+                }}
+              >
                 <span>Precise reasoning (0.0)</span>
                 <span>Creative (1.0)</span>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+        </div>
+      </SidebarSection>
     </div>
   );
 }

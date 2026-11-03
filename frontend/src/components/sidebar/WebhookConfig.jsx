@@ -75,7 +75,7 @@ export default function WebhookConfig({ data, onChange, onOpenVariablePicker, wo
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, width: '100%' }}>
             <Webhook size={16} color="#22c55e" />
             <span style={{ fontWeight: 600, fontSize: '0.82rem', color: '#22c55e' }}>Webhook Endpoint</span>
           </div>
@@ -89,13 +89,15 @@ export default function WebhookConfig({ data, onChange, onOpenVariablePicker, wo
           </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, width: '100%' }}>
           <input
             type="text"
             readOnly
             value={fullEndpointUrl}
             style={{
               flex: 1,
+              minWidth: 0,
+              boxSizing: 'border-box',
               background: 'var(--bg-elevated, #16161a)',
               border: '1px solid var(--border, #2d2d3a)',
               borderRadius: 4,
@@ -120,7 +122,7 @@ export default function WebhookConfig({ data, onChange, onOpenVariablePicker, wo
       {/* Enable/Disable Endpoint */}
       <SwitchField
         label="Endpoint Active"
-        checked={data.enabled !== false}
+        value={data.enabled !== false}
         onChange={(val) => updateField('enabled', val)}
         helperText="When disabled, incoming webhooks return 403 Forbidden"
       />
@@ -170,7 +172,7 @@ export default function WebhookConfig({ data, onChange, onOpenVariablePicker, wo
             style={{
               fontSize: '0.72rem',
               color: 'var(--text-muted)',
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--bg-elevated)',
               borderRadius: 4,
               padding: '6px 8px',
               marginTop: 4,

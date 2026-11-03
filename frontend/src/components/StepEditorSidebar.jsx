@@ -4,6 +4,7 @@ import { NODE_DEFS } from '../data/templates';
 import API from '../api/client';
 import NodeValidator from '../validators/NodeValidator';
 import VariablePicker from './VariablePicker';
+import ConfirmDialog from './ConfirmDialog';
 import { SidebarHeader, SidebarTabs, SidebarFactory, TestPanel } from './sidebar';
 
 export default function StepEditorSidebar({
@@ -22,11 +23,23 @@ export default function StepEditorSidebar({
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [autoDetectingCsv, setAutoDetectingCsv] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     setData({ ...node?.data });
     setTestResult(null);
-  }, [node?.id]);
+  }, [node?.id, node?.data]);
+
+  // Handle Escape key to close sidebar
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !showVariablePicker && !showDeleteConfirm) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, showVariablePicker, showDeleteConfirm]);
 
   if (!node) return null;
   const def = NODE_DEFS[node.type] || { label: node.type, icon: 'Settings', color: '#6c63ff', category: 'action' };
@@ -127,12 +140,13 @@ export default function StepEditorSidebar({
   };
 
   return (
-    <div
+    <aside
       style={{
         position: 'absolute',
         top: 0,
         right: 0,
-        width: 390,
+        width: 'min(440px, 100%)',
+        maxWidth: '100%',
         height: '100%',
         background: 'var(--bg-surface)',
         borderLeft: '1px solid var(--border)',
@@ -140,20 +154,20 @@ export default function StepEditorSidebar({
         flexDirection: 'column',
         zIndex: 90,
         boxShadow: '-4px 0 24px rgba(0,0,0,0.4)',
-        animation: 'slideInRight 0.2s ease',
       }}
+      aria-label="Node Configuration Sidebar"
     >
       <SidebarHeader
         title={data.label || def.label}
         nodeType={node.type}
         color={def.color}
-        onDelete={() => onDelete(node.id)}
+        onDelete={() => setShowDeleteConfirm(true)}
         onClose={onClose}
       />
 
       <SidebarTabs activeTab={activeTab} onChangeTab={setActiveTab} />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 30px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px 14px 28px' }}>
         {activeTab === 'config' && (
           <SidebarFactory
             nodeType={node.type}
@@ -198,6 +212,20 @@ export default function StepEditorSidebar({
           onClose={() => setShowVariablePicker(false)}
         />
       )}
-    </div>
+
+      {/* Confirmation before node deletion */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Step Node"
+        message={`Are you sure you want to remove the "${data.label || def.label}" node? All connected edges and step configurations will be deleted.`}
+        confirmLabel="Delete Step"
+        variant="danger"
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          onDelete(node.id);
+        }}
+        onClose={() => setShowDeleteConfirm(false)}
+      />
+    </aside>
   );
 }

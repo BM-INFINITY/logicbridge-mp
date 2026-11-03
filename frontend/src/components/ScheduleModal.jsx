@@ -13,6 +13,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ConfirmDialog from './ConfirmDialog';
 import API from '../api/client';
 
 const COMMON_TIMEZONES = [
@@ -73,6 +74,21 @@ export default function ScheduleModal({ isOpen, onClose, workflowId, workflowNam
   const [historyList, setHistoryList] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedScheduleForHistory, setSelectedScheduleForHistory] = useState(null);
+  const [scheduleToDelete, setScheduleToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (scheduleToDelete) setScheduleToDelete(null);
+        else if (activeTab === 'form' || activeTab === 'history') setActiveTab('list');
+        else onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, scheduleToDelete, activeTab, onClose]);
 
   const fetchSchedules = useCallback(async () => {
     if (!workflowId) return;
@@ -196,14 +212,23 @@ export default function ScheduleModal({ isOpen, onClose, workflowId, workflowNam
     }
   };
 
-  const handleDelete = async (scheduleId) => {
-    if (!window.confirm('Are you sure you want to delete this schedule?')) return;
+  const handleDelete = (scheduleId) => {
+    const s = schedules.find((item) => item._id === scheduleId);
+    setScheduleToDelete(s || { _id: scheduleId, name: 'Schedule' });
+  };
+
+  const handleConfirmDeleteSchedule = async () => {
+    if (!scheduleToDelete) return;
+    setIsDeleting(true);
     try {
-      await API.delete(`/api/schedules/${scheduleId}`);
+      await API.delete(`/api/schedules/${scheduleToDelete._id}`);
       toast.success('Schedule deleted');
+      setScheduleToDelete(null);
       await fetchSchedules();
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Delete failed');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -925,6 +950,17 @@ export default function ScheduleModal({ isOpen, onClose, workflowId, workflowNam
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(scheduleToDelete)}
+        title="Delete Schedule"
+        message={`Are you sure you want to delete schedule "${scheduleToDelete?.name || ''}"? Recurring triggers for this schedule will be stopped.`}
+        confirmLabel="Delete Schedule"
+        variant="danger"
+        loading={isDeleting}
+        onConfirm={handleConfirmDeleteSchedule}
+        onClose={() => setScheduleToDelete(null)}
+      />
     </div>
   );
 }

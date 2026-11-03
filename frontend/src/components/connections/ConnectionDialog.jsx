@@ -26,6 +26,16 @@ export default function ConnectionDialog({ onClose, onCreate }) {
       .finally(() => setLoadingProviders(false));
   }, []);
 
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !loading) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, loading]);
+
+
   const handleProviderSelect = (provider) => {
     setSelectedProvider(provider);
     const initialFields = {};
@@ -107,7 +117,7 @@ export default function ConnectionDialog({ onClose, onCreate }) {
           background: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius-xl)',
-          width: '100%', maxWidth: 520,
+          width: 'min(520px, 94vw)', maxWidth: 520,
           maxHeight: '90vh', overflowY: 'auto',
           boxShadow: 'var(--shadow-lg)',
           display: 'flex', flexDirection: 'column',

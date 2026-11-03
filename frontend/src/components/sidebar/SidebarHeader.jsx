@@ -8,15 +8,18 @@ export default function SidebarHeader({ title, nodeType, color, onDelete, onClos
   return (
     <div
       style={{
-        padding: '16px 20px',
+        padding: '14px 16px',
         borderBottom: '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        gap: 12,
         background: 'var(--bg-card)',
+        minWidth: 0,
+        boxSizing: 'border-box',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
         <div
           style={{
             width: 32,
@@ -32,15 +35,28 @@ export default function SidebarHeader({ title, nodeType, color, onDelete, onClos
         >
           <NodeIcon size={16} />
         </div>
-        <div>
-          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600 }}>{title}</h3>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: '0.92rem',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={title}
+          >
+            {title}
+          </h3>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         {onDelete && (
           <button
             className="btn btn-sm btn-danger"
-            style={{ padding: '4px 8px' }}
+            style={{ padding: '4px 8px', height: 28 }}
             onClick={onDelete}
             title="Delete step"
             aria-label="Delete node"
@@ -50,8 +66,19 @@ export default function SidebarHeader({ title, nodeType, color, onDelete, onClos
         )}
         <button
           onClick={onClose}
-          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            padding: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 'var(--radius-xs, 4px)',
+          }}
           aria-label="Close panel"
+          title="Close (Esc)"
         >
           <X size={18} />
         </button>

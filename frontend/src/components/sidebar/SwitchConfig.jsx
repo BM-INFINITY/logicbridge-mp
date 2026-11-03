@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, Trash2, GitFork, Info } from 'lucide-react';
 import { TextField } from '../forms';
-import { CONDITION_OPERATORS } from './ConditionConfig';
+import { CONDITION_OPERATORS } from '../../constants/ConditionOperators';
 
 export default function SwitchConfig({ data, onChange, onOpenVariablePicker }) {
   const cases = Array.isArray(data.cases) ? data.cases : [];

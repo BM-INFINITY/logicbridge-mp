@@ -1,6 +1,6 @@
 import React from 'react';
-import { HardDrive, ShieldAlert, FileText } from 'lucide-react';
-import { SelectField, TextField, SwitchField, CodeEditor } from '../forms';
+import { HardDrive } from 'lucide-react';
+import { SelectField, TextField, SwitchField } from '../forms';
 
 const OPERATIONS = [
   { value: 'read_file',    label: 'Read File',           hint: 'Load and parse content from a file in persistent storage' },
@@ -36,7 +36,7 @@ export default function FileConfig({ data, onChange, onOpenVariablePicker }) {
 
       {/* Operation Hint */}
       {selectedOp && (
-        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', borderLeft: '2px solid var(--accent-primary)' }}>
+        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', borderLeft: '2px solid var(--accent-primary)' }}>
           {selectedOp.hint}
         </div>
       )}

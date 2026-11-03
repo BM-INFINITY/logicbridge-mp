@@ -98,7 +98,7 @@ export default function TemplateInstallModal({
         id="template-install-modal"
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '100%', maxWidth: 580,
+          width: 'min(580px, 95vw)', maxWidth: 580,
           background: 'var(--bg-base)',
           border: '1px solid var(--border)',
           borderRadius: 20,

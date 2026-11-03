@@ -1,6 +1,7 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
-import { TextField, SelectField } from '../forms';
+import { TextField, SelectField, NumberField } from '../forms';
+import SidebarAlert from './SidebarAlert';
 
 const WAIT_TYPES = [
   { value: 'duration', label: 'Duration Delay', hint: 'Wait for a specified number of seconds' },
@@ -14,29 +15,14 @@ export default function WaitConfig({ data, onChange, onOpenVariablePicker }) {
   const selectedType = WAIT_TYPES.find((t) => t.value === waitType);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Banner */}
-      <div
-        style={{
-          background: 'rgba(14, 165, 233, 0.08)',
-          border: '1px solid rgba(14, 165, 233, 0.25)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '10px 12px',
-          fontSize: '0.78rem',
-          color: 'var(--text-secondary)',
-          display: 'flex',
-          gap: 10,
-          alignItems: 'flex-start',
-        }}
-      >
-        <Clock size={18} color="#0ea5e9" style={{ flexShrink: 0, marginTop: 2 }} />
-        <div>
-          <span style={{ fontWeight: 600, color: '#0ea5e9' }}>Durable Wait Node</span>
-          <div style={{ marginTop: 2, fontSize: '0.73rem', color: 'var(--text-muted)' }}>
-            Pauses workflow execution durably in the database. Does not consume active server memory while waiting.
-          </div>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0, width: '100%' }}>
+      {/* Informational Banner */}
+      <SidebarAlert
+        variant="info"
+        icon={<Clock size={18} style={{ color: 'var(--color-info, #0ea5e9)' }} />}
+        title="Durable Wait Node"
+        message="Pauses workflow execution durably in the database. Does not consume active server memory while waiting."
+      />
 
       {/* Wait Type */}
       <SelectField
@@ -52,10 +38,12 @@ export default function WaitConfig({ data, onChange, onOpenVariablePicker }) {
           style={{
             fontSize: '0.73rem',
             color: 'var(--text-muted)',
-            background: 'rgba(255,255,255,0.03)',
-            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-elevated)',
+            borderRadius: 'var(--radius-sm, 6px)',
             padding: '6px 10px',
-            borderLeft: '2px solid #0ea5e9',
+            borderLeft: '2px solid var(--color-info, #0ea5e9)',
+            border: '1px solid var(--border)',
+            borderLeftWidth: 2,
           }}
         >
           {selectedType.hint}
@@ -64,130 +52,62 @@ export default function WaitConfig({ data, onChange, onOpenVariablePicker }) {
 
       {/* Type: Duration */}
       {waitType === 'duration' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-              Duration (Seconds) <span style={{ color: '#ef4444' }}>*</span>
-            </label>
-            {onOpenVariablePicker && (
-              <button
-                type="button"
-                className="btn btn-secondary btn-xs"
-                onClick={() => onOpenVariablePicker('durationSeconds')}
-                style={{ fontSize: '0.7rem', padding: '2px 6px', height: 'auto' }}
-              >
-                Insert Variable
-              </button>
-            )}
-          </div>
-          <TextField
-            value={data.durationSeconds ?? '60'}
-            onChange={(val) => updateField('durationSeconds', val)}
-            placeholder="e.g. 60 (1 min), 3600 (1 hour)"
-            hint="Supports numbers or expressions like {{variables.waitSecs}}"
-          />
-        </div>
+        <TextField
+          label="Duration (Seconds)"
+          required
+          value={data.durationSeconds ?? '60'}
+          onChange={(val) => updateField('durationSeconds', val)}
+          onInsertVariable={() => onOpenVariablePicker && onOpenVariablePicker('durationSeconds')}
+          placeholder="e.g. 60 (1 min), 3600 (1 hour)"
+          helperText="Supports numbers or expressions like {{variables.waitSecs}}."
+        />
       )}
 
       {/* Type: Date */}
       {waitType === 'date' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-              Wait Until Timestamp <span style={{ color: '#ef4444' }}>*</span>
-            </label>
-            {onOpenVariablePicker && (
-              <button
-                type="button"
-                className="btn btn-secondary btn-xs"
-                onClick={() => onOpenVariablePicker('waitUntil')}
-                style={{ fontSize: '0.7rem', padding: '2px 6px', height: 'auto' }}
-              >
-                Insert Variable
-              </button>
-            )}
-          </div>
-          <TextField
-            value={data.waitUntil || ''}
-            onChange={(val) => updateField('waitUntil', val)}
-            placeholder="2026-12-31T23:59:59Z or {{variables.targetDate}}"
-            hint="ISO 8601 date string or variable"
-          />
-        </div>
+        <TextField
+          label="Wait Until Timestamp (ISO-8601)"
+          required
+          value={data.untilDate || ''}
+          onChange={(val) => updateField('untilDate', val)}
+          onInsertVariable={() => onOpenVariablePicker && onOpenVariablePicker('untilDate')}
+          placeholder="2026-12-31T23:59:59Z or {{steps.order.dueAt}}"
+          helperText="Must resolve to an ISO-8601 date string or UNIX timestamp."
+        />
       )}
 
-      {/* Type: Event */}
+      {/* Type: External Event */}
       {waitType === 'event' && (
         <>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Event Identifier / Name <span style={{ color: '#ef4444' }}>*</span>
-              </label>
-              {onOpenVariablePicker && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-xs"
-                  onClick={() => onOpenVariablePicker('eventName')}
-                  style={{ fontSize: '0.7rem', padding: '2px 6px', height: 'auto' }}
-                >
-                  Insert Variable
-                </button>
-              )}
-            </div>
-            <TextField
-              value={data.eventName || ''}
-              onChange={(val) => updateField('eventName', val)}
-              placeholder="e.g. invoice.paid, delivery.signed"
-              hint="Descriptive event name for external resume"
-            />
-          </div>
+          <TextField
+            label="Event Name / Match Key"
+            required
+            value={data.eventName || ''}
+            onChange={(val) => updateField('eventName', val)}
+            onInsertVariable={() => onOpenVariablePicker && onOpenVariablePicker('eventName')}
+            placeholder="e.g. payment_confirmed or order.shipped"
+            helperText="External webhooks call /api/workflows/:id/resume with this match token."
+          />
 
-          <div style={{ marginTop: 8 }}>
-            <TextField
-              label="Event Timeout (Minutes, Optional)"
-              type="number"
-              value={data.timeoutMinutes || ''}
-              onChange={(val) => updateField('timeoutMinutes', val)}
-              placeholder="e.g. 1440 (24 hours)"
-              hint="Routes to Timeout branch if no event arrives before expiration"
-            />
-          </div>
+          <TextField
+            label="Filter Expression (Optional)"
+            value={data.eventFilter || ''}
+            onChange={(val) => updateField('eventFilter', val)}
+            onInsertVariable={() => onOpenVariablePicker && onOpenVariablePicker('eventFilter')}
+            placeholder="event.data.orderId === '{{steps.trigger.orderId}}'"
+            helperText="JavaScript expression evaluated on the incoming payload to confirm match."
+          />
 
-          <div
-            style={{
-              fontSize: '0.72rem',
-              color: 'var(--text-muted)',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid var(--border-color)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '8px 10px',
-            }}
-          >
-            <strong>Resume Webhook Endpoint:</strong>
-            <br />
-            <code>POST /api/executions/resume/:resumeToken</code>
-          </div>
+          <NumberField
+            label="Timeout (Hours)"
+            min={1}
+            max={720}
+            value={data.eventTimeoutHours ?? 24}
+            onChange={(val) => updateField('eventTimeoutHours', val)}
+            helperText="Maximum window to wait before timing out (Default: 24h)."
+          />
         </>
       )}
-
-      {/* Handles Guide */}
-      <div
-        style={{
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '10px 12px',
-          fontSize: '0.72rem',
-          color: 'var(--text-muted)',
-        }}
-      >
-        <div style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-          Execution Branch Handles:
-        </div>
-        <div>🔵 <strong>RESUMED</strong> — Default path when wait duration expires or event arrives</div>
-        <div>🟡 <strong>TIMEOUT</strong> — Optional path if external event wait times out</div>
-      </div>
     </div>
   );
 }

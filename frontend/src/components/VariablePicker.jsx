@@ -12,6 +12,14 @@ export default function VariablePicker({ nodes, edges, currentNodeId, onSelect, 
   const [searchTerm, setSearchTerm] = useState('');
   const { variables = [], secrets = [] } = useWorkflowStore();
 
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Find upstream nodes (nodes connected to or positioned before currentNodeId)
   const currentNodeIndex = (nodes || []).findIndex((n) => n.id === currentNodeId);
   const upstreamNodes = (nodes || []).filter((n, idx) => n.id !== currentNodeId && idx < currentNodeIndex);
@@ -53,8 +61,10 @@ export default function VariablePicker({ nodes, edges, currentNodeId, onSelect, 
       style={{
         position: 'absolute',
         top: 60,
-        right: 390,
-        width: 340,
+        right: 'min(400px, calc(100vw - 360px))',
+        width: 'min(340px, 92vw)',
+        maxWidth: '92vw',
+
         maxHeight: 500,
         background: 'var(--bg-elevated)',
         border: '1px solid var(--accent-primary)',

@@ -69,7 +69,7 @@ export default function PostgresConfig({ data, onChange, onOpenVariablePicker })
 
         {connections.length === 0 ? (
           <div style={{
-            background: 'rgba(255,255,255,0.04)', border: '1px dashed var(--border)',
+            background: 'var(--bg-elevated)', border: '1px dashed var(--border)',
             borderRadius: 'var(--radius-sm)', padding: '10px 12px',
             fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 6,
           }}>

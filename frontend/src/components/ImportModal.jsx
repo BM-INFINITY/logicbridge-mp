@@ -1,26 +1,50 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, AlertTriangle, FileCode, Layers, GitBranch, Zap } from 'lucide-react';
 
 export default function ImportModal({ previewData, onConfirm, onClose }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   if (!previewData) return null;
 
   const { manifest, workflow, statistics, exportedAt, warnings = [] } = previewData;
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 1000 }}>
-      <div className="modal-content" style={{ maxWidth: 480, padding: 24 }}>
+    <div
+      className="modal-overlay"
+      style={{ zIndex: 1000 }}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="modal-content"
+        style={{ maxWidth: 480, padding: 24, width: 'min(480px, 94vw)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <FileCode size={20} color="var(--accent-primary)" />
-            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Import Workflow Preview</h3>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Import Workflow Preview
+            </h3>
           </div>
-          <button onClick={onClose} className="btn-ghost" style={{ border: 'none', cursor: 'pointer' }}>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+            aria-label="Close import preview"
+          >
             <X size={18} />
           </button>
         </div>
 
         {/* Workflow Name Badge */}
-        <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
           <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
             {workflow?.name || 'Untitled Workflow'}
           </div>
@@ -35,17 +59,17 @@ export default function ImportModal({ previewData, onConfirm, onClose }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
           <div style={{ background: 'var(--bg-surface)', padding: 10, borderRadius: 8, textAlign: 'center', border: '1px solid var(--border)' }}>
             <Layers size={14} color="#6c63ff" style={{ marginBottom: 4 }} />
-            <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{statistics?.nodeCount ?? 0}</div>
+            <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{statistics?.nodeCount ?? 0}</div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>NODES</div>
           </div>
           <div style={{ background: 'var(--bg-surface)', padding: 10, borderRadius: 8, textAlign: 'center', border: '1px solid var(--border)' }}>
             <GitBranch size={14} color="#22c55e" style={{ marginBottom: 4 }} />
-            <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{statistics?.edgeCount ?? 0}</div>
+            <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{statistics?.edgeCount ?? 0}</div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>EDGES</div>
           </div>
           <div style={{ background: 'var(--bg-surface)', padding: 10, borderRadius: 8, textAlign: 'center', border: '1px solid var(--border)' }}>
             <Zap size={14} color="#22d3ee" style={{ marginBottom: 4 }} />
-            <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{statistics?.triggerCount ?? 0}</div>
+            <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{statistics?.triggerCount ?? 0}</div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>TRIGGERS</div>
           </div>
         </div>

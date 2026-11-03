@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import API from '../api/client';
+import AgentToolCallViewer from './execution/AgentToolCallViewer';
 
 function StepResult({ step, index }) {
   const [open, setOpen] = useState(index === 0);
@@ -74,14 +75,35 @@ function StepResult({ step, index }) {
           )}
           {step.output && (
             <div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Output
-              </div>
-              <pre style={{ fontSize: '0.75rem', color: isSkipped ? '#f59e0b' : '#22d3ee', background: 'var(--bg-elevated)', borderRadius: 6, padding: '10px 12px', overflow: 'auto', maxHeight: 200, lineHeight: 1.5, margin: 0 }}>
-                {JSON.stringify(step.output, null, 2)}
-              </pre>
+              {step.nodeType === 'action-ai-agent' || step.output?.toolCalls ? (
+                <AgentToolCallViewer output={step.output} />
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Output Payload
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(JSON.stringify(step.output, null, 2));
+                        toast.success('Output copied');
+                      }}
+                      style={{
+                        background: 'none', border: 'none', color: 'var(--text-muted)',
+                        fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3,
+                      }}
+                    >
+                      <Copy size={11} /> Copy
+                    </button>
+                  </div>
+                  <pre style={{ fontSize: '0.75rem', color: isSkipped ? '#f59e0b' : '#22d3ee', background: 'var(--bg-elevated)', borderRadius: 6, padding: '10px 12px', overflow: 'auto', maxHeight: 220, lineHeight: 1.5, margin: 0 }}>
+                    {JSON.stringify(step.output, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
+          
         </div>
       )}
     </div>
@@ -93,6 +115,14 @@ export default function ExecutionPanel({ execution: initialExecution, onClose, o
   const [comments, setComments] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && onClose) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   if (!execution) return null;
 
@@ -136,7 +166,8 @@ export default function ExecutionPanel({ execution: initialExecution, onClose, o
         position: 'absolute',
         top: 0,
         right: 0,
-        width: 380,
+        width: 'min(380px, 100vw)',
+        maxWidth: '100vw',
         height: '100%',
         background: 'var(--bg-surface)',
         borderLeft: '1px solid var(--border)',

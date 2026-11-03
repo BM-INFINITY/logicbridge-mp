@@ -1,6 +1,9 @@
 import SidebarHeader from './SidebarHeader';
 import SidebarTabs from './SidebarTabs';
 import SidebarFactory from './SidebarFactory';
+import SidebarSection from './SidebarSection';
+import SidebarFieldGroup from './SidebarFieldGroup';
+import SidebarAlert from './SidebarAlert';
 import HttpConfig from './HttpConfig';
 import CsvConfig from './CsvConfig';
 import ConditionConfig from './ConditionConfig';
@@ -23,11 +26,16 @@ import LoopConfig from './LoopConfig';
 import SwitchConfig from './SwitchConfig';
 import ApprovalConfig from './ApprovalConfig';
 import WaitConfig from './WaitConfig';
+import AgentConfig from './AgentConfig';
+import AIConfig from './AIConfig';
 
 export {
   SidebarHeader,
   SidebarTabs,
   SidebarFactory,
+  SidebarSection,
+  SidebarFieldGroup,
+  SidebarAlert,
   HttpConfig,
   CsvConfig,
   ConditionConfig,
@@ -50,5 +58,6 @@ export {
   SwitchConfig,
   ApprovalConfig,
   WaitConfig,
+  AgentConfig,
+  AIConfig,
 };
-

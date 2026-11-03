@@ -114,7 +114,7 @@ export default function LandingPage() {
             padding: '8px', maxWidth: 800, margin: '0 auto',
             boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 80px rgba(108,99,255,0.1)',
           }}>
-            <div style={{ background: 'var(--bg-surface)', borderRadius: 14, height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+            <div style={{ background: 'var(--bg-surface)', borderRadius: 14, minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, flexWrap: 'wrap' }}>
               {[
                 { type: 'trigger-manual', label: 'Manual Trigger', color: '#22c55e', typeName: 'Trigger' },
                 { type: 'action-http',    label: 'HTTP Request',   color: '#6c63ff', typeName: 'Action'  },

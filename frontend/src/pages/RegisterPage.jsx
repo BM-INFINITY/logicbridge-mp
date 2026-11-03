@@ -58,7 +58,7 @@ export default function RegisterPage() {
               <div style={{ position: 'relative' }}>
                 <User size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input id="reg-name" type="text" className="form-input" style={{ paddingLeft: 40 }} placeholder="Your Name"
-                  value={name} onChange={(e) => setName(e.target.value)} required />
+                  value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required />
               </div>
             </div>
 
@@ -67,7 +67,7 @@ export default function RegisterPage() {
               <div style={{ position: 'relative' }}>
                 <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input id="reg-email" type="email" className="form-input" style={{ paddingLeft: 40 }} placeholder="you@example.com"
-                  value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
               </div>
             </div>
 
@@ -76,7 +76,7 @@ export default function RegisterPage() {
               <div style={{ position: 'relative' }}>
                 <Lock size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input id="reg-password" type={showPass ? 'text' : 'password'} className="form-input" style={{ paddingLeft: 40, paddingRight: 40 }} placeholder="••••••••"
-                  value={password} onChange={(e) => setPassword(e.target.value)} required />
+                  value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
                 <button type="button" onClick={() => setShowPass(!showPass)}
                   style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}

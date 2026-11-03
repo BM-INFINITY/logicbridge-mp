@@ -9,6 +9,7 @@ import DashboardPage from './pages/DashboardPage';
 import BuilderPage from './pages/BuilderPage';
 import LogsPage from './pages/LogsPage';
 import ConnectionsPage from './pages/ConnectionsPage';
+import SidebarPreviewPage from './pages/SidebarPreviewPage';
 import './index.css';
 
 function ProtectedRoute({ children }) {
@@ -49,6 +50,8 @@ export default function App() {
         <Route path="/builder/:id" element={<ProtectedRoute><BuilderPage /></ProtectedRoute>} />
         <Route path="/logs" element={<ProtectedRoute><LogsPage /></ProtectedRoute>} />
         <Route path="/connections" element={<ProtectedRoute><ConnectionsPage /></ProtectedRoute>} />
+        <Route path="/preview-sidebars" element={<SidebarPreviewPage />} />
+        <Route path="/preview-builder" element={<BuilderPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

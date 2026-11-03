@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Link2 } from 'lucide-react';
 import { TextField, SelectField, KeyValueTable, CodeEditor, NumberField } from '../forms';
+import { Tabs } from '../ui';
 import API from '../../api/client';
 
 export default function HttpConfig({ data, onChange, onOpenVariablePicker }) {
@@ -66,29 +67,14 @@ export default function HttpConfig({ data, onChange, onOpenVariablePicker }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Internal Sub-Navigation Tabs */}
-      <div style={{ display: 'flex', gap: 4, background: 'var(--bg-surface)', padding: 3, borderRadius: 'var(--radius-sm)' }}>
-        {sectionTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              flex: 1,
-              padding: '5px 2px',
-              border: 'none',
-              borderRadius: 'var(--radius-xs)',
-              background: activeTab === tab.id ? 'var(--bg-card)' : 'transparent',
-              color: activeTab === tab.id ? 'var(--accent-primary)' : 'var(--text-muted)',
-              fontSize: '0.74rem',
-              fontWeight: activeTab === tab.id ? 600 : 400,
-              cursor: 'pointer',
-              boxShadow: activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={sectionTabs}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        variant="segmented"
+        size="sm"
+        fullWidth
+      />
 
       {/* ── 1. Request Tab ─────────────────────────────────────────────────── */}
       {activeTab === 'request' && (
@@ -221,7 +207,7 @@ export default function HttpConfig({ data, onChange, onOpenVariablePicker }) {
               </div>
 
               {connections.length === 0 ? (
-                <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)', padding: '8px 10px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                <div style={{ background: 'var(--bg-elevated)', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)', padding: '8px 10px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   No active HTTP/API connections.{' '}
                   <a href="/connections" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'underline' }}>
                     Add a connection

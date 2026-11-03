@@ -10,6 +10,14 @@ export default function AIPanel({ onGenerate }) {
   const { generateFromAI } = useWorkflowStore();
   const { setShowAI } = useCanvasStore();
 
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setShowAI(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setShowAI]);
+
   const handleGenerate = async () => {
     if (!prompt.trim()) return toast.error('Enter a description');
     setLoading(true);
@@ -31,7 +39,7 @@ export default function AIPanel({ onGenerate }) {
         position: 'absolute',
         top: 70,
         right: 16,
-        width: 340,
+        width: 'min(340px, calc(100vw - 32px))',
         zIndex: 200,
         background: 'var(--bg-elevated)',
         border: '1px solid var(--border-hover)',

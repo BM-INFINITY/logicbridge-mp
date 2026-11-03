@@ -45,14 +45,14 @@ export default function CsvConfig({ data, onChange, onAutoDetect, autoDetecting,
           <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
             <input
               className="form-input"
-              style={{ fontSize: '0.75rem', padding: '5px' }}
+              style={{ fontSize: '0.75rem', padding: '5px', flex: 1, minWidth: 0 }}
               placeholder="Header Name"
               value={col.header || ''}
               onChange={(e) => handleColumnChange(i, 'header', e.target.value)}
             />
             <input
               className="form-input"
-              style={{ fontSize: '0.75rem', padding: '5px' }}
+              style={{ fontSize: '0.75rem', padding: '5px', flex: 1, minWidth: 0 }}
               placeholder="{{ Field }}"
               value={col.value || ''}
               onChange={(e) => handleColumnChange(i, 'value', e.target.value)}

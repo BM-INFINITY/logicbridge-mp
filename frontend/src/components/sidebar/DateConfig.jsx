@@ -49,7 +49,7 @@ export default function DateConfig({ data, onChange, onOpenVariablePicker }) {
 
       {/* Hint */}
       {selectedOp && (
-        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', borderLeft: '2px solid var(--accent-primary)' }}>
+        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', borderLeft: '2px solid var(--accent-primary)' }}>
           {selectedOp.hint}
         </div>
       )}

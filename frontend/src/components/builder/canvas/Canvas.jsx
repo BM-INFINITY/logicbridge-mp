@@ -1,301 +1,14 @@
-import React from 'react';
-import ReactFlow, { Background, Controls, MiniMap, Handle, Position } from 'reactflow';
+import React, { useMemo, useState, useCallback } from 'react';
+import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { CheckCircle2, XCircle, AlertCircle, GitBranch, Clock, UserCheck } from 'lucide-react';
+import { GitBranch } from 'lucide-react';
 import { NODE_DEFS } from '../../../data/templates';
-import { getNodeIcon } from '../../../constants/Icons';
 import useCanvasStore from '../../../store/canvasStore';
-import { BranchColors } from '../../../constants';
-
-// ─── Custom Node Renderer ───────────────────────────────────────────────────
-function CustomNode({ data, selected, type }) {
-  const def = NODE_DEFS[type] || { label: type, icon: 'Settings', color: '#6c63ff', category: 'action' };
-  const NodeIcon = getNodeIcon(type);
-  const isFirst = def.category === 'trigger';
-  const isCondition = type === 'logic-condition' || type === 'action-condition';
-  const isLoop = type === 'action-loop';
-  const isSwitch = type === 'action-switch' || type === 'logic-switch';
-  const isApproval = type === 'action-approval';
-  const isWait = type === 'action-wait';
-  const execStatus = data._execStatus;
-  const isActive = data._isActive;
-
-  const isPausedState = execStatus === 'waiting' || execStatus === 'waiting_approval' || execStatus === 'paused';
-
-  return (
-    <div
-      className={`flow-node node-${def.category}`}
-      style={{
-        borderColor: isActive
-          ? '#22d3ee'
-          : execStatus === 'success'
-          ? BranchColors.TRUE
-          : execStatus === 'failed'
-          ? BranchColors.FALSE
-          : execStatus === 'skipped'
-          ? BranchColors.SKIPPED
-          : isPausedState
-          ? '#f59e0b'
-          : selected
-          ? def.color
-          : undefined,
-        boxShadow: isActive
-          ? '0 0 24px rgba(34,211,238,0.75)'
-          : execStatus === 'success'
-          ? '0 0 16px rgba(34,197,94,0.35)'
-          : execStatus === 'failed'
-          ? '0 0 16px rgba(239,68,68,0.35)'
-          : isPausedState
-          ? '0 0 16px rgba(245,158,11,0.45)'
-          : selected
-          ? `0 0 20px ${def.color}40`
-          : undefined,
-        opacity: execStatus === 'skipped' ? 0.45 : 1,
-        transform: isActive ? 'scale(1.03)' : 'scale(1)',
-        transition: 'all 0.2s ease',
-      }}
-    >
-      {!isFirst && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          style={{ background: def.color, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-        />
-      )}
-      <div className="flow-node-header">
-        <div className="flow-node-icon" style={{ background: `${def.color}22`, color: def.color }}>
-          <NodeIcon size={14} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div className="flow-node-label">{data.label || def.label}</div>
-          <div className="flow-node-type">{def.category.toUpperCase()}</div>
-        </div>
-        {execStatus && (
-          <div style={{ marginLeft: 4 }}>
-            {execStatus === 'success' && <CheckCircle2 size={14} color={BranchColors.TRUE} />}
-            {execStatus === 'failed' && <XCircle size={14} color={BranchColors.FALSE} />}
-            {execStatus === 'skipped' && <AlertCircle size={14} color={BranchColors.SKIPPED} />}
-            {(execStatus === 'waiting' || execStatus === 'waiting_approval') && (
-              <UserCheck size={14} color="#f59e0b" title="Waiting for Approval" />
-            )}
-            {execStatus === 'paused' && <Clock size={14} color="#0ea5e9" title="Paused / Waiting" />}
-            {execStatus === 'running' && <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />}
-          </div>
-        )}
-      </div>
-      {data.url && (
-        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
-          {data.url}
-        </div>
-      )}
-      {data.message && (
-        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 4, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {data.message}
-        </div>
-      )}
-      {data._iterationProgress && (
-        <div style={{ fontSize: '0.7rem', color: '#06b6d4', marginTop: 4, fontWeight: 600 }}>
-          {data._iterationProgress}
-        </div>
-      )}
-
-      {isCondition ? (
-        <>
-          {/* True Handle */}
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="true"
-            style={{ top: '30%', background: BranchColors.TRUE, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-          />
-          <div style={{ position: 'absolute', right: -36, top: '22%', fontSize: '0.65rem', fontWeight: 700, color: BranchColors.TRUE }}>
-            TRUE
-          </div>
-
-          {/* False Handle */}
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="false"
-            style={{ top: '70%', background: BranchColors.FALSE, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-          />
-          <div style={{ position: 'absolute', right: -42, top: '62%', fontSize: '0.65rem', fontWeight: 700, color: BranchColors.FALSE }}>
-            FALSE
-          </div>
-        </>
-      ) : isLoop ? (
-        <>
-          {/* Loop Handle */}
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="loop"
-            style={{ top: '30%', background: BranchColors.LOOP || '#06b6d4', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-          />
-          <div style={{ position: 'absolute', right: -36, top: '22%', fontSize: '0.65rem', fontWeight: 700, color: BranchColors.LOOP || '#06b6d4' }}>
-            LOOP
-          </div>
-
-          {/* Done Handle */}
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="done"
-            style={{ top: '70%', background: BranchColors.DONE || '#10b981', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-          />
-          <div style={{ position: 'absolute', right: -36, top: '62%', fontSize: '0.65rem', fontWeight: 700, color: BranchColors.DONE || '#10b981' }}>
-            DONE
-          </div>
-        </>
-      ) : isSwitch ? (
-        <>
-          {(() => {
-            const switchCases = Array.isArray(data.cases) && data.cases.length > 0
-              ? data.cases
-              : [{ id: 'case_1', label: 'Case 1' }];
-            const totalOutputs = switchCases.length + 1; // cases + default
-            const palette = BranchColors.SWITCH_CASES || ['#8b5cf6', '#ec4899', '#f59e0b', '#06b6d4', '#10b981', '#3b82f6'];
-
-            return (
-              <>
-                {switchCases.map((c, i) => {
-                  const handleId = c.id || `case_${i + 1}`;
-                  const topPercent = Math.round(((i + 1) / (totalOutputs + 1)) * 100);
-                  const color = palette[i % palette.length];
-                  const label = (c.label || `Case ${i + 1}`).substring(0, 10).toUpperCase();
-
-                  return (
-                    <React.Fragment key={handleId}>
-                      <Handle
-                        type="source"
-                        position={Position.Right}
-                        id={handleId}
-                        style={{ top: `${topPercent}%`, background: color, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-                      />
-                      <div
-                        style={{
-                          position: 'absolute',
-                          right: -48,
-                          top: `calc(${topPercent}% - 6px)`,
-                          fontSize: '0.62rem',
-                          fontWeight: 700,
-                          color,
-                          whiteSpace: 'nowrap',
-                          maxWidth: 50,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                        title={c.label || handleId}
-                      >
-                        {label}
-                      </div>
-                    </React.Fragment>
-                  );
-                })}
-
-                {/* Default Fallback Handle */}
-                {(() => {
-                  const defaultTop = Math.round((totalOutputs / (totalOutputs + 1)) * 100);
-                  const defaultColor = BranchColors.SWITCH_DEFAULT || '#64748b';
-                  const defaultId = data.defaultHandle || 'default';
-                  return (
-                    <React.Fragment key="default">
-                      <Handle
-                        type="source"
-                        position={Position.Right}
-                        id={defaultId}
-                        style={{ top: `${defaultTop}%`, background: defaultColor, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-                      />
-                      <div
-                        style={{
-                          position: 'absolute',
-                          right: -48,
-                          top: `calc(${defaultTop}% - 6px)`,
-                          fontSize: '0.62rem',
-                          fontWeight: 700,
-                          color: defaultColor,
-                        }}
-                      >
-                        DEFAULT
-                      </div>
-                    </React.Fragment>
-                  );
-                })()}
-              </>
-            );
-          })()}
-        </>
-      ) : isApproval ? (
-        <>
-          {/* Approved Handle */}
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="approved"
-            style={{ top: '25%', background: '#10b981', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-          />
-          <div style={{ position: 'absolute', right: -58, top: '18%', fontSize: '0.62rem', fontWeight: 700, color: '#10b981' }}>
-            APPROVED
-          </div>
-
-          {/* Rejected Handle */}
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="rejected"
-            style={{ top: '55%', background: '#ef4444', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-          />
-          <div style={{ position: 'absolute', right: -56, top: '48%', fontSize: '0.62rem', fontWeight: 700, color: '#ef4444' }}>
-            REJECTED
-          </div>
-
-          {/* Timeout Handle */}
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="timeout"
-            style={{ top: '85%', background: '#f59e0b', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-          />
-          <div style={{ position: 'absolute', right: -52, top: '78%', fontSize: '0.62rem', fontWeight: 700, color: '#f59e0b' }}>
-            TIMEOUT
-          </div>
-        </>
-      ) : isWait ? (
-        <>
-          {/* Resumed / Output Handle */}
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="resumed"
-            style={{ top: '35%', background: '#0ea5e9', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-          />
-          <div style={{ position: 'absolute', right: -52, top: '27%', fontSize: '0.62rem', fontWeight: 700, color: '#0ea5e9' }}>
-            RESUMED
-          </div>
-
-          {/* Timeout Handle */}
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="timeout"
-            style={{ top: '75%', background: '#f59e0b', width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-          />
-          <div style={{ position: 'absolute', right: -50, top: '67%', fontSize: '0.62rem', fontWeight: 700, color: '#f59e0b' }}>
-            TIMEOUT
-          </div>
-        </>
-      ) : (
-        <Handle
-          type="source"
-          position={Position.Right}
-          style={{ background: def.color, width: 10, height: 10, border: '2px solid var(--bg-base)' }}
-        />
-      )}
-    </div>
-  );
-}
-
-const nodeTypes = Object.fromEntries(Object.keys(NODE_DEFS).map((k) => [k, CustomNode]));
+import NodeValidator from '../../../validators/NodeValidator';
+import CustomNode from './CustomNode';
+import CustomEdge from './CustomEdge';
+import CanvasContextMenu from './CanvasContextMenu';
+import NodeContextMenu from './NodeContextMenu';
 
 export default function Canvas({
   onInit,
@@ -308,18 +21,82 @@ export default function Canvas({
   wrapperRef,
   displayNodes,
   displayEdges,
+  rfInstance,
 }) {
   const storeState = useCanvasStore();
   const activeNodes = displayNodes || storeState.nodes;
   const activeEdges = displayEdges || storeState.edges;
+  const showMinimap = storeState.showMinimap;
+
+  // Context Menu State
+  const [canvasMenu, setCanvasMenu] = useState(null);
+  const [nodeMenu, setNodeMenu] = useState(null);
+
+  // Dynamic node types registry with CustomNode
+  const nodeTypes = useMemo(() => {
+    const types = {
+      default: CustomNode,
+    };
+    Object.keys(NODE_DEFS).forEach((k) => {
+      types[k] = CustomNode;
+    });
+    return types;
+  }, []);
+
+  const edgeTypes = useMemo(() => ({
+    default: CustomEdge,
+    custom: CustomEdge,
+  }), []);
 
   const onDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
+  // Connection validation callback: prevents self-connections and duplicate branch handles
+  const isValidConnection = useCallback(
+    (connection) => {
+      // 1. Disallow self connections
+      if (connection.source === connection.target) {
+        return false;
+      }
+
+      // 2. Disallow duplicate connections from unique branch handles
+      const check = NodeValidator.validateConditionConnection(
+        {
+          source: connection.source,
+          target: connection.target,
+          sourceHandle: connection.sourceHandle,
+        },
+        activeEdges
+      );
+
+      return check.valid;
+    },
+    [activeEdges]
+  );
+
+  const handlePaneContextMenu = (event) => {
+    event.preventDefault();
+    setNodeMenu(null);
+    setCanvasMenu({ x: event.clientX, y: event.clientY });
+  };
+
+  const handleNodeContextMenu = (event, node) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setCanvasMenu(null);
+    setNodeMenu({ x: event.clientX, y: event.clientY, node });
+  };
+
+  const handleCanvasClick = (e) => {
+    setCanvasMenu(null);
+    setNodeMenu(null);
+    if (onPaneClick) onPaneClick(e);
+  };
+
   return (
-    <div ref={wrapperRef} style={{ flex: 1, position: 'relative' }}>
+    <div ref={wrapperRef} style={{ flex: 1, position: 'relative', width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={activeNodes}
         edges={activeEdges}
@@ -328,29 +105,121 @@ export default function Canvas({
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        onNodeClick={onNodeClick}
-        onPaneClick={onPaneClick}
+        onNodeClick={(e, node) => {
+          setCanvasMenu(null);
+          setNodeMenu(null);
+          if (onNodeClick) onNodeClick(e, node);
+        }}
+        onPaneClick={handleCanvasClick}
+        onPaneContextMenu={handlePaneContextMenu}
+        onNodeContextMenu={handleNodeContextMenu}
         onInit={onInit}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        isValidConnection={isValidConnection}
+        snapToGrid={true}
+        snapGrid={[16, 16]}
+        minZoom={0.2}
+        maxZoom={2}
         fitView
         style={{ background: 'var(--bg-base)' }}
-        defaultEdgeOptions={{ animated: true, style: { stroke: '#6c63ff', strokeWidth: 2 } }}
+        defaultEdgeOptions={{
+          type: 'default',
+          animated: true,
+          style: { stroke: 'var(--accent-primary)', strokeWidth: 2 },
+        }}
       >
-        <Background color="#1e2332" gap={24} size={1.5} />
-        <Controls style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }} />
-        <MiniMap style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8 }} nodeColor="#6c63ff" />
+        {/* Theme-Adaptive Background Grid */}
+        <Background color="var(--border)" gap={20} size={1.2} />
+
+        <Controls
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-md)',
+            overflow: 'hidden',
+          }}
+        />
+
+        {showMinimap && (
+          <MiniMap
+            style={{
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: 'var(--shadow-md)',
+            }}
+            nodeColor={(n) => {
+              const def = NODE_DEFS[n.type];
+              if (def?.category === 'trigger') return '#10b981';
+              if (def?.category === 'logic') return '#f59e0b';
+              if (def?.category === 'ai') return '#8b5cf6';
+              return '#6366f1';
+            }}
+            maskColor="rgba(0, 0, 0, 0.4)"
+          />
+        )}
       </ReactFlow>
 
+      {/* Empty State Overlay */}
       {activeNodes.length === 0 && (
-        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none', zIndex: 5 }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)', opacity: 0.5 }}>
-            <GitBranch size={48} strokeWidth={1.2} />
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%,-50%)',
+            textAlign: 'center',
+            pointerEvents: 'none',
+            zIndex: 5,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              marginBottom: 14,
+              color: 'var(--text-muted)',
+              opacity: 0.6,
+            }}
+          >
+            <GitBranch size={52} strokeWidth={1.3} />
           </div>
-          <div style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Start building your workflow</div>
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Drag nodes from the palette · or load a <strong style={{ color: 'var(--accent-primary)' }}>Template</strong> · or use <strong style={{ color: '#22d3ee' }}>AI Generate</strong>
+          <div style={{ fontWeight: 600, fontSize: '1.05rem', color: 'var(--text-primary)', marginBottom: 8 }}>
+            Build your workflow visually
+          </div>
+          <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', maxWidth: 360, margin: '0 auto', lineHeight: 1.5 }}>
+            Drag and drop steps from the palette on the left, load an existing{' '}
+            <strong style={{ color: 'var(--accent-primary)' }}>Template</strong>, or use{' '}
+            <strong style={{ color: '#22d3ee' }}>AI Assist</strong> to generate a complete workflow.
           </div>
         </div>
+      )}
+
+      {/* Canvas Context Menu (Right Click on Empty Space) */}
+      {canvasMenu && (
+        <CanvasContextMenu
+          x={canvasMenu.x}
+          y={canvasMenu.y}
+          onClose={() => setCanvasMenu(null)}
+          onFitView={() => {
+            if (rfInstance?.fitView) rfInstance.fitView({ padding: 0.2, duration: 400 });
+          }}
+        />
+      )}
+
+      {/* Node Context Menu (Right Click on a Node) */}
+      {nodeMenu && (
+        <NodeContextMenu
+          x={nodeMenu.x}
+          y={nodeMenu.y}
+          node={nodeMenu.node}
+          onClose={() => setNodeMenu(null)}
+          onConfigure={(n) => {
+            if (onNodeClick) onNodeClick(null, n);
+          }}
+        />
       )}
     </div>
   );

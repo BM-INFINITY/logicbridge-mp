@@ -1,9 +1,15 @@
-import React, { useRef, useState } from 'react';
-import { ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload, Save, KeyRound, UserCheck, Calendar, Webhook } from 'lucide-react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import {
+  ArrowLeft, LayoutTemplate, Sparkles, Play, Download, Upload, Save,
+  KeyRound, UserCheck, Calendar, Webhook, ChevronDown, Settings2,
+  Undo2, Redo2, Maximize2, Map, AlertTriangle, CheckCircle2,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import useCanvasStore from '../../../store/canvasStore';
 import { WorkflowSerializer } from '../../../utils';
 import ImportModal from '../../ImportModal';
+import NodeValidator from '../../../validators/NodeValidator';
+import { Button, IconButton, Badge, StatusIndicator, Tooltip } from '../../ui';
 
 export default function Toolbar({
   workflowName,
@@ -15,10 +21,44 @@ export default function Toolbar({
   onOpenApprovals,
   onOpenSchedules,
   onOpenWebhookEvents,
+  onFitView,
+  isDirty = false,
 }) {
-  const { nodes, edges, setNodes, setEdges, running, saving, showAI, setShowAI, showTemplates, setShowTemplates } = useCanvasStore();
+  const {
+    nodes, edges, setNodes, setEdges, running, saving,
+    showAI, setShowAI, showTemplates, setShowTemplates,
+    undo, redo, canUndo, canRedo,
+    showMinimap, toggleMinimap,
+    showValidationDrawer, setShowValidationDrawer,
+  } = useCanvasStore();
+
   const fileInputRef = useRef(null);
   const [importPreview, setImportPreview] = useState(null);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
+  const toolsMenuRef = useRef(null);
+
+  // Close tools dropdown on click outside or Escape
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(e.target)) {
+        setShowToolsMenu(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setShowToolsMenu(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  // Compute Workflow Validation State
+  const validation = useMemo(() => {
+    return NodeValidator.validateWorkflow(nodes, edges);
+  }, [nodes, edges]);
 
   const handleExport = () => {
     try {
@@ -30,9 +70,9 @@ export default function Toolbar({
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
 
-      const filename = WorkflowSerializer.generateExportFilename ?
-        WorkflowSerializer.generateExportFilename(workflowName, 1) :
-        `${workflowName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_v1.json`;
+      const filename = WorkflowSerializer.generateExportFilename
+        ? WorkflowSerializer.generateExportFilename(workflowName, 1)
+        : `${workflowName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_v1.json`;
 
       const a = document.createElement('a');
       a.href = url;
@@ -53,13 +93,11 @@ export default function Toolbar({
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target.result);
-        const validation = WorkflowSerializer.validate(parsed);
-        if (!validation.valid) {
-          toast.error(`Invalid import package: ${validation.error}`);
+        const val = WorkflowSerializer.validate(parsed);
+        if (!val.valid) {
+          toast.error(`Invalid import package: ${val.error}`);
           return;
         }
-
-        // Open preview modal
         setImportPreview(parsed);
       } catch (err) {
         toast.error(`Import parse error: ${err.message}`);
@@ -83,30 +121,141 @@ export default function Toolbar({
     }
   };
 
+  const hasWebhookNode = nodes.some((n) => n.type === 'trigger-webhook');
+
   return (
-    <div className="builder-toolbar">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button className="btn btn-ghost btn-sm" onClick={onBack}>
-          <ArrowLeft size={15} /> Back
+    <header className="builder-toolbar" role="toolbar" aria-label="Workflow Builder Toolbar">
+      {/* ─── Left Section: Navigation, Workflow Title, Saved State ─────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={onBack}
+          style={{ padding: '6px 10px', fontSize: '0.8rem', gap: 6 }}
+          aria-label="Back to Dashboard"
+        >
+          <ArrowLeft size={14} /> <span className="hide-on-mobile">Back</span>
         </button>
-        <div style={{ width: 1, height: 22, background: 'var(--border)' }} />
-        <input
-          value={workflowName}
-          onChange={(e) => setWorkflowName(e.target.value)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            outline: 'none',
-            color: 'var(--text-primary)',
-            fontWeight: 600,
-            fontSize: '0.95rem',
-            width: 200,
-          }}
-        />
+
+        <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
+
+        {/* Workflow Title input */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <input
+            id="workflow-title-input"
+            value={workflowName}
+            onChange={(e) => setWorkflowName(e.target.value)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              color: 'var(--text-primary)',
+              fontWeight: 600,
+              fontSize: '0.92rem',
+              width: 175,
+              padding: '2px 4px',
+              borderRadius: 4,
+            }}
+            aria-label="Workflow Name"
+          />
+
+          {/* Saved Status Indicator */}
+          {isDirty && (
+            <span
+              className="unsaved-dot"
+              title="Unsaved changes pending"
+              aria-label="Unsaved changes pending"
+            />
+          )}
+          <StatusIndicator
+            variant={isDirty ? 'warning' : 'success'}
+            label={isDirty ? 'Unsaved changes' : 'Saved'}
+            size="sm"
+          />
+        </div>
+
+        {/* Node Count Pill */}
         {nodes.length > 0 && (
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: 6, padding: '2px 8px' }}>
-            {nodes.length} nodes
-          </span>
+          <Badge variant="neutral" size="sm">
+            {nodes.length} {nodes.length === 1 ? 'node' : 'nodes'}
+          </Badge>
+        )}
+      </div>
+
+      {/* ─── Center Section: History & Canvas Navigation ──────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+        {/* Undo Button */}
+        <Tooltip text="Undo (Ctrl+Z)">
+          <IconButton
+            icon={<Undo2 size={14} />}
+            onClick={() => undo()}
+            disabled={!canUndo()}
+            size="sm"
+            variant="ghost"
+            aria-label="Undo canvas change"
+          />
+        </Tooltip>
+
+        {/* Redo Button */}
+        <Tooltip text="Redo (Ctrl+Y)">
+          <IconButton
+            icon={<Redo2 size={14} />}
+            onClick={() => redo()}
+            disabled={!canRedo()}
+            size="sm"
+            variant="ghost"
+            aria-label="Redo canvas change"
+          />
+        </Tooltip>
+
+        <div style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
+
+        {/* Fit View */}
+        <Tooltip text="Fit View to Screen">
+          <IconButton
+            icon={<Maximize2 size={14} />}
+            onClick={onFitView}
+            size="sm"
+            variant="ghost"
+            aria-label="Fit View"
+          />
+        </Tooltip>
+
+        {/* Toggle Minimap */}
+        <Tooltip text={showMinimap ? 'Hide Minimap' : 'Show Minimap'}>
+          <IconButton
+            icon={<Map size={14} />}
+            onClick={toggleMinimap}
+            size="sm"
+            variant={showMinimap ? 'secondary' : 'ghost'}
+            aria-label="Toggle Minimap"
+          />
+        </Tooltip>
+
+        {/* Validation Alert Pill */}
+        {nodes.length > 0 && (
+          <button
+            onClick={() => setShowValidationDrawer(!showValidationDrawer)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              marginLeft: 6,
+              padding: '3px 9px',
+              borderRadius: 12,
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: validation.valid ? '1px solid var(--success-border)' : '1px solid var(--warning-border)',
+              background: validation.valid ? 'var(--success-bg)' : 'var(--warning-bg)',
+              color: validation.valid ? 'var(--success)' : 'var(--warning)',
+              transition: 'all 0.15s ease',
+            }}
+            title={validation.valid ? 'All steps validated' : `${validation.issues.length} step configuration issues detected`}
+            aria-label="Toggle Workflow Validation Details"
+          >
+            {validation.valid ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
+            <span>{validation.valid ? 'Valid' : `${validation.issues.length} ${validation.issues.length === 1 ? 'issue' : 'issues'}`}</span>
+          </button>
         )}
       </div>
 
@@ -116,82 +265,138 @@ export default function Toolbar({
         onChange={handleFileChange}
         accept=".json"
         style={{ display: 'none' }}
+        aria-hidden="true"
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button className="btn btn-secondary btn-sm" onClick={handleExport} title="Export Workflow JSON">
-          <Download size={14} /> Export
-        </button>
-
-        <button className="btn btn-secondary btn-sm" onClick={() => fileInputRef.current?.click()} title="Import Workflow JSON">
-          <Upload size={14} /> Import
-        </button>
-
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={onOpenVariables}
-          title="Manage Workflow Variables & Secrets"
-        >
-          <KeyRound size={14} color="var(--accent-primary)" /> Variables & Secrets
-        </button>
-
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={onOpenApprovals}
-          title="Manage Pending Approvals"
-        >
-          <UserCheck size={14} color="#ec4899" /> Approvals
-        </button>
-
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={onOpenSchedules}
-          title="Manage Workflow Schedules & Recurrence"
-        >
-          <Calendar size={14} color="#38bdf8" /> Schedules
-        </button>
-
-        {nodes.some((n) => n.type === 'trigger-webhook') && (
+      {/* ─── Right Section: Actions, Tools, Save, Run ──────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {/* Tools Menu Dropdown */}
+        <div style={{ position: 'relative' }} ref={toolsMenuRef}>
           <button
+            id="builder-tools-menu-btn"
             className="btn btn-secondary btn-sm"
-            onClick={onOpenWebhookEvents}
-            title="Inspect Incoming Webhook Deliveries"
+            onClick={() => setShowToolsMenu(!showToolsMenu)}
+            style={{ fontSize: '0.78rem', padding: '6px 10px', gap: 6 }}
+            aria-expanded={showToolsMenu}
+            aria-haspopup="true"
           >
-            <Webhook size={14} color="#22c55e" /> Webhooks
+            <Settings2 size={13} color="var(--accent-primary)" />
+            <span>Tools</span>
+            <ChevronDown size={12} color="var(--text-muted)" />
           </button>
-        )}
 
+          {showToolsMenu && (
+            <div className="dropdown-menu" style={{ width: 200, right: 0, zIndex: 110 }}>
+              <button
+                className="dropdown-item"
+                onClick={() => { setShowToolsMenu(false); onOpenVariables(); }}
+              >
+                <KeyRound size={14} color="var(--accent-primary)" />
+                Variables & Secrets
+              </button>
+
+              <button
+                className="dropdown-item"
+                onClick={() => { setShowToolsMenu(false); onOpenApprovals(); }}
+              >
+                <UserCheck size={14} color="#ec4899" />
+                Pending Approvals
+              </button>
+
+              <button
+                className="dropdown-item"
+                onClick={() => { setShowToolsMenu(false); onOpenSchedules(); }}
+              >
+                <Calendar size={14} color="#38bdf8" />
+                Schedules & Cron
+              </button>
+
+              {hasWebhookNode && (
+                <button
+                  className="dropdown-item"
+                  onClick={() => { setShowToolsMenu(false); onOpenWebhookEvents(); }}
+                >
+                  <Webhook size={14} color="#22c55e" />
+                  Webhook Deliveries
+                </button>
+              )}
+
+              <div className="dropdown-divider" />
+
+              <button
+                className="dropdown-item"
+                onClick={() => { setShowToolsMenu(false); handleExport(); }}
+              >
+                <Download size={14} />
+                Export Workflow JSON
+              </button>
+
+              <button
+                className="dropdown-item"
+                onClick={() => { setShowToolsMenu(false); fileInputRef.current?.click(); }}
+              >
+                <Upload size={14} />
+                Import Workflow JSON
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Templates Modal Button */}
         <button
+          id="builder-templates-btn"
           className="btn btn-secondary btn-sm"
           onClick={() => {
             setShowTemplates(!showTemplates);
             setShowAI(false);
           }}
+          style={{ fontSize: '0.78rem', padding: '6px 10px', gap: 6 }}
         >
-          <LayoutTemplate size={14} /> Templates
+          <LayoutTemplate size={13} />
+          <span>Templates</span>
         </button>
+
+        {/* AI Generate Button */}
         <button
+          id="builder-ai-btn"
           className="btn btn-secondary btn-sm"
           onClick={() => {
             setShowAI(!showAI);
             setShowTemplates(false);
           }}
+          style={{ fontSize: '0.78rem', padding: '6px 10px', gap: 6, color: '#22d3ee' }}
         >
-          <Sparkles size={14} color="#22d3ee" /> AI Generate
+          <Sparkles size={13} color="#22d3ee" />
+          <span>AI Assist</span>
         </button>
-        <button className="btn btn-secondary btn-sm" onClick={onSave} disabled={saving}>
-          {saving ? <span className="spinner" /> : <Save size={14} />} Save
-        </button>
-        <button
+
+        {/* Save Button */}
+        <Button
+          id="save-workflow-btn"
+          variant="secondary"
+          size="sm"
+          onClick={onSave}
+          loading={saving}
+          icon={!saving ? <Save size={13} /> : undefined}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </Button>
+
+        {/* Run Button (Primary) */}
+        <Button
           id="run-workflow-btn"
-          className="btn btn-primary btn-sm"
+          variant="primary"
+          size="sm"
           onClick={onRun}
           disabled={running || nodes.length === 0}
+          loading={running}
+          icon={!running ? <Play size={13} /> : undefined}
         >
-          {running ? <><span className="spinner" /> Running...</> : <><Play size={14} /> Run</>}
-        </button>
+          {running ? 'Running...' : 'Run'}
+        </Button>
       </div>
 
+      {/* Import Preview Modal */}
       {importPreview && (
         <ImportModal
           previewData={importPreview}
@@ -199,6 +404,6 @@ export default function Toolbar({
           onClose={() => setImportPreview(null)}
         />
       )}
-    </div>
+    </header>
   );
 }

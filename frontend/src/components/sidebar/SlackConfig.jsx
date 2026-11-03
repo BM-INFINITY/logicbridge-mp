@@ -79,7 +79,7 @@ export default function SlackConfig({ data, onChange, onOpenVariablePicker }) {
         {connections.length === 0 ? (
           <div
             style={{
-              background: 'rgba(255,255,255,0.04)',
+              background: 'var(--bg-elevated)',
               border: '1px dashed var(--border)',
               borderRadius: 'var(--radius-sm)',
               padding: '10px 12px',
@@ -185,44 +185,15 @@ export default function SlackConfig({ data, onChange, onOpenVariablePicker }) {
       )}
 
       {(currentOp === 'send_message' || currentOp === 'send_dm') && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <label
-              style={{
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              Message Text
-            </label>
-            {onOpenVariablePicker && (
-              <button
-                type="button"
-                onClick={() => onOpenVariablePicker?.('text')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--accent-primary)',
-                  fontSize: '0.75rem',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-              >
-                + Insert Variable
-              </button>
-            )}
-          </div>
-          <CodeEditor
-            value={data.text || data.message || ''}
-            onChange={(val) => updateField('text', val)}
-            placeholder="Hello team! Build {{prev.status}} completed successfully."
-            minLines={3}
-            maxLines={6}
-          />
-        </div>
+        <CodeEditor
+          label="Message Text"
+          value={data.text || data.message || ''}
+          onChange={(val) => updateField('text', val)}
+          onInsertVariable={() => onOpenVariablePicker?.('text')}
+          placeholder="Hello team! Build {{prev.status}} completed successfully."
+          minLines={3}
+          maxLines={6}
+        />
       )}
 
       {currentOp === 'send_blocks' && (
@@ -235,44 +206,16 @@ export default function SlackConfig({ data, onChange, onOpenVariablePicker }) {
             onOpenVariablePicker={() => onOpenVariablePicker?.('text')}
             helperText="Plaintext summary shown in mobile notifications and previews"
           />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label
-                style={{
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}
-              >
-                Block Kit Blocks (JSON Array)
-              </label>
-              {onOpenVariablePicker && (
-                <button
-                  type="button"
-                  onClick={() => onOpenVariablePicker?.('blocks')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--accent-primary)',
-                    fontSize: '0.75rem',
-                    cursor: 'pointer',
-                    padding: 0,
-                  }}
-                >
-                  + Insert Variable
-                </button>
-              )}
-            </div>
-            <CodeEditor
-              value={typeof data.blocks === 'object' ? JSON.stringify(data.blocks, null, 2) : (data.blocks || '')}
-              onChange={(val) => updateField('blocks', val)}
-              placeholder={'[\n  {\n    "type": "section",\n    "text": { "type": "mrkdwn", "text": "*Status:* {{prev.status}}" }\n  }\n]'}
-              minLines={4}
-              maxLines={10}
-            />
-          </div>
+          <CodeEditor
+            label="Block Kit Blocks (JSON Array)"
+            value={typeof data.blocks === 'object' ? JSON.stringify(data.blocks, null, 2) : (data.blocks || '')}
+            onChange={(val) => updateField('blocks', val)}
+            onInsertVariable={() => onOpenVariablePicker?.('blocks')}
+            placeholder={'[\n  {\n    "type": "section",\n    "text": { "type": "mrkdwn", "text": "*Status:* {{prev.status}}" }\n  }\n]'}
+            minLines={4}
+            maxLines={10}
+            helperText="Valid JSON array of Slack Block Kit block objects"
+          />
         </>
       )}
 

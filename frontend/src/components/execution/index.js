@@ -4,6 +4,7 @@ import ReplayEventsPanel from './ReplayEventsPanel';
 import ReplayInspector from './ReplayInspector';
 import ExecutionStatistics from './ExecutionStatistics';
 import ExecutionTimeline from './ExecutionTimeline';
+import AgentToolCallViewer from './AgentToolCallViewer';
 
 export {
   TimelineNode,
@@ -12,4 +13,5 @@ export {
   ReplayInspector,
   ExecutionStatistics,
   ExecutionTimeline,
+  AgentToolCallViewer,
 };

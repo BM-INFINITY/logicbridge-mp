@@ -724,7 +724,7 @@ export class NodeValidator {
    */
   static validateConditionConnection(params, edges) {
     if (params.sourceHandle) {
-      const isUniqueHandle = ['true', 'false', 'loop', 'done', 'default'].includes(params.sourceHandle) ||
+      const isUniqueHandle = ['true', 'false', 'loop', 'done', 'default', 'approved', 'rejected', 'timeout', 'resumed'].includes(params.sourceHandle) ||
         params.sourceHandle.startsWith('case_');
       if (isUniqueHandle) {
         const duplicate = edges.find(
@@ -739,6 +739,36 @@ export class NodeValidator {
       }
     }
     return { valid: true };
+  }
+
+  /**
+   * Validates all nodes in a workflow and returns aggregated validation state
+   * @param {Array} nodes
+   * @param {Array} edges
+   * @returns {{ valid: boolean, issues: Array<{ nodeId: string, nodeLabel: string, nodeType: string, error: string }>, errorMap: Record<string, string> }}
+   */
+  static validateWorkflow(nodes = [], _edges = []) {
+    const issues = [];
+    const errorMap = {};
+
+    for (const node of nodes) {
+      const res = this.validateNode(node);
+      if (!res.valid) {
+        issues.push({
+          nodeId: node.id,
+          nodeLabel: node.data?.label || node.id,
+          nodeType: node.type,
+          error: res.error || 'Configuration incomplete',
+        });
+        errorMap[node.id] = res.error || 'Configuration incomplete';
+      }
+    }
+
+    return {
+      valid: issues.length === 0,
+      issues,
+      errorMap,
+    };
   }
 }
 

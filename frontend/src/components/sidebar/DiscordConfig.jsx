@@ -80,7 +80,7 @@ export default function DiscordConfig({ data, onChange, onOpenVariablePicker }) 
         {connections.length === 0 ? (
           <div
             style={{
-              background: 'rgba(255,255,255,0.04)',
+              background: 'var(--bg-elevated)',
               border: '1px dashed var(--border)',
               borderRadius: 'var(--radius-sm)',
               padding: '10px 12px',
@@ -196,44 +196,15 @@ export default function DiscordConfig({ data, onChange, onOpenVariablePicker }) 
 
       {/* Message Content */}
       {currentOp !== 'get_channel' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <label
-              style={{
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {currentOp === 'send_embed' ? 'Accompanying Message (Optional)' : 'Message Content'}
-            </label>
-            {onOpenVariablePicker && (
-              <button
-                type="button"
-                onClick={() => onOpenVariablePicker?.('content')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--accent-primary)',
-                  fontSize: '0.75rem',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-              >
-                + Insert Variable
-              </button>
-            )}
-          </div>
-          <CodeEditor
-            value={data.content || data.text || data.message || ''}
-            onChange={(val) => updateField('content', val)}
-            placeholder="Alert: Status check returned {{prev.status}}"
-            minLines={2}
-            maxLines={6}
-          />
-        </div>
+        <CodeEditor
+          label={currentOp === 'send_embed' ? 'Accompanying Message (Optional)' : 'Message Content'}
+          value={data.content || data.text || data.message || ''}
+          onChange={(val) => updateField('content', val)}
+          onInsertVariable={() => onOpenVariablePicker?.('content')}
+          placeholder="Alert: Status check returned {{prev.status}}"
+          minLines={2}
+          maxLines={6}
+        />
       )}
 
       {/* Embed Fields */}
@@ -246,44 +217,15 @@ export default function DiscordConfig({ data, onChange, onOpenVariablePicker }) 
             onChange={(val) => updateField('title', val)}
             onOpenVariablePicker={() => onOpenVariablePicker?.('title')}
           />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label
-                style={{
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}
-              >
-                Embed Description
-              </label>
-              {onOpenVariablePicker && (
-                <button
-                  type="button"
-                  onClick={() => onOpenVariablePicker?.('description')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--accent-primary)',
-                    fontSize: '0.75rem',
-                    cursor: 'pointer',
-                    padding: 0,
-                  }}
-                >
-                  + Insert Variable
-                </button>
-              )}
-            </div>
-            <CodeEditor
-              value={data.description || ''}
-              onChange={(val) => updateField('description', val)}
-              placeholder="Incident detected on service {{prev.name}} at {{prev.timestamp}}"
-              minLines={3}
-              maxLines={6}
-            />
-          </div>
+          <CodeEditor
+            label="Embed Description"
+            value={data.description || ''}
+            onChange={(val) => updateField('description', val)}
+            onInsertVariable={() => onOpenVariablePicker?.('description')}
+            placeholder="Incident detected on service {{prev.name}} at {{prev.timestamp}}"
+            minLines={3}
+            maxLines={6}
+          />
           <TextField
             label="Embed Accent Color (Hex)"
             placeholder="#5865f2 or #22c55e"

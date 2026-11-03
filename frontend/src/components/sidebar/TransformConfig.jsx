@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Trash2, Braces } from 'lucide-react';
 import { SelectField, TextField } from '../forms';
 
@@ -58,7 +58,7 @@ export default function TransformConfig({ data, onChange, onOpenVariablePicker }
       />
 
       {selectedOp && (
-        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', borderLeft: '2px solid var(--accent-primary)' }}>
+        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', borderLeft: '2px solid var(--accent-primary)' }}>
           {selectedOp.hint}
         </div>
       )}
@@ -98,13 +98,13 @@ export default function TransformConfig({ data, onChange, onOpenVariablePicker }
             <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
               <input
                 className="form-input"
-                style={{ flex: 1, fontSize: '0.75rem', padding: '5px' }}
+                style={{ flex: 1, minWidth: 0, fontSize: '0.75rem', padding: '5px' }}
                 placeholder="outputField"
                 value={m.outputField || ''}
                 onChange={(e) => handleMappingChange(i, 'outputField', e.target.value)}
               />
               <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', flexShrink: 0 }}>←</span>
-              <div style={{ position: 'relative', flex: 1.5, display: 'flex', alignItems: 'center' }}>
+              <div style={{ position: 'relative', flex: 1.5, minWidth: 0, display: 'flex', alignItems: 'center' }}>
                 <input
                   className="form-input"
                   style={{ width: '100%', fontSize: '0.75rem', padding: '5px', paddingRight: '24px' }}

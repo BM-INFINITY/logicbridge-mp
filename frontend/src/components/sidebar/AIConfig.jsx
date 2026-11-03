@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronRight, Key, Sliders, Code } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, Key, Sliders } from 'lucide-react';
+import { TextField, SelectField, CodeEditor, NumberField } from '../forms';
+import SidebarSection from './SidebarSection';
 
 const PROVIDER_OPTIONS = [
   { value: 'openai', label: 'OpenAI', defaultBaseUrl: 'https://api.openai.com/v1' },
@@ -70,9 +72,9 @@ export default function AIConfig({
     handleFieldChange('categories', [...categories, `Category ${categories.length + 1}`]);
   };
 
-  const handleCategoryChange = (index, val) => {
+  const handleCategoryChange = (index, value) => {
     const updated = [...categories];
-    updated[index] = val;
+    updated[index] = value;
     handleFieldChange('categories', updated);
   };
 
@@ -83,54 +85,75 @@ export default function AIConfig({
   };
 
   return (
-    <div className="space-y-4 text-xs" style={{ padding: '4px 0' }}>
-      {/* Provider Selector */}
-      <div>
-        <label className="block text-gray-300 font-medium mb-1">
-          LLM Provider <span className="text-red-400">*</span>
-        </label>
-        <select
-          value={provider}
-          onChange={(e) => {
-            const nextProv = e.target.value;
-            const defaultModel = SUGGESTED_MODELS[nextProv]?.[0] || '';
-            onChange({
-              ...data,
-              provider: nextProv,
-              model: isEmbeddings && nextProv === 'ollama' ? 'nomic-embed-text' : defaultModel,
-            });
-          }}
-          className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none"
-        >
-          {filteredProviders.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-        {isEmbeddings && provider === 'anthropic' && (
-          <div className="text-red-400 text-xs mt-1">
-            Anthropic Claude does not offer a standalone embeddings API. Please switch to OpenAI, OpenRouter, or Ollama.
-          </div>
-        )}
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0, width: '100%' }}>
+      {/* ── 1. Provider Selector ───────────────────────────────────────────── */}
+      <SelectField
+        label="LLM Provider"
+        required
+        value={provider}
+        onChange={(nextProv) => {
+          const defaultModel = SUGGESTED_MODELS[nextProv]?.[0] || '';
+          onChange({
+            ...data,
+            provider: nextProv,
+            model: isEmbeddings && nextProv === 'ollama' ? 'nomic-embed-text' : defaultModel,
+          });
+        }}
+        options={filteredProviders}
+        helperText={
+          isEmbeddings && provider === 'anthropic'
+            ? 'Anthropic does not offer standalone embeddings. Please switch to OpenAI, OpenRouter, or Ollama.'
+            : undefined
+        }
+      />
 
-      {/* Model Selection */}
+      {/* ── 2. Model Selection ─────────────────────────────────────────────── */}
       <div>
-        <div className="flex justify-between items-center mb-1">
-          <label className="block text-gray-300 font-medium">Model Name</label>
-          <span className="text-gray-500 text-[10px]">e.g. gpt-4o-mini</span>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            marginBottom: 2,
+            minWidth: 0,
+          }}
+        >
+          <label
+            className="form-label"
+            style={{
+              margin: 0,
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+            }}
+          >
+            Model Name
+          </label>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            e.g. {SUGGESTED_MODELS[provider]?.[0] || 'gpt-4o-mini'}
+          </span>
         </div>
-        <div className="relative">
+        <div style={{ position: 'relative', width: '100%' }}>
           <input
             type="text"
-            list="model-suggestions"
+            list="ai-model-suggestions"
             value={data.model || ''}
             onChange={(e) => handleFieldChange('model', e.target.value)}
             placeholder="Select or enter model identifier..."
-            className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none"
+            className="form-input"
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              fontSize: '0.8rem',
+              padding: '8px 10px',
+              borderRadius: 'var(--radius-sm, 8px)',
+              background: 'var(--bg-elevated)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
           />
-          <datalist id="model-suggestions">
+          <datalist id="ai-model-suggestions">
             {currentModels.map((m) => (
               <option key={m} value={m} />
             ))}
@@ -138,171 +161,178 @@ export default function AIConfig({
         </div>
       </div>
 
-      {/* Authentication & Endpoint */}
-      <div className="border border-gray-800 rounded p-3 bg-gray-900/50 space-y-3">
-        <div className="flex items-center gap-1.5 font-medium text-gray-300">
-          <Key size={13} className="text-purple-400" />
-          <span>Authentication & Endpoint</span>
-        </div>
-
+      {/* ── 3. Authentication & Endpoint ─────────────────────────────────── */}
+      <SidebarSection
+        title="Authentication & Endpoint"
+        icon={<Key size={13} />}
+        collapsible
+        defaultOpen={true}
+      >
         {provider !== 'ollama' && (
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-gray-400">API Key / Secret Expression</label>
-              <button
-                type="button"
-                onClick={() => onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('apiKey', val))}
-                className="text-[10px] text-purple-400 hover:text-purple-300"
-              >
-                + Variable
-              </button>
-            </div>
-            <input
-              type="password"
-              value={data.apiKey || ''}
-              onChange={(e) => handleFieldChange('apiKey', e.target.value)}
-              placeholder="{{secrets.OPENAI_API_KEY}} or sk-..."
-              className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none"
-            />
-            <span className="text-[10px] text-gray-500 block mt-1">
-              Recommended: Use <code className="text-purple-300">&#123;&#123;secrets.KEY&#125;&#125;</code> to keep API keys encrypted and redacted.
-            </span>
-          </div>
+          <TextField
+            label="API Key / Secret Expression"
+            placeholder="{{secrets.OPENAI_API_KEY}} or sk-..."
+            type="password"
+            value={data.apiKey || ''}
+            onChange={(val) => handleFieldChange('apiKey', val)}
+            onInsertVariable={() =>
+              onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('apiKey', val))
+            }
+            helperText="Recommended: Use {{secrets.KEY}} to keep keys encrypted and redacted."
+          />
         )}
 
-        <div>
-          <label className="block text-gray-400 mb-1">
-            Base URL {provider === 'ollama' ? '(Default: http://localhost:11434)' : '(Optional custom proxy / gateway)'}
-          </label>
-          <input
-            type="text"
-            value={data.baseUrl || ''}
-            onChange={(e) => handleFieldChange('baseUrl', e.target.value)}
-            placeholder={
-              provider === 'ollama'
-                ? 'http://localhost:11434'
-                : PROVIDER_OPTIONS.find((p) => p.value === provider)?.defaultBaseUrl || ''
-            }
-            className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none"
-          />
-        </div>
-      </div>
+        <TextField
+          label={`Base URL ${provider === 'ollama' ? '(Default: http://localhost:11434)' : '(Optional Custom Proxy)'}`}
+          placeholder={
+            provider === 'ollama'
+              ? 'http://localhost:11434'
+              : PROVIDER_OPTIONS.find((p) => p.value === provider)?.defaultBaseUrl || ''
+          }
+          value={data.baseUrl || ''}
+          onChange={(val) => handleFieldChange('baseUrl', val)}
+        />
+      </SidebarSection>
 
-      {/* Node-Specific Fields */}
-      {/* 1. AI Generate */}
+      {/* ── 4. Node-Specific Fields ────────────────────────────────────────── */}
+
+      {/* 4a. AI Generate */}
       {isGenerate && (
-        <div className="space-y-3">
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-gray-300 font-medium">System Instructions (Optional)</label>
-              <button
-                type="button"
-                onClick={() => onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('systemPrompt', (data.systemPrompt || '') + val))}
-                className="text-[10px] text-purple-400 hover:text-purple-300"
-              >
-                + Variable
-              </button>
-            </div>
-            <textarea
-              rows={2}
-              value={data.systemPrompt || ''}
-              onChange={(e) => handleFieldChange('systemPrompt', e.target.value)}
-              placeholder="e.g. You are an expert copywriter and tone specialist."
-              className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none font-mono"
-            />
-          </div>
+        <>
+          <CodeEditor
+            label="System Instructions (Optional)"
+            placeholder="e.g. You are an expert copywriter and tone specialist."
+            value={data.systemPrompt || ''}
+            onChange={(val) => handleFieldChange('systemPrompt', val)}
+            onInsertVariable={() =>
+              onOpenVariablePicker &&
+              onOpenVariablePicker((val) => handleFieldChange('systemPrompt', (data.systemPrompt || '') + val))
+            }
+            minLines={2}
+          />
+          <CodeEditor
+            label="Prompt Template"
+            required
+            placeholder="Write a concise email summary of {{steps.trigger.body.message}}..."
+            value={data.prompt || ''}
+            onChange={(val) => handleFieldChange('prompt', val)}
+            onInsertVariable={() =>
+              onOpenVariablePicker &&
+              onOpenVariablePicker((val) => handleFieldChange('prompt', (data.prompt || '') + val))
+            }
+            minLines={4}
+            helperText="Supports Handlebars expressions like {{steps.prev.data}}."
+          />
+        </>
+      )}
 
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-gray-300 font-medium">
-                Prompt Template <span className="text-red-400">*</span>
+      {/* 4b. AI Chat */}
+      {isChat && (
+        <>
+          <CodeEditor
+            label="System Prompt"
+            placeholder="e.g. You are a helpful customer support agent for LogicBridge."
+            value={data.systemPrompt || ''}
+            onChange={(val) => handleFieldChange('systemPrompt', val)}
+            onInsertVariable={() =>
+              onOpenVariablePicker &&
+              onOpenVariablePicker((val) => handleFieldChange('systemPrompt', (data.systemPrompt || '') + val))
+            }
+            minLines={2}
+          />
+
+          <div className="form-group" style={{ width: '100%', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label
+                className="form-label"
+                style={{
+                  margin: 0,
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                Conversation Messages
               </label>
               <button
                 type="button"
-                onClick={() => onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('prompt', (data.prompt || '') + val))}
-                className="text-[10px] text-purple-400 hover:text-purple-300"
-              >
-                + Variable
-              </button>
-            </div>
-            <textarea
-              rows={4}
-              value={data.prompt || ''}
-              onChange={(e) => handleFieldChange('prompt', e.target.value)}
-              placeholder="Write a summary for customer request: {{steps.previous.data}}"
-              className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none font-mono"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* 2. AI Chat */}
-      {isChat && (
-        <div className="space-y-3">
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-gray-300 font-medium">System Prompt</label>
-              <button
-                type="button"
-                onClick={() => onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('systemPrompt', (data.systemPrompt || '') + val))}
-                className="text-[10px] text-purple-400 hover:text-purple-300"
-              >
-                + Variable
-              </button>
-            </div>
-            <textarea
-              rows={2}
-              value={data.systemPrompt || ''}
-              onChange={(e) => handleFieldChange('systemPrompt', e.target.value)}
-              placeholder="You are a helpful and polite assistant."
-              className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none font-mono"
-            />
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-gray-300 font-medium">Conversation Messages</label>
-              <button
-                type="button"
                 onClick={handleAddMessage}
-                className="flex items-center gap-1 text-[11px] text-purple-400 hover:text-purple-300"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-primary)',
+                  fontSize: '0.72rem',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 3,
+                }}
               >
                 <Plus size={11} /> Add Message
               </button>
             </div>
 
-            <div className="space-y-2">
-              {messages.map((msg, index) => (
-                <div key={index} className="p-2 border border-gray-700 rounded bg-gray-800/60 space-y-2">
-                  <div className="flex items-center justify-between">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm, 6px)',
+                    padding: 8,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <select
                       value={msg.role || 'user'}
-                      onChange={(e) => handleMessageChange(index, 'role', e.target.value)}
-                      className="bg-gray-900 border border-gray-700 rounded px-1.5 py-0.5 text-[11px] text-white"
+                      onChange={(e) => handleMessageChange(idx, 'role', e.target.value)}
+                      style={{
+                        fontSize: '0.72rem',
+                        padding: '3px 6px',
+                        borderRadius: 4,
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border)',
+                      }}
                     >
-                      <option value="user">User</option>
-                      <option value="assistant">Assistant</option>
-                      <option value="system">System</option>
+                      <option value="system">system</option>
+                      <option value="user">user</option>
+                      <option value="assistant">assistant</option>
                     </select>
 
-                    <div className="flex items-center gap-2">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <button
                         type="button"
                         onClick={() =>
                           onOpenVariablePicker &&
-                          onOpenVariablePicker((val) =>
-                            handleMessageChange(index, 'content', (msg.content || '') + val)
-                          )
+                          onOpenVariablePicker((val) => handleMessageChange(idx, 'content', (msg.content || '') + val))
                         }
-                        className="text-[10px] text-purple-400 hover:text-purple-300"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--accent-primary)',
+                          fontSize: '0.68rem',
+                          cursor: 'pointer',
+                        }}
                       >
                         + Variable
                       </button>
                       {messages.length > 1 && (
                         <button
                           type="button"
-                          onClick={() => handleRemoveMessage(index)}
-                          className="text-gray-500 hover:text-red-400"
+                          onClick={() => handleRemoveMessage(idx)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--accent-danger)',
+                            cursor: 'pointer',
+                            padding: 2,
+                          }}
                         >
                           <Trash2 size={12} />
                         </button>
@@ -313,225 +343,294 @@ export default function AIConfig({
                   <textarea
                     rows={2}
                     value={msg.content || ''}
-                    onChange={(e) => handleMessageChange(index, 'content', e.target.value)}
-                    placeholder="Enter message text or {{variable}}..."
-                    className="w-full bg-gray-900 border border-gray-700 rounded p-1.5 text-white text-xs font-mono focus:outline-none"
+                    onChange={(e) => handleMessageChange(idx, 'content', e.target.value)}
+                    placeholder={`Message content for ${msg.role}...`}
+                    className="form-input"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      fontSize: '0.75rem',
+                      padding: '6px 8px',
+                      borderRadius: 4,
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border)',
+                      fontFamily: 'monospace',
+                    }}
                   />
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* 3. AI Structured Output */}
+      {/* 4c. AI Structured Output */}
       {isStructured && (
-        <div className="space-y-3">
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-gray-300 font-medium">Prompt</label>
-              <button
-                type="button"
-                onClick={() => onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('prompt', (data.prompt || '') + val))}
-                className="text-[10px] text-purple-400 hover:text-purple-300"
-              >
-                + Variable
-              </button>
-            </div>
-            <textarea
-              rows={3}
-              value={data.prompt || ''}
-              onChange={(e) => handleFieldChange('prompt', e.target.value)}
-              placeholder="Extract person name and age from: {{steps.prev.text}}"
-              className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none font-mono"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-300 font-medium mb-1">Schema Name</label>
-            <input
-              type="text"
-              value={data.schemaName || ''}
-              onChange={(e) => handleFieldChange('schemaName', e.target.value)}
-              placeholder="e.g. CustomerProfile"
-              className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-gray-300 font-medium flex items-center gap-1">
-                <Code size={12} /> JSON Schema <span className="text-red-400">*</span>
-              </label>
-            </div>
-            <textarea
-              rows={6}
-              value={typeof data.schema === 'object' ? JSON.stringify(data.schema, null, 2) : data.schema || ''}
-              onChange={(e) => handleFieldChange('schema', e.target.value)}
-              placeholder={'{\n  "type": "object",\n  "properties": {\n    "name": { "type": "string" }\n  }\n}'}
-              className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-green-400 text-xs font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
-            />
-          </div>
-        </div>
+        <>
+          <CodeEditor
+            label="Prompt"
+            required
+            placeholder="Extract user information from order {{steps.trigger.body.text}}..."
+            value={data.prompt || ''}
+            onChange={(val) => handleFieldChange('prompt', val)}
+            onInsertVariable={() =>
+              onOpenVariablePicker &&
+              onOpenVariablePicker((val) => handleFieldChange('prompt', (data.prompt || '') + val))
+            }
+            minLines={3}
+          />
+          <TextField
+            label="Schema Name"
+            placeholder="order_details"
+            value={data.schemaName || ''}
+            onChange={(val) => handleFieldChange('schemaName', val)}
+          />
+          <CodeEditor
+            label="JSON Schema Definition"
+            required
+            placeholder={'{\n  "type": "object",\n  "properties": {\n    "name": { "type": "string" }\n  }\n}'}
+            value={
+              typeof data.schema === 'object'
+                ? JSON.stringify(data.schema, null, 2)
+                : data.schema || ''
+            }
+            onChange={(val) => handleFieldChange('schema', val)}
+            minLines={5}
+            helperText="The LLM will strictly adhere to this JSON Schema specification."
+          />
+        </>
       )}
 
-      {/* 4. AI Classification */}
+      {/* 4d. AI Classification */}
       {isClassify && (
-        <div className="space-y-3">
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-gray-300 font-medium">
-                Input Text <span className="text-red-400">*</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('input', (data.input || '') + val))}
-                className="text-[10px] text-purple-400 hover:text-purple-300"
-              >
-                + Variable
-              </button>
-            </div>
-            <textarea
-              rows={3}
-              value={data.input || data.text || ''}
-              onChange={(e) => handleFieldChange('input', e.target.value)}
-              placeholder="Text to classify: {{steps.trigger.body.message}}"
-              className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none font-mono"
-            />
-          </div>
+        <>
+          <CodeEditor
+            label="Input Text to Classify"
+            required
+            placeholder="Customer complaint text: {{steps.trigger.body.ticketText}}"
+            value={data.input || ''}
+            onChange={(val) => handleFieldChange('input', val)}
+            onInsertVariable={() =>
+              onOpenVariablePicker &&
+              onOpenVariablePicker((val) => handleFieldChange('input', (data.input || '') + val))
+            }
+            minLines={3}
+          />
 
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label className="text-gray-300 font-medium">Target Categories (Min 2)</label>
+          <div className="form-group" style={{ width: '100%', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label
+                className="form-label"
+                style={{
+                  margin: 0,
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                Target Categories (Min 2)
+              </label>
               <button
                 type="button"
                 onClick={handleAddCategory}
-                className="flex items-center gap-1 text-[11px] text-purple-400 hover:text-purple-300"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-primary)',
+                  fontSize: '0.72rem',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 3,
+                }}
               >
                 <Plus size={11} /> Add Category
               </button>
             </div>
 
-            <div className="space-y-1.5">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {categories.map((cat, idx) => (
-                <div key={idx} className="flex items-center gap-1.5">
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <input
                     type="text"
                     value={cat}
                     onChange={(e) => handleCategoryChange(idx, e.target.value)}
+                    className="form-input"
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      boxSizing: 'border-box',
+                      fontSize: '0.75rem',
+                      padding: '6px 8px',
+                      borderRadius: 4,
+                      background: 'var(--bg-elevated)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border)',
+                    }}
                     placeholder={`Category ${idx + 1}`}
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded p-1.5 text-white text-xs focus:outline-none"
                   />
                   {categories.length > 2 && (
                     <button
                       type="button"
                       onClick={() => handleRemoveCategory(idx)}
-                      className="text-gray-500 hover:text-red-400 p-1"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--accent-danger)',
+                        cursor: 'pointer',
+                        padding: 2,
+                        flexShrink: 0,
+                      }}
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={13} />
                     </button>
                   )}
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* 5. AI Embeddings */}
+      {/* 4e. AI Embeddings */}
       {isEmbeddings && (
-        <div className="space-y-3">
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-gray-300 font-medium">
-                Input Text <span className="text-red-400">*</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => onOpenVariablePicker && onOpenVariablePicker((val) => handleFieldChange('input', (data.input || '') + val))}
-                className="text-[10px] text-purple-400 hover:text-purple-300"
-              >
-                + Variable
-              </button>
-            </div>
-            <textarea
-              rows={4}
-              value={data.input || data.text || ''}
-              onChange={(e) => handleFieldChange('input', e.target.value)}
-              placeholder="Text to generate vector embeddings for..."
-              className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none font-mono"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-300 font-medium mb-1">
-              Target Dimensions (Optional)
-            </label>
-            <input
-              type="number"
-              value={data.dimensions || ''}
-              onChange={(e) => handleFieldChange('dimensions', e.target.value ? parseInt(e.target.value, 10) : '')}
-              placeholder="e.g. 1536"
-              className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none"
-            />
-          </div>
-        </div>
+        <CodeEditor
+          label="Input Text for Embeddings"
+          required
+          placeholder="Text passage to convert into dense vector embeddings: {{steps.prev.summary}}"
+          value={data.input || ''}
+          onChange={(val) => handleFieldChange('input', val)}
+          onInsertVariable={() =>
+            onOpenVariablePicker &&
+            onOpenVariablePicker((val) => handleFieldChange('input', (data.input || '') + val))
+          }
+          minLines={3}
+          helperText="Returns a floating-point vector suitable for vector databases and semantic search."
+        />
       )}
 
-      {/* Advanced Parameters Accordion */}
+      {/* ── 5. Advanced Parameters ─────────────────────────────────────────── */}
       {!isEmbeddings && (
-        <div className="border-t border-gray-800 pt-2">
+        <div
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm, 8px)',
+            padding: 10,
+            minWidth: 0,
+          }}
+        >
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1.5 text-gray-400 hover:text-white font-medium py-1 w-full text-left"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
+              padding: 0,
+            }}
           >
             {showAdvanced ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            <Sliders size={13} className="text-purple-400" />
+            <Sliders size={13} style={{ color: 'var(--accent-primary)' }} />
             <span>Advanced Model Parameters</span>
           </button>
 
           {showAdvanced && (
-            <div className="mt-2 space-y-3 pl-3 border-l-2 border-purple-500/30">
+            <div
+              style={{
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+              }}
+            >
               <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-gray-400">Temperature</label>
-                  <span className="text-gray-300 font-mono text-[11px]">{data.temperature ?? 0.7}</span>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 4,
+                  }}
+                >
+                  <label
+                    className="form-label"
+                    style={{
+                      margin: 0,
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    Temperature
+                  </label>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      fontFamily: 'monospace',
+                      color: 'var(--accent-primary)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {data.temperature ?? 0.7}
+                  </span>
                 </div>
                 <input
                   type="range"
                   min="0"
-                  max="2"
+                  max="1"
                   step="0.05"
                   value={data.temperature ?? 0.7}
                   onChange={(e) => handleFieldChange('temperature', parseFloat(e.target.value))}
-                  className="w-full accent-purple-500"
+                  style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
                 />
-                <div className="flex justify-between text-[10px] text-gray-500">
-                  <span>Deterministic (0.0)</span>
-                  <span>Creative (2.0)</span>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '0.68rem',
+                    color: 'var(--text-muted)',
+                    marginTop: 2,
+                  }}
+                >
+                  <span>Precise / Deterministic (0.0)</span>
+                  <span>Creative (1.0)</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-gray-400 mb-1">Max Tokens</label>
-                  <input
-                    type="number"
-                    value={data.maxTokens || 1024}
-                    onChange={(e) => handleFieldChange('maxTokens', parseInt(e.target.value, 10) || '')}
-                    className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-400 mb-1">Timeout (ms)</label>
-                  <input
-                    type="number"
-                    value={data.timeout || 30000}
-                    onChange={(e) => handleFieldChange('timeout', parseInt(e.target.value, 10) || 30000)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white text-xs"
-                  />
-                </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                  gap: 10,
+                }}
+              >
+                <NumberField
+                  label="Max Tokens"
+                  min={1}
+                  step={256}
+                  value={data.maxTokens ?? 2048}
+                  onChange={(val) => handleFieldChange('maxTokens', val || 2048)}
+                />
+                <NumberField
+                  label="Timeout (ms)"
+                  min={1000}
+                  step={1000}
+                  value={data.timeout ?? 60000}
+                  onChange={(val) => handleFieldChange('timeout', val || 60000)}
+                />
               </div>
             </div>
           )}

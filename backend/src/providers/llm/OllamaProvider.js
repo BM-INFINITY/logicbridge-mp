@@ -40,6 +40,7 @@ class OllamaProvider extends LLMProvider {
     timeout = 30000,
     httpClient = axios,
     format,
+    tools,
   } = {}) {
     this.validateCapability('chat');
     const endpoint = `${(baseUrl || this.defaultBaseUrl).replace(/\/+$/, '')}/api/chat`;
@@ -54,10 +55,23 @@ class OllamaProvider extends LLMProvider {
         if (typeof m === 'string') {
           formattedMessages.push({ role: 'user', content: m });
         } else if (m && typeof m === 'object') {
-          formattedMessages.push({
-            role: m.role || 'user',
-            content: typeof m.content === 'object' ? JSON.stringify(m.content) : String(m.content || ''),
-          });
+          if (m.role === 'tool') {
+            formattedMessages.push({
+              role: 'tool',
+              content: typeof m.content === 'object' ? JSON.stringify(m.content) : String(m.content || ''),
+            });
+          } else if (m.tool_calls || m.toolCalls) {
+            formattedMessages.push({
+              role: 'assistant',
+              content: m.content || '',
+              tool_calls: m.tool_calls || m.toolCalls,
+            });
+          } else {
+            formattedMessages.push({
+              role: m.role || 'user',
+              content: typeof m.content === 'object' ? JSON.stringify(m.content) : String(m.content || ''),
+            });
+          }
         }
       });
     }
@@ -70,6 +84,9 @@ class OllamaProvider extends LLMProvider {
 
     if (format) {
       payload.format = format;
+    }
+    if (Array.isArray(tools) && tools.length > 0) {
+      payload.tools = tools;
     }
 
     const optionsObj = {};
@@ -104,9 +121,17 @@ class OllamaProvider extends LLMProvider {
     const promptTokens = res.data?.prompt_eval_count || 0;
     const completionTokens = res.data?.eval_count || 0;
 
+    const rawToolCalls = res.data?.message?.tool_calls || [];
+    const toolCalls = rawToolCalls.map((tc, idx) => ({
+      id: tc.id || `call_ollama_${idx}`,
+      name: tc.function?.name || tc.name,
+      arguments: tc.function?.arguments || tc.arguments || {},
+    }));
+
     return {
       text,
       content: text,
+      toolCalls,
       provider: this.id,
       model: res.data?.model || payload.model,
       usage: {

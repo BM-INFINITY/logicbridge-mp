@@ -44,6 +44,8 @@ class OpenAIProvider extends LLMProvider {
     timeout = 30000,
     httpClient = axios,
     responseFormat,
+    tools,
+    toolChoice,
   } = {}) {
     this.validateCapability('chat');
     const endpoint = `${(baseUrl || this.defaultBaseUrl).replace(/\/+$/, '')}/chat/completions`;
@@ -58,10 +60,34 @@ class OpenAIProvider extends LLMProvider {
         if (typeof m === 'string') {
           formattedMessages.push({ role: 'user', content: m });
         } else if (m && typeof m === 'object') {
-          formattedMessages.push({
-            role: m.role || 'user',
-            content: typeof m.content === 'object' ? JSON.stringify(m.content) : String(m.content || ''),
-          });
+          if (m.role === 'tool') {
+            formattedMessages.push({
+              role: 'tool',
+              tool_call_id: m.tool_call_id || m.toolCallId || m.id,
+              content: typeof m.content === 'object' ? JSON.stringify(m.content) : String(m.content || ''),
+            });
+          } else if (m.tool_calls || m.toolCalls) {
+            formattedMessages.push({
+              role: 'assistant',
+              content: m.content || null,
+              tool_calls: (m.tool_calls || m.toolCalls).map((tc) => ({
+                id: tc.id,
+                type: 'function',
+                function: {
+                  name: tc.name || tc.function?.name,
+                  arguments:
+                    typeof tc.arguments === 'string'
+                      ? tc.arguments
+                      : JSON.stringify(tc.arguments || tc.function?.arguments || {}),
+                },
+              })),
+            });
+          } else {
+            formattedMessages.push({
+              role: m.role || 'user',
+              content: typeof m.content === 'object' ? JSON.stringify(m.content) : String(m.content || ''),
+            });
+          }
         }
       });
     }
@@ -86,6 +112,19 @@ class OpenAIProvider extends LLMProvider {
     if (responseFormat) {
       payload.response_format = responseFormat;
     }
+    if (Array.isArray(tools) && tools.length > 0) {
+      payload.tools = tools.map((t) => ({
+        type: 'function',
+        function: {
+          name: t.name,
+          description: t.description || '',
+          parameters: t.parameters || t.schema || { type: 'object' },
+        },
+      }));
+      if (toolChoice) {
+        payload.tool_choice = toolChoice;
+      }
+    }
 
     const res = await this.executeWithRetry(() =>
       httpClient({
@@ -100,9 +139,28 @@ class OpenAIProvider extends LLMProvider {
     const choice = res.data?.choices?.[0];
     const text = choice?.message?.content || '';
 
+    const rawToolCalls = choice?.message?.tool_calls || [];
+    const toolCalls = rawToolCalls.map((tc) => {
+      let parsedArgs = {};
+      try {
+        parsedArgs =
+          typeof tc.function?.arguments === 'string'
+            ? JSON.parse(tc.function.arguments)
+            : tc.function?.arguments || {};
+      } catch {
+        parsedArgs = { raw: tc.function?.arguments };
+      }
+      return {
+        id: tc.id,
+        name: tc.function?.name,
+        arguments: parsedArgs,
+      };
+    });
+
     return {
       text,
       content: text,
+      toolCalls,
       provider: this.id,
       model: res.data?.model || payload.model,
       usage: {

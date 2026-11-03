@@ -624,6 +624,7 @@ export class NodeValidator {
       NodeTypes.ACTION_AI_STRUCTURED,
       NodeTypes.ACTION_AI_CLASSIFY,
       NodeTypes.ACTION_AI_EMBEDDINGS,
+      NodeTypes.ACTION_AI_AGENT,
     ].includes(type);
 
     if (isAiNode) {
@@ -683,6 +684,31 @@ export class NodeValidator {
       if (type === NodeTypes.ACTION_AI_EMBEDDINGS) {
         if (!data?.input && !data?.text) {
           return { valid: false, error: 'Input text is required for AI Embeddings' };
+        }
+      }
+
+      if (type === NodeTypes.ACTION_AI_AGENT) {
+        if (!data?.prompt && !data?.systemPrompt) {
+          return { valid: false, error: 'User prompt or system instructions are required for AI Agent' };
+        }
+        if (data?.maxIterations !== undefined && data.maxIterations !== null && data.maxIterations !== '') {
+          const it = parseInt(data.maxIterations, 10);
+          if (isNaN(it) || it < 1) {
+            return { valid: false, error: 'Max iterations must be a positive integer' };
+          }
+        }
+        if (data?.maxToolCalls !== undefined && data.maxToolCalls !== null && data.maxToolCalls !== '') {
+          const tc = parseInt(data.maxToolCalls, 10);
+          if (isNaN(tc) || tc < 1) {
+            return { valid: false, error: 'Max tool calls must be a positive integer' };
+          }
+        }
+        if (data?.responseSchema && typeof data.responseSchema === 'string' && data.responseSchema.trim()) {
+          try {
+            JSON.parse(data.responseSchema);
+          } catch {
+            return { valid: false, error: 'Invalid response schema JSON syntax' };
+          }
         }
       }
     }

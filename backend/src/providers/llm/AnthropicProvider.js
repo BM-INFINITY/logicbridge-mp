@@ -41,6 +41,7 @@ class AnthropicProvider extends LLMProvider {
     baseUrl,
     timeout = 30000,
     httpClient = axios,
+    tools,
   } = {}) {
     this.validateCapability('chat');
     const endpoint = `${(baseUrl || this.defaultBaseUrl).replace(/\/+$/, '')}/messages`;
@@ -51,11 +52,38 @@ class AnthropicProvider extends LLMProvider {
         if (typeof m === 'string') {
           formattedMessages.push({ role: 'user', content: m });
         } else if (m && typeof m === 'object') {
-          const role = m.role === 'assistant' ? 'assistant' : 'user';
-          formattedMessages.push({
-            role,
-            content: typeof m.content === 'object' ? JSON.stringify(m.content) : String(m.content || ''),
-          });
+          if (m.role === 'tool') {
+            formattedMessages.push({
+              role: 'user',
+              content: [
+                {
+                  type: 'tool_result',
+                  tool_use_id: m.tool_call_id || m.toolCallId || m.id,
+                  content: typeof m.content === 'object' ? JSON.stringify(m.content) : String(m.content || ''),
+                },
+              ],
+            });
+          } else if (m.tool_calls || m.toolCalls) {
+            const contentParts = [];
+            if (m.content) {
+              contentParts.push({ type: 'text', text: String(m.content) });
+            }
+            (m.tool_calls || m.toolCalls).forEach((tc) => {
+              contentParts.push({
+                type: 'tool_use',
+                id: tc.id,
+                name: tc.name,
+                input: tc.arguments || {},
+              });
+            });
+            formattedMessages.push({ role: 'assistant', content: contentParts });
+          } else {
+            const role = m.role === 'assistant' ? 'assistant' : 'user';
+            formattedMessages.push({
+              role,
+              content: typeof m.content === 'object' ? JSON.stringify(m.content) : String(m.content || ''),
+            });
+          }
         }
       });
     }
@@ -82,6 +110,13 @@ class AnthropicProvider extends LLMProvider {
     if (stop) {
       payload.stop_sequences = Array.isArray(stop) ? stop : [String(stop)];
     }
+    if (Array.isArray(tools) && tools.length > 0) {
+      payload.tools = tools.map((t) => ({
+        name: t.name,
+        description: t.description || '',
+        input_schema: t.parameters || t.schema || { type: 'object' },
+      }));
+    }
 
     const res = await this.executeWithRetry(() =>
       httpClient({
@@ -98,9 +133,17 @@ class AnthropicProvider extends LLMProvider {
     const inputTokens = res.data?.usage?.input_tokens || 0;
     const outputTokens = res.data?.usage?.output_tokens || 0;
 
+    const toolUses = res.data?.content?.filter((c) => c.type === 'tool_use') || [];
+    const toolCalls = toolUses.map((tu) => ({
+      id: tu.id,
+      name: tu.name,
+      arguments: tu.input || {},
+    }));
+
     return {
       text,
       content: text,
+      toolCalls,
       provider: this.id,
       model: res.data?.model || payload.model,
       usage: {

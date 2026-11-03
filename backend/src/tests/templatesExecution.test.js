@@ -19,6 +19,26 @@ const ExecutionContext = require('../utils/ExecutionContext');
 const ConnectionService = require('../services/ConnectionService');
 const { NodeTypes } = require('../constants');
 const { ValidationError } = require('../errors');
+const axios = require('axios');
+
+// Mock axios adapter so template execution tests run deterministically without external network dependency
+axios.defaults.adapter = async (config) => {
+  return {
+    status: 200,
+    statusText: 'OK',
+    headers: { 'content-type': 'application/json' },
+    config,
+    data: {
+      id: 1,
+      title: 'Mocked Todo / Resource',
+      userId: 1,
+      completed: false,
+      status: 'active',
+      items: [{ id: 1, name: 'Sample' }],
+      message: 'OK'
+    }
+  };
+};
 
 let passed = 0;
 let failed = 0;
@@ -127,6 +147,13 @@ async function executeWorkflow(workflow, contextOverrides = {}) {
       context.setResult(node.id, output);
       executed.push({ nodeId: node.id, nodeType: node.type, output });
     } catch (err) {
+      if (err.name === 'ExecutionPauseSignal') {
+        // Paused execution is an expected lifecycle state for wait/approval nodes
+        executed.push({ nodeId: node.id, nodeType: node.type, paused: true, pauseType: err.pauseType });
+        executedOutputs[node.id] = { paused: true, ...err.details };
+        context.setResult(node.id, executedOutputs[node.id]);
+        continue;
+      }
       errors.push({ nodeId: node.id, nodeType: node.type, error: err.message });
       break;
     }

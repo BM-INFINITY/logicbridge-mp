@@ -100,6 +100,7 @@ const NODE_ICONS = {
   'action-ai-structured': Braces,
   'action-ai-classify': Tag,
   'action-ai-embeddings': Brain,
+  'action-ai-agent': Bot,
   'logic-switch': GitFork,
   'logic-condition': GitBranch,
   'action-condition': GitBranch,

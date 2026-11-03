@@ -22,6 +22,7 @@ import ApprovalConfig from './ApprovalConfig';
 import WaitConfig from './WaitConfig';
 import WebhookConfig from './WebhookConfig';
 import AIConfig from './AIConfig';
+import AgentConfig from './AgentConfig';
 
 export default function SidebarFactory({
   nodeType,
@@ -215,6 +216,14 @@ export default function SidebarFactory({
       return (
         <AIConfig
           nodeType={nodeType}
+          data={data}
+          onChange={onChange}
+          onOpenVariablePicker={onOpenVariablePicker}
+        />
+      );
+    case 'action-ai-agent':
+      return (
+        <AgentConfig
           data={data}
           onChange={onChange}
           onOpenVariablePicker={onOpenVariablePicker}

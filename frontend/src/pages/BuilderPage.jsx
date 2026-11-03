@@ -174,15 +174,15 @@ function BuilderContent() {
     }
   };
 
-  const loadTemplate = (t) => {
-    const instantiated = instantiateTemplate(t);
+  const loadTemplate = (t, installConfig = {}) => {
+    const instantiated = instantiateTemplate(t, installConfig);
     setWorkflowName(instantiated.name);
     setNodes(instantiated.nodes);
     setEdges(instantiated.edges);
     setExecutionResult(null);
     setSelectedNode(null);
     if (isReplayActive) stopReplay();
-    toast.success(`Template "${t.name}" loaded! Click Run to see results.`);
+    toast.success(`Template "${instantiated.name}" loaded! Click Run to see results.`);
   };
 
   // ── Compute Replay Canvas Transformation via ReplayCanvasAdapter ───────────

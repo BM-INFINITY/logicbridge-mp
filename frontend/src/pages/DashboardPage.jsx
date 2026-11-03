@@ -107,17 +107,18 @@ export default function DashboardPage() {
     navigate(`/builder/${wf._id}`);
   };
 
-  const handleUseTemplate = async (template) => {
+  const handleUseTemplate = async (template, installConfig = {}) => {
     try {
-      const instantiated = instantiateTemplate(template);
+      const instantiated = instantiateTemplate(template, installConfig);
       const wf = await createWorkflow({
         name: instantiated.name,
         description: instantiated.description,
         nodes: instantiated.nodes,
         edges: instantiated.edges,
+        variables: instantiated.variables || {},
         status: 'draft',
       });
-      toast.success(`Template "${template.name}" created!`);
+      toast.success(`Template "${instantiated.name}" created!`);
       navigate(`/builder/${wf._id}`);
     } catch {
       toast.error('Failed to create workflow from template');

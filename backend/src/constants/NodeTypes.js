@@ -36,6 +36,7 @@ const NodeTypes = Object.freeze({
   ACTION_AI_STRUCTURED: 'action-ai-structured',
   ACTION_AI_CLASSIFY: 'action-ai-classify',
   ACTION_AI_EMBEDDINGS: 'action-ai-embeddings',
+  ACTION_AI_AGENT: 'action-ai-agent',
 
   // Logic
   LOGIC_CONDITION: 'logic-condition',

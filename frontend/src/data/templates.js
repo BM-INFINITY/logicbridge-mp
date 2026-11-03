@@ -15,6 +15,7 @@ export const TEMPLATE_CATEGORIES = [
   { id: 'automation',      label: 'Automation' },
   { id: 'data-processing', label: 'Data Processing' },
   { id: 'developer',       label: 'Developer' },
+  { id: 'ai',              label: 'AI & Agents' },
 ];
 
 // ─── Workflow Templates ───────────────────────────────────────────────────────
@@ -23,6 +24,54 @@ export const TEMPLATES = [
   // ── 1. HTTP API Request ───────────────────────────────────────────────────
   {
     id: 'http-api-request',
+    useCase: "Quickly query external REST endpoints, test webhook receivers, inspect JSON responses, and establish automated heartbeat logging.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 98,
+    createdAt: '2026-01-10T08:00:00.000Z',
+    updatedAt: '2026-10-15T12:00:00.000Z',
+    requiredConnections: [],
+    requiredVariables: [
+      {
+            "name": "API_ENDPOINT",
+            "label": "API Endpoint URL",
+            "type": "string",
+            "default": "https://jsonplaceholder.typicode.com/todos/1",
+            "description": "Target REST endpoint to query",
+            "required": true
+      }
+],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Fetch Todo (HTTP GET)",
+            "Log Result"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Manual Start",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "Fetch Todo",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n3",
+                  "label": "Log Result",
+                  "type": "action-log",
+                  "icon": "FileText"
+            }
+      ],
+      "expectedOutcome": "Dispatches an HTTP GET request to JSONPlaceholder and outputs the todo title in execution logs."
+},
     name: 'HTTP API Request',
     description: 'Fetch data from a public API and log the result. The simplest complete workflow — great for getting started.',
     category: 'getting-started',
@@ -52,6 +101,61 @@ export const TEMPLATES = [
   // ── 2. API Data Transformation ────────────────────────────────────────────
   {
     id: 'api-transform',
+    useCase: "Ingest raw user entities from remote services, strip sensitive fields, pick only designated attributes (name, email, phone), and deliver sanitized payloads downstream.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 92,
+    createdAt: '2026-01-12T09:30:00.000Z',
+    updatedAt: '2026-10-18T14:15:00.000Z',
+    requiredConnections: [],
+    requiredVariables: [
+      {
+            "name": "TARGET_USER_ID",
+            "label": "User ID",
+            "type": "number",
+            "default": 1,
+            "description": "ID of the user profile to fetch",
+            "required": false
+      }
+],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Fetch User (HTTP GET)",
+            "Extract Fields (Transform)",
+            "Log User"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Start",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "Fetch User",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n3",
+                  "label": "Extract Fields",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n4",
+                  "label": "Log User",
+                  "type": "action-log",
+                  "icon": "FileText"
+            }
+      ],
+      "expectedOutcome": "Retrieves user JSON, extracts clean name and email fields, and records normalized string to logs."
+},
     name: 'API Data Transformation',
     description: 'Fetch user data from an API, extract specific fields using Transform, and log the cleaned output.',
     category: 'api',
@@ -86,6 +190,67 @@ export const TEMPLATES = [
   // ── 3. Conditional Flow ───────────────────────────────────────────────────
   {
     id: 'conditional-flow',
+    useCase: "Dynamically evaluate payload attributes against rules, bifurcating workflow logic between success handlers and error/exception handlers.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 96,
+    createdAt: '2026-01-14T11:00:00.000Z',
+    updatedAt: '2026-10-20T16:00:00.000Z',
+    requiredConnections: [],
+    requiredVariables: [
+      {
+            "name": "THRESHOLD_POST_ID",
+            "label": "Expected Post ID",
+            "type": "string",
+            "default": "1",
+            "description": "Target post ID to match against",
+            "required": false
+      }
+],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Get Post (HTTP)",
+            "Check ID (Condition)",
+            "True Branch / False Branch"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Start",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "Get Post",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n3",
+                  "label": "Check ID",
+                  "type": "logic-condition",
+                  "icon": "GitBranch"
+            },
+            {
+                  "id": "n4",
+                  "label": "True Branch",
+                  "type": "action-log",
+                  "icon": "FileText"
+            },
+            {
+                  "id": "n5",
+                  "label": "False Branch",
+                  "type": "action-log",
+                  "icon": "FileText"
+            }
+      ],
+      "expectedOutcome": "Evaluates if post.id === 1; routes to True Branch or False Branch accordingly."
+},
     name: 'Conditional Branching',
     description: 'Fetch a post, check a condition, and route to different branches based on the result.',
     category: 'getting-started',
@@ -112,6 +277,54 @@ export const TEMPLATES = [
   // ── 4. Webhook → Database ─────────────────────────────────────────────────
   {
     id: 'webhook-to-postgres',
+    useCase: "Capture real-time external event webhooks (Stripe, GitHub, Shopify), map payload properties to SQL column schemas, and execute transactional database inserts.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 88,
+    createdAt: '2026-01-16T14:20:00.000Z',
+    updatedAt: '2026-10-22T10:45:00.000Z',
+    requiredConnections: ["postgres"],
+    requiredVariables: [
+      {
+            "name": "TARGET_TABLE",
+            "label": "Target Table Name",
+            "type": "string",
+            "default": "users",
+            "description": "PostgreSQL table name to receive webhook rows",
+            "required": true
+      }
+],
+    preview: {
+      "triggers": [
+            "Webhook Trigger (HTTP POST)"
+      ],
+      "actions": [
+            "Prepare Record (Transform)",
+            "Insert Row (PostgreSQL)"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Webhook Trigger",
+                  "type": "trigger-webhook",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n2",
+                  "label": "Prepare Record",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n3",
+                  "label": "Insert Row",
+                  "type": "action-postgres",
+                  "icon": "Database"
+            }
+      ],
+      "expectedOutcome": "Receives POST payload, maps name, email, and timestamp, and inserts a row into the target PostgreSQL database."
+},
     name: 'Webhook → Database',
     description: 'Receive an incoming webhook, transform the payload, and insert the record into PostgreSQL.',
     category: 'database',
@@ -149,6 +362,61 @@ export const TEMPLATES = [
   // ── 5. Database → API ─────────────────────────────────────────────────────
   {
     id: 'database-to-api',
+    useCase: "Perform automated scheduled ETL syncing: select un-synced user or order batches from PostgreSQL and push them to external SaaS or data lake endpoints.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 84,
+    createdAt: '2026-01-18T16:00:00.000Z',
+    updatedAt: '2026-10-23T11:30:00.000Z',
+    requiredConnections: ["postgres"],
+    requiredVariables: [
+      {
+            "name": "SYNC_API_URL",
+            "label": "Sync API Endpoint",
+            "type": "string",
+            "default": "https://api.example.com/sync",
+            "description": "Destination API URL to receive database batches",
+            "required": true
+      }
+],
+    preview: {
+      "triggers": [
+            "Schedule Trigger (Cron: 0 9 * * *)"
+      ],
+      "actions": [
+            "Query Users (PostgreSQL)",
+            "Format Payload (Transform)",
+            "POST to API (HTTP)"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Every Day 9 AM",
+                  "type": "trigger-schedule",
+                  "icon": "Clock"
+            },
+            {
+                  "id": "n2",
+                  "label": "Query Users",
+                  "type": "action-postgres",
+                  "icon": "Database"
+            },
+            {
+                  "id": "n3",
+                  "label": "Format Payload",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n4",
+                  "label": "POST to API",
+                  "type": "action-http",
+                  "icon": "Globe"
+            }
+      ],
+      "expectedOutcome": "Executes daily at 9am, retrieves up to 100 rows from PostgreSQL, shapes payload, and POSTs batch to API."
+},
     name: 'Database → API Sync',
     description: 'Run on a schedule, query rows from PostgreSQL, transform the data, and POST it to an external API.',
     category: 'database',
@@ -196,6 +464,74 @@ export const TEMPLATES = [
   // ── 6. MongoDB Data Processing ────────────────────────────────────────────
   {
     id: 'mongodb-processing',
+    useCase: "Scan NoSQL collections for unprocessed tasks, count pending items, and trigger operational escalation alerts when backlog queues exceed zero.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 82,
+    createdAt: '2026-01-20T10:15:00.000Z',
+    updatedAt: '2026-10-24T09:00:00.000Z',
+    requiredConnections: ["mongodb"],
+    requiredVariables: [
+      {
+            "name": "TARGET_COLLECTION",
+            "label": "Mongo Collection",
+            "type": "string",
+            "default": "events",
+            "description": "Collection to query for pending records",
+            "required": true
+      }
+],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Find Documents (MongoDB)",
+            "Extract Count",
+            "Has Records? (Condition)",
+            "Send Alert / Log Empty"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Manual Start",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "Find Documents",
+                  "type": "action-mongodb",
+                  "icon": "Database"
+            },
+            {
+                  "id": "n3",
+                  "label": "Extract Count",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n4",
+                  "label": "Has Records?",
+                  "type": "logic-condition",
+                  "icon": "GitBranch"
+            },
+            {
+                  "id": "n5",
+                  "label": "Send Alert",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n6",
+                  "label": "Log Empty",
+                  "type": "action-log",
+                  "icon": "FileText"
+            }
+      ],
+      "expectedOutcome": "Queries MongoDB for pending events; if count > 0, posts an alert to webhook; otherwise logs empty status."
+},
     name: 'MongoDB Data Processing',
     description: 'Trigger manually, query MongoDB for documents, transform, check a condition, then notify via HTTP.',
     category: 'database',
@@ -242,6 +578,54 @@ export const TEMPLATES = [
   // ── 7. Webhook → Google Sheets ────────────────────────────────────────────
   {
     id: 'webhook-to-sheets',
+    useCase: "Collect web form submissions, inbound lead triggers, or customer feedback webhooks and log structured rows directly into a shared Google Spreadsheet.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 90,
+    createdAt: '2026-01-22T13:40:00.000Z',
+    updatedAt: '2026-10-25T15:20:00.000Z',
+    requiredConnections: ["google_sheets"],
+    requiredVariables: [
+      {
+            "name": "TARGET_SHEET_NAME",
+            "label": "Sheet Tab Name",
+            "type": "string",
+            "default": "Sheet1",
+            "description": "Worksheet tab name in Google Sheets",
+            "required": true
+      }
+],
+    preview: {
+      "triggers": [
+            "Webhook Trigger"
+      ],
+      "actions": [
+            "Prepare Row Data (Transform)",
+            "Append Row (Google Sheets)"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Webhook Trigger",
+                  "type": "trigger-webhook",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n2",
+                  "label": "Prepare Row Data",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n3",
+                  "label": "Append Row",
+                  "type": "action-google-sheets",
+                  "icon": "Table"
+            }
+      ],
+      "expectedOutcome": "Appends a new row containing name, email, and timestamp into the configured Google Sheet upon webhook receipt."
+},
     name: 'Webhook → Google Sheets',
     description: 'Receive a webhook payload, transform it, and append a new row to a Google Sheet automatically.',
     category: 'automation',
@@ -275,6 +659,61 @@ export const TEMPLATES = [
   // ── 8. Google Sheets → API ────────────────────────────────────────────────
   {
     id: 'sheets-to-api',
+    useCase: "Read collaborative spreadsheet tables edited by operations or marketing teams and synchronize records periodically with internal microservices or CRMs.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 78,
+    createdAt: '2026-01-24T15:00:00.000Z',
+    updatedAt: '2026-10-26T17:10:00.000Z',
+    requiredConnections: ["google_sheets"],
+    requiredVariables: [
+      {
+            "name": "INGEST_API_ENDPOINT",
+            "label": "Ingest API URL",
+            "type": "string",
+            "default": "https://api.example.com/import",
+            "description": "Destination API URL to receive spreadsheet rows",
+            "required": true
+      }
+],
+    preview: {
+      "triggers": [
+            "Schedule Trigger (Cron: 0 * * * *)"
+      ],
+      "actions": [
+            "Get All Rows (Google Sheets)",
+            "Format Payload (Transform)",
+            "POST to API (HTTP)"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Every Hour",
+                  "type": "trigger-schedule",
+                  "icon": "Clock"
+            },
+            {
+                  "id": "n2",
+                  "label": "Get All Rows",
+                  "type": "action-google-sheets",
+                  "icon": "Table"
+            },
+            {
+                  "id": "n3",
+                  "label": "Format Payload",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n4",
+                  "label": "POST to API",
+                  "type": "action-http",
+                  "icon": "Globe"
+            }
+      ],
+      "expectedOutcome": "Polls Google Sheets hourly, shapes extracted rows, and dispatches an HTTP POST request to the ingest service."
+},
     name: 'Google Sheets → API Sync',
     description: 'Pull rows from a Google Sheet on a schedule, transform them, and POST each row to an external API.',
     category: 'automation',
@@ -313,6 +752,75 @@ export const TEMPLATES = [
   // ── 9. Data Processing Pipeline ───────────────────────────────────────────
   {
     id: 'data-processing-pipeline',
+    useCase: "Multi-stage data normalization pipeline calculating financial multipliers, parsing nested attributes, and validating business metrics against target ranges.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 80,
+    createdAt: '2026-01-26T17:30:00.000Z',
+    updatedAt: '2026-10-27T18:40:00.000Z',
+    requiredConnections: [],
+    requiredVariables: [
+      {
+            "name": "MULTIPLIER",
+            "label": "Calculation Multiplier",
+            "type": "number",
+            "default": 100,
+            "description": "Scaling factor applied to parsed numerical fields",
+            "required": false
+      }
+],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Fetch Data (HTTP)",
+            "Get User ID (JSON)",
+            "Pick Fields (Transform)",
+            "Multiply ID (Math)",
+            "Result > 50? (Condition)"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Start",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "Fetch Data",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n3",
+                  "label": "Get User ID",
+                  "type": "action-json",
+                  "icon": "Braces"
+            },
+            {
+                  "id": "n4",
+                  "label": "Pick Fields",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n5",
+                  "label": "Multiply ID",
+                  "type": "action-math",
+                  "icon": "Calculator"
+            },
+            {
+                  "id": "n6",
+                  "label": "Result > 50?",
+                  "type": "logic-condition",
+                  "icon": "GitBranch"
+            }
+      ],
+      "expectedOutcome": "Transforms raw API payload, scales user ID by 100 via math calculation, and checks if scaled value exceeds 50."
+},
     name: 'Data Processing Pipeline',
     description: 'Full data pipeline: fetch → parse JSON → transform fields → math calculation → conditional output.',
     category: 'data-processing',
@@ -356,6 +864,100 @@ export const TEMPLATES = [
   // ── 10. Developer Test Workflow ───────────────────────────────────────────
   {
     id: 'developer-test-workflow',
+    useCase: "Comprehensive automated test harness exercising end-to-end node interoperability, mustache expression resolution, and timeline playback.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 68,
+    createdAt: '2026-01-28T19:00:00.000Z',
+    updatedAt: '2026-10-28T20:00:00.000Z',
+    requiredConnections: [],
+    requiredVariables: [],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Fetch Post",
+            "JSON Parse",
+            "Uppercase",
+            "Math Addition",
+            "Date Format",
+            "Merge Transform",
+            "Delay 0.5s",
+            "Condition",
+            "Pass/Fail Log"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "[DEV] Start",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "[DEV] Fetch Post",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n3",
+                  "label": "[DEV] Get Title",
+                  "type": "action-json",
+                  "icon": "Braces"
+            },
+            {
+                  "id": "n4",
+                  "label": "[DEV] Uppercase",
+                  "type": "action-text",
+                  "icon": "Type"
+            },
+            {
+                  "id": "n5",
+                  "label": "[DEV] Math",
+                  "type": "action-math",
+                  "icon": "Calculator"
+            },
+            {
+                  "id": "n6",
+                  "label": "[DEV] Timestamp",
+                  "type": "action-date",
+                  "icon": "Calendar"
+            },
+            {
+                  "id": "n7",
+                  "label": "[DEV] Merge",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n8",
+                  "label": "[DEV] 0.5s Delay",
+                  "type": "action-delay",
+                  "icon": "Clock"
+            },
+            {
+                  "id": "n9",
+                  "label": "[DEV] Check",
+                  "type": "logic-condition",
+                  "icon": "GitBranch"
+            },
+            {
+                  "id": "n10",
+                  "label": "[DEV] Pass",
+                  "type": "action-log",
+                  "icon": "FileText"
+            },
+            {
+                  "id": "n11",
+                  "label": "[DEV] Fail",
+                  "type": "action-log",
+                  "icon": "FileText"
+            }
+      ],
+      "expectedOutcome": "Executes comprehensive 11-node sequence across all standard core nodes with zero credential dependencies."
+},
     name: 'Developer Test Workflow',
     description: 'Exercises HTTP, JSON, Transform, Math, Text, Date, Condition, and Delay. Use to verify node execution, replay, and serialization.',
     category: 'developer',
@@ -425,6 +1027,54 @@ export const TEMPLATES = [
   // ── Legacy templates (kept for backward compat) ───────────────────────────
   {
     id: 'student-attendance-csv',
+    useCase: "Pull remote institutional attendance reports, parse student records, map roster columns, and format downloadable CSV data files.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 76,
+    createdAt: '2026-01-30T10:00:00.000Z',
+    updatedAt: '2026-10-29T12:00:00.000Z',
+    requiredConnections: [],
+    requiredVariables: [
+      {
+            "name": "CSV_FILENAME",
+            "label": "CSV Output Filename",
+            "type": "string",
+            "default": "student_attendance",
+            "description": "Base filename for generated CSV export",
+            "required": false
+      }
+],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Fetch Attendance (HTTP GET)",
+            "Export Student CSV"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Manual Start",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "Fetch Attendance",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n3",
+                  "label": "Export Student CSV",
+                  "type": "action-csv",
+                  "icon": "FileText"
+            }
+      ],
+      "expectedOutcome": "Queries attendance API and produces structured CSV table with Enrollment, Name, Branch, and Attendance % columns."
+},
     name: 'Student Attendance → CSV',
     description: 'Fetch student attendance from a Google Apps Script API and export as CSV.',
     category: 'data-processing',
@@ -467,6 +1117,68 @@ export const TEMPLATES = [
 
   {
     id: 'multi-step-pipeline',
+    useCase: "Sequential API polling with rate-limiting backoff delay, field extraction, and audit log generation.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 86,
+    createdAt: '2026-02-01T12:00:00.000Z',
+    updatedAt: '2026-10-30T14:00:00.000Z',
+    requiredConnections: [],
+    requiredVariables: [
+      {
+            "name": "DELAY_SECONDS",
+            "label": "Wait Duration (sec)",
+            "type": "number",
+            "default": 1,
+            "description": "Seconds to pause between fetch and transform",
+            "required": false
+      }
+],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Fetch Post",
+            "Wait 1s (Delay)",
+            "Extract Fields (Transform)",
+            "Final Log"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Start",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "Fetch Post",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n3",
+                  "label": "Wait 1s",
+                  "type": "action-delay",
+                  "icon": "Clock"
+            },
+            {
+                  "id": "n4",
+                  "label": "Extract Fields",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n5",
+                  "label": "Final Log",
+                  "type": "action-log",
+                  "icon": "FileText"
+            }
+      ],
+      "expectedOutcome": "Fetches post 5, pauses 1s for rate limiting, picks title and body, and outputs to console."
+},
     name: 'Multi-Step Pipeline',
     description: 'Fetch data, wait 1 second, transform fields, and log the final result.',
     category: 'getting-started',
@@ -493,6 +1205,67 @@ export const TEMPLATES = [
   // ── 13. Scheduled API Health Check & Email Alert ───────────────────────────
   {
     id: 'scheduled-health-email',
+    useCase: "Automated 24/7 endpoint reliability monitor: pings health endpoints on recurring schedule and immediately fires SMTP/email alerts if non-200 responses occur.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 94,
+    createdAt: '2026-02-03T08:00:00.000Z',
+    updatedAt: '2026-10-31T09:30:00.000Z',
+    requiredConnections: ["email"],
+    requiredVariables: [
+      {
+            "name": "ALERT_RECIPIENT_EMAIL",
+            "label": "Alert Recipient",
+            "type": "string",
+            "default": "ops@example.com",
+            "description": "Destination address for uptime failure notifications",
+            "required": true
+      }
+],
+    preview: {
+      "triggers": [
+            "Schedule Trigger (Every 15 min)"
+      ],
+      "actions": [
+            "Health Probe (HTTP)",
+            "Status == 200? (Condition)",
+            "Log Healthy / Send Alert Email"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Every 15 Min",
+                  "type": "trigger-schedule",
+                  "icon": "Clock"
+            },
+            {
+                  "id": "n2",
+                  "label": "Health Probe",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n3",
+                  "label": "Status == 200?",
+                  "type": "logic-condition",
+                  "icon": "GitBranch"
+            },
+            {
+                  "id": "n4",
+                  "label": "Log Healthy",
+                  "type": "action-log",
+                  "icon": "FileText"
+            },
+            {
+                  "id": "n5",
+                  "label": "Send Alert",
+                  "type": "action-email",
+                  "icon": "Mail"
+            }
+      ],
+      "expectedOutcome": "Runs every 15 minutes. Logs healthy message if HTTP 200; dispatches SMTP alert email if endpoint fails."
+},
     name: 'Scheduled Health Check & Alert',
     description: 'Ping an API endpoint every 15 minutes, evaluate status code, and log operational health. The fallback alert branch triggers an email notification (requires an Email connection or SMTP settings; the normal healthy path runs with zero credentials).',
     category: 'automation',
@@ -527,6 +1300,66 @@ export const TEMPLATES = [
   // ── 14. Text & Date Normalization Pipeline ─────────────────────────────────
   {
     id: 'text-date-normalization',
+    useCase: "Utility workflow demonstrating text sanitization, casing transformations, and date formatting without any external database or credentials.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 74,
+    createdAt: '2026-02-05T11:20:00.000Z',
+    updatedAt: '2026-11-01T13:40:00.000Z',
+    requiredConnections: [],
+    requiredVariables: [],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Fetch Profile",
+            "Uppercase Company",
+            "Timestamp ISO",
+            "Format Payload",
+            "Log Normalized"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "Start Pipeline",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "Fetch User Profile",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n3",
+                  "label": "Uppercase Company",
+                  "type": "action-text",
+                  "icon": "Type"
+            },
+            {
+                  "id": "n4",
+                  "label": "Timestamp ISO",
+                  "type": "action-date",
+                  "icon": "Calendar"
+            },
+            {
+                  "id": "n5",
+                  "label": "Format Payload",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n6",
+                  "label": "Log Normalized",
+                  "type": "action-log",
+                  "icon": "FileText"
+            }
+      ],
+      "expectedOutcome": "Standardizes company names into uppercase strings and attaches formatted ISO timestamps."
+},
     name: 'Text & Date Normalization',
     description: 'Fetch user profile, uppercase company name, format current timestamp, and assemble cleaned payload with zero external credentials.',
     category: 'data-processing',
@@ -555,6 +1388,78 @@ export const TEMPLATES = [
   // ── 15. Developer Multi-Branch Logic & Routing Suite ───────────────────────
   {
     id: 'dev-multi-path-branching',
+    useCase: "Validates complex graph topologies with multiple nested conditions, concurrent routing edges, and leaf node termination.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 70,
+    createdAt: '2026-02-07T14:00:00.000Z',
+    updatedAt: '2026-11-01T15:30:00.000Z',
+    requiredConnections: [],
+    requiredVariables: [],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Query Post",
+            "Check ID == 1",
+            "Multiply Score",
+            "Check Score >= 50",
+            "Branch Logging"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "[DEV] Branch Trigger",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "[DEV] Query Post",
+                  "type": "action-http",
+                  "icon": "Globe"
+            },
+            {
+                  "id": "n3",
+                  "label": "[DEV] Check ID == 1",
+                  "type": "logic-condition",
+                  "icon": "GitBranch"
+            },
+            {
+                  "id": "n4",
+                  "label": "[DEV] Multiply Score",
+                  "type": "action-math",
+                  "icon": "Calculator"
+            },
+            {
+                  "id": "n5",
+                  "label": "[DEV] Check Score >= 50",
+                  "type": "logic-condition",
+                  "icon": "GitBranch"
+            },
+            {
+                  "id": "n6",
+                  "label": "[DEV] Branch A1",
+                  "type": "action-log",
+                  "icon": "FileText"
+            },
+            {
+                  "id": "n7",
+                  "label": "[DEV] Branch A2",
+                  "type": "action-log",
+                  "icon": "FileText"
+            },
+            {
+                  "id": "n8",
+                  "label": "[DEV] Branch B",
+                  "type": "action-log",
+                  "icon": "FileText"
+            }
+      ],
+      "expectedOutcome": "Evaluates hierarchical boolean decisions across 2 levels of condition branches."
+},
     name: 'Multi-Path Branching Suite',
     description: 'Developer test suite exercising multi-level branching, nested truthy/falsy evaluation, and alternative workflow execution paths.',
     category: 'developer',
@@ -587,6 +1492,73 @@ export const TEMPLATES = [
   // ── 16. Developer Utility Nodes Stress Test ────────────────────────────────
   {
     id: 'dev-utility-suite',
+    useCase: "Developer pipeline testing data flow continuity through JSON parser, string uppercase, math multiplier, and date formatting in single execution.",
+    author: { name: 'LogicBridge Core Team', role: 'Official Template' },
+    version: '1.1.0',
+    schemaVersion: '2.0.0',
+    popularity: 72,
+    createdAt: '2026-02-09T16:00:00.000Z',
+    updatedAt: '2026-11-02T10:00:00.000Z',
+    requiredConnections: [],
+    requiredVariables: [],
+    preview: {
+      "triggers": [
+            "Manual Start"
+      ],
+      "actions": [
+            "Parse JSON",
+            "Uppercase Text",
+            "Subtotal Math",
+            "Current Date",
+            "Final Map",
+            "Verify All Log"
+      ],
+      "stepSummary": [
+            {
+                  "id": "n1",
+                  "label": "[DEV] Utility Start",
+                  "type": "trigger-manual",
+                  "icon": "Zap"
+            },
+            {
+                  "id": "n2",
+                  "label": "[DEV] Parse JSON",
+                  "type": "action-json",
+                  "icon": "Braces"
+            },
+            {
+                  "id": "n3",
+                  "label": "[DEV] Uppercase Text",
+                  "type": "action-text",
+                  "icon": "Type"
+            },
+            {
+                  "id": "n4",
+                  "label": "[DEV] Subtotal Math",
+                  "type": "action-math",
+                  "icon": "Calculator"
+            },
+            {
+                  "id": "n5",
+                  "label": "[DEV] Current Date",
+                  "type": "action-date",
+                  "icon": "Calendar"
+            },
+            {
+                  "id": "n6",
+                  "label": "[DEV] Final Map",
+                  "type": "action-transform",
+                  "icon": "Shuffle"
+            },
+            {
+                  "id": "n7",
+                  "label": "[DEV] Verify All",
+                  "type": "action-log",
+                  "icon": "FileText"
+            }
+      ],
+      "expectedOutcome": "Multiplies price * quantity ($49.99 * 3 = 149.97), formats uppercase name and date, outputs verified log."
+},
     name: 'Utility Nodes Test Suite',
     description: 'Developer test suite validating JSON parsing, string manipulations, arithmetic calculations, and date formatting in sequence.',
     category: 'developer',
@@ -920,6 +1892,18 @@ export const NODE_DEFS = {
       { name: 'model', type: 'text', label: 'Model' },
       { name: 'input', type: 'text', label: 'Input Text' },
       { name: 'dimensions', type: 'number', label: 'Dimensions' },
+    ],
+  },
+  'action-ai-agent': {
+    label: 'AI Agent', icon: 'Bot', color: '#8b5cf6', category: 'ai',
+    configSchema: [
+      { name: 'label', type: 'text', label: 'Label' },
+      { name: 'provider', type: 'select', label: 'Provider', options: ['openai', 'openrouter', 'anthropic', 'ollama'] },
+      { name: 'model', type: 'text', label: 'Model' },
+      { name: 'prompt', type: 'code', label: 'Prompt / Task' },
+      { name: 'systemPrompt', type: 'text', label: 'System Instructions' },
+      { name: 'maxIterations', type: 'number', label: 'Max Iterations' },
+      { name: 'maxToolCalls', type: 'number', label: 'Max Tool Calls' },
     ],
   },
 };

@@ -30,6 +30,7 @@ const AIChatNode = require('./AIChatNode');
 const AIStructuredOutputNode = require('./AIStructuredOutputNode');
 const AIClassifyNode = require('./AIClassifyNode');
 const AIEmbeddingsNode = require('./AIEmbeddingsNode');
+const AIAgentNode = require('./AIAgentNode');
 const { NodeTypes } = require('../constants');
 const registry = require('./registry');
 
@@ -65,6 +66,7 @@ const defaultNodes = [
   new AIStructuredOutputNode(),
   new AIClassifyNode(),
   new AIEmbeddingsNode(),
+  new AIAgentNode(),
 ];
 
 defaultNodes.forEach(nodeInstance => registry.register(nodeInstance));
@@ -103,4 +105,5 @@ module.exports = {
   AIStructuredOutputNode,
   AIClassifyNode,
   AIEmbeddingsNode,
+  AIAgentNode,
 };

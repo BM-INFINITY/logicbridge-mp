@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import ReplayService from '../services/ReplayService';
+import ReplayService from '../services/ReplayService.js';
 
 /**
  * replayStore — Zustand store for managing execution replay state.

@@ -1,4 +1,5 @@
 const assert = require('assert');
+const axios = require('axios');
 const HttpNode = require('../nodes/HttpNode');
 const ExecutionContext = require('../utils/ExecutionContext');
 const { redactSecrets } = require('../utils/SecretRedactor');
@@ -55,6 +56,25 @@ async function runTests() {
 
   // ── Group 2: Methods & Backward Compatibility ─────────────────────────────
   console.log('\nGroup 2: Backward Compatibility & Methods');
+
+  const originalAdapter = axios.defaults.adapter;
+  axios.defaults.adapter = async (config) => {
+    const isPosts = config.url && config.url.includes('posts');
+    const mockData = isPosts
+      ? { id: 1, title: 'Sample Post', userId: 42, body: 'Sample content' }
+      : { id: 1, title: 'Sample Todo', userId: 42, completed: false };
+
+    return {
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        'content-type': 'application/json',
+        ...(config.headers || {}),
+      },
+      data: mockData,
+      config,
+    };
+  };
 
   const oldPayload = {
     data: {
@@ -136,6 +156,8 @@ async function runTests() {
     testAssert(authHeader === 'Basic [REDACTED]' || authHeader === '[REDACTED]', 'Redacts Basic Authorization header in return output');
   } catch (err) {
     testAssert(false, `Basic auth request failed: ${err.message}`);
+  } finally {
+    axios.defaults.adapter = originalAdapter;
   }
 
   // ── Group 5: Secret Redaction Verification ────────────────────────────────

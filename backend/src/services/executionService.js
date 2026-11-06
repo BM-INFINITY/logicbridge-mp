@@ -3,6 +3,25 @@ const Workflow = require('../models/Workflow');
 const workflowEngine = require('./workflowEngine');
 const { ExecutionStatus } = require('../constants');
 
+// Coalescing registries for concurrent in-flight replay & retry requests
+const activeReplays = new Map();
+const activeRetries = new Map();
+
+/**
+ * Defensive sanitizer to ensure wait.resumeToken is never exposed in API payloads
+ */
+function sanitizeExecution(exec) {
+  if (!exec) return exec;
+  if (Array.isArray(exec)) return exec.map(sanitizeExecution);
+  if (exec.wait && exec.wait.resumeToken) {
+    if (typeof exec.toObject === 'function') {
+      exec = exec.toObject();
+    }
+    exec.wait.resumeToken = '[REDACTED]';
+  }
+  return exec;
+}
+
 /**
  * Get all executions for a user (dashboard stats)
  */
@@ -53,22 +72,67 @@ async function getExecutionByIdAndOwner(executionId, ownerId) {
 }
 
 /**
- * Replays a past workflow execution using identical input payload
+ * Replays a past workflow execution using identical input payload.
+ * Coalesces concurrent in-flight requests without suppressing subsequent legitimate retries.
  */
 async function replayExecution(executionId, ownerId) {
-  const pastExecution = await getExecutionByIdAndOwner(executionId, ownerId);
-  const workflow = await Workflow.findById(pastExecution.workflow);
-
-  if (!workflow) {
-    const error = new Error('Associated workflow not found for replay');
-    error.statusCode = 404;
-    throw error;
+  const key = `replay_${executionId}_${ownerId}`;
+  if (activeReplays.has(key)) {
+    return await activeReplays.get(key);
   }
 
-  const initialInput = pastExecution.steps?.[0]?.input || null;
-  const newExecution = await workflowEngine.run(workflow, ownerId, 'replay', initialInput);
+  const replayPromise = (async () => {
+    const pastExecution = await getExecutionByIdAndOwner(executionId, ownerId);
+    const workflow = await Workflow.findById(pastExecution.workflow);
 
-  return newExecution;
+    if (!workflow) {
+      const error = new Error('Associated workflow not found for replay');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const initialInput = pastExecution.steps?.[0]?.input || null;
+    return await workflowEngine.run(workflow, ownerId, 'replay', initialInput);
+  })();
+
+  activeReplays.set(key, replayPromise);
+  try {
+    return await replayPromise;
+  } finally {
+    activeReplays.delete(key);
+  }
+}
+
+/**
+ * Retries a failed or past workflow execution as a fresh retry run.
+ * Distinct from visual/historical replay, uses trigger 'retry'.
+ */
+async function retryExecution(executionId, ownerId) {
+  const key = `retry_${executionId}_${ownerId}`;
+  if (activeRetries.has(key)) {
+    return await activeRetries.get(key);
+  }
+
+  const retryPromise = (async () => {
+    const pastExecution = await getExecutionByIdAndOwner(executionId, ownerId);
+    const workflow = await Workflow.findById(pastExecution.workflow);
+
+    if (!workflow) {
+      const error = new Error('Associated workflow not found for retry');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const initialInput = pastExecution.steps?.[0]?.input || null;
+    return await workflowEngine.run(workflow, ownerId, 'retry', initialInput);
+  })();
+
+  activeRetries.set(key, retryPromise);
+  try {
+    return await retryPromise;
+  } finally {
+    activeRetries.delete(key);
+  }
 }
 
 /**
@@ -194,6 +258,19 @@ async function cancelExecution(executionId, user) {
     throw error;
   }
 
+  const terminalStatuses = [ExecutionStatus.SUCCESS, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED];
+  if (terminalStatuses.includes(execution.status)) {
+    const error = new Error(`Cannot cancel execution with terminal status "${execution.status}". Terminal states are immutable.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (execution.status === ExecutionStatus.RUNNING) {
+    const error = new Error('Cannot cancel execution with status "running". In-flight execution cancellation is not supported; cancellation is available for paused and waiting_approval executions.');
+    error.statusCode = 400;
+    throw error;
+  }
+
   if (execution.status !== ExecutionStatus.PAUSED && execution.status !== ExecutionStatus.WAITING_APPROVAL) {
     const error = new Error(`Cannot cancel execution with status "${execution.status}"`);
     error.statusCode = 400;
@@ -216,6 +293,8 @@ module.exports = {
   getExecutionsByWorkflow,
   getExecutionByIdAndOwner,
   replayExecution,
+  retryExecution,
+  sanitizeExecution,
   getPendingApprovals,
   getApprovalById,
   decideApproval,

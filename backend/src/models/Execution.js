@@ -95,8 +95,30 @@ const executionSchema = new mongoose.Schema(
     checkpoint: { type: checkpointSchema, default: null },
     approval: { type: approvalSchema, default: null },
     wait: { type: waitSchema, default: null },
+    occurrenceId: { type: String, default: null },
+    workerId: { type: String, default: null },
+    heartbeatAt: { type: Date, default: null },
+    leaseExpiresAt: { type: Date, default: null },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      transform: (doc, ret, options) => {
+        if (!options?.includeResumeToken && ret.wait && ret.wait.resumeToken) {
+          ret.wait.resumeToken = '[REDACTED]';
+        }
+        return ret;
+      },
+    },
+    toObject: {
+      transform: (doc, ret, options) => {
+        if (!options?.includeResumeToken && ret.wait && ret.wait.resumeToken) {
+          ret.wait.resumeToken = '[REDACTED]';
+        }
+        return ret;
+      },
+    },
+  }
 );
 
 // Indexes for fast execution log queries and status filtering
@@ -106,5 +128,7 @@ executionSchema.index({ status: 1 });
 executionSchema.index({ 'approval.status': 1 });
 executionSchema.index({ 'wait.status': 1, 'wait.waitUntil': 1 });
 executionSchema.index({ 'wait.resumeToken': 1 }, { sparse: true, unique: true });
+executionSchema.index({ occurrenceId: 1 }, { sparse: true });
+executionSchema.index({ status: 1, leaseExpiresAt: 1 });
 
 module.exports = mongoose.model('Execution', executionSchema);

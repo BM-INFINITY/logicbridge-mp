@@ -16,6 +16,8 @@ import Checkbox from './Checkbox';
 import FieldGroup from './FieldGroup';
 import FormSection from './FormSection';
 import Dropdown from './Dropdown';
+import JsonViewer from './JsonViewer';
+import renderIcon from './renderIcon';
 
 // Also re-export core form inputs for convenience and unified UI imports
 import {
@@ -47,6 +49,8 @@ export {
   FieldGroup,
   FormSection,
   Dropdown,
+  JsonViewer,
+  renderIcon,
   TextField,
   NumberField,
   SelectField,

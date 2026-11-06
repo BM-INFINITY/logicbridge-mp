@@ -1,4 +1,5 @@
 import React from 'react';
+import renderIcon from './renderIcon';
 
 /**
  * Standard Button component supporting design system tokens,
@@ -69,11 +70,17 @@ export default function Button({
           aria-hidden="true"
         />
       ) : (
-        icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>
+        icon && (
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+            {renderIcon(icon, { size: size === 'xs' ? 11 : size === 'sm' ? 13 : 15 })}
+          </span>
+        )
       )}
       {children && <span>{children}</span>}
       {!loading && iconRight && (
-        <span style={{ display: 'inline-flex', alignItems: 'center' }}>{iconRight}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+          {renderIcon(iconRight, { size: size === 'xs' ? 11 : size === 'sm' ? 13 : 15 })}
+        </span>
       )}
     </button>
   );

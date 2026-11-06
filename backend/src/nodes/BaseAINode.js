@@ -4,6 +4,7 @@ const { registerActiveSecrets } = require('../utils/secretRedactor');
 const { providerRegistry } = require('../providers/llm');
 const ConnectionService = require('../services/ConnectionService');
 const NodeExecutionError = require('../errors/NodeExecutionError');
+const AgentResult = require('../agents/AgentResult');
 
 /**
  * BaseAINode — Foundation for all AI/LLM workflow nodes in LogicBridge
@@ -97,15 +98,28 @@ class BaseAINode extends BaseNode {
   }
 
   /**
-   * Helper to format standardized response
+   * Helper to format standardized response with privacy and reasoning sanitization
    */
   formatOutput(rawResult, startTime) {
     const executionTimeMs = Date.now() - startTime;
-    return {
+    const output = {
       ...rawResult,
       executionTimeMs,
       timestamp: new Date().toISOString(),
     };
+    // Strip raw provider payloads and internal provider-specific reasoning fields
+    delete output.raw;
+    delete output.reasoning_content;
+    delete output.reasoning;
+    delete output.thinking;
+    delete output.thought;
+    if (typeof output.text === 'string') {
+      output.text = AgentResult.sanitizeChainOfThought(output.text);
+    }
+    if (typeof output.content === 'string') {
+      output.content = AgentResult.sanitizeChainOfThought(output.content);
+    }
+    return output;
   }
 }
 

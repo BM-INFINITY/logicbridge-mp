@@ -7,16 +7,23 @@ import {
   XCircle,
   AlertCircle,
   Play,
+  RotateCcw,
   UserCheck,
   Clock,
+  Sliders,
   Copy,
   Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import API from '../api/client';
+import useLiveExecution from '../hooks/useLiveExecution';
 import AgentToolCallViewer from './execution/AgentToolCallViewer';
+import NodeInspector from './execution/NodeInspector';
+import ErrorDebugger from './execution/ErrorDebugger';
+import ConfirmDialog from './ui/ConfirmDialog';
+import { JsonViewer } from './ui';
 
-function StepResult({ step, index }) {
+function StepResult({ step, index, isSelected, onSelect }) {
   const [open, setOpen] = useState(index === 0);
   const isOk = step.status === 'success';
   const isSkipped = step.status === 'skipped';
@@ -34,7 +41,9 @@ function StepResult({ step, index }) {
     ? 'rgba(14,165,233,0.08)'
     : 'rgba(239,68,68,0.05)';
 
-  const borderClr = isOk
+  const borderClr = isSelected
+    ? 'var(--accent-primary)'
+    : isOk
     ? 'rgba(34,197,94,0.2)'
     : isSkipped
     ? 'rgba(245,158,11,0.2)'
@@ -63,16 +72,42 @@ function StepResult({ step, index }) {
           {step.nodeType}
         </span>
         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{step.duration || 0}ms</span>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelect) onSelect(step);
+          }}
+          title="Open Full Inspector"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--accent-primary)',
+            cursor: 'pointer',
+            padding: '2px 4px',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <Sliders size={13} />
+        </button>
+
         {open ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
       </div>
 
       {open && (
         <div style={{ padding: '12px 14px', background: 'var(--bg-card)', borderTop: `1px solid ${borderClr}` }}>
           {step.error && (
-            <div style={{ color: '#ef4444', fontSize: '0.8rem', marginBottom: 8, padding: '6px 10px', background: 'rgba(239,68,68,0.08)', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <XCircle size={13} /> {step.error}
+            <div style={{ marginBottom: 10 }}>
+              <ErrorDebugger
+                error={step.error}
+                nodeName={step.nodeName}
+                nodeType={step.nodeType}
+                technicalContext={{ nodeId: step.nodeId, input: step.input }}
+              />
             </div>
           )}
+
           {step.output && (
             <div>
               {step.nodeType === 'action-ai-agent' || step.output?.toolCalls ? (
@@ -83,27 +118,12 @@ function StepResult({ step, index }) {
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Output Payload
                     </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(JSON.stringify(step.output, null, 2));
-                        toast.success('Output copied');
-                      }}
-                      style={{
-                        background: 'none', border: 'none', color: 'var(--text-muted)',
-                        fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3,
-                      }}
-                    >
-                      <Copy size={11} /> Copy
-                    </button>
                   </div>
-                  <pre style={{ fontSize: '0.75rem', color: isSkipped ? '#f59e0b' : '#22d3ee', background: 'var(--bg-elevated)', borderRadius: 6, padding: '10px 12px', overflow: 'auto', maxHeight: 220, lineHeight: 1.5, margin: 0 }}>
-                    {JSON.stringify(step.output, null, 2)}
-                  </pre>
+                  <JsonViewer data={step.output} initialExpanded={true} />
                 </div>
               )}
             </div>
           )}
-          
         </div>
       )}
     </div>
@@ -111,10 +131,20 @@ function StepResult({ step, index }) {
 }
 
 export default function ExecutionPanel({ execution: initialExecution, onClose, onStartReplay, onExecutionUpdate }) {
-  const [execution, setExecution] = useState(initialExecution);
+  // Live polling updates execution in real time if running
+  const { execution: liveExecution } = useLiveExecution(
+    initialExecution?._id,
+    initialExecution
+  );
+
+  const [activeStepModal, setActiveStepModal] = useState(null);
   const [comments, setComments] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [retryDialogOpen, setRetryDialogOpen] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
+  const execution = liveExecution || initialExecution;
 
   React.useEffect(() => {
     const handleKeyDown = (e) => {
@@ -128,10 +158,11 @@ export default function ExecutionPanel({ execution: initialExecution, onClose, o
 
   const isOk = execution.status === 'success';
   const isFailed = execution.status === 'failed';
+  const isRunning = execution.status === 'running';
   const isWaitingApproval = execution.status === 'waiting_approval';
   const isPaused = execution.status === 'paused';
 
-  const dur = execution.duration ? `${(execution.duration / 1000).toFixed(2)}s` : '—';
+  const dur = execution.duration ? `${(execution.duration / 1000).toFixed(2)}s` : isRunning ? 'running...' : '—';
   const steps = execution.steps || [];
 
   const handleDecide = async (decision) => {
@@ -142,7 +173,6 @@ export default function ExecutionPanel({ execution: initialExecution, onClose, o
         comments,
       });
       const updated = res.data?.data || res.data;
-      setExecution(updated);
       toast.success(decision === 'approved' ? 'Execution Approved & Resumed!' : 'Execution Rejected.');
       if (onExecutionUpdate) onExecutionUpdate(updated);
     } catch (err) {
@@ -158,6 +188,21 @@ export default function ExecutionPanel({ execution: initialExecution, onClose, o
     setCopiedToken(true);
     toast.success('Resume token copied to clipboard!');
     setTimeout(() => setCopiedToken(false), 2000);
+  };
+
+  const handleRetryConfirm = async () => {
+    setRetrying(true);
+    try {
+      const res = await API.post(`/api/executions/${execution._id}/retry`);
+      const newExec = res.data?.data || res.data;
+      toast.success('Retry execution started successfully!');
+      setRetryDialogOpen(false);
+      if (onExecutionUpdate) onExecutionUpdate(newExec);
+    } catch (err) {
+      toast.error(`Retry failed: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setRetrying(false);
+    }
   };
 
   return (
@@ -192,12 +237,15 @@ export default function ExecutionPanel({ execution: initialExecution, onClose, o
           <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 8 }}>
             {isOk && <CheckCircle2 size={18} color="#22c55e" />}
             {isFailed && <XCircle size={18} color="#ef4444" />}
+            {isRunning && <span className="spinner" style={{ width: 16, height: 16 }} />}
             {isWaitingApproval && <UserCheck size={18} color="#ec4899" className="animate-pulse" />}
             {isPaused && <Clock size={18} color="#0ea5e9" />}
 
             <span>
               {isOk
                 ? 'Execution Successful'
+                : isRunning
+                ? 'Execution Running...'
                 : isWaitingApproval
                 ? 'Waiting for Approval'
                 : isPaused
@@ -209,17 +257,29 @@ export default function ExecutionPanel({ execution: initialExecution, onClose, o
             {steps.length} steps · {dur} total
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* Retry with Side Effect Warning Button */}
+          <button
+            id="exec-panel-retry-btn"
+            className="btn btn-sm btn-secondary"
+            onClick={() => setRetryDialogOpen(true)}
+            title="Retry Execution (Side-Effects Warning)"
+            style={{ fontSize: '0.72rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            <RotateCcw size={11} /> Retry
+          </button>
+
           {onStartReplay && isOk && (
             <button
               id="exec-panel-replay-btn"
               className="btn btn-sm btn-primary"
               onClick={() => onStartReplay(execution)}
-              style={{ fontSize: '0.75rem', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
+              style={{ fontSize: '0.72rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
             >
-              <Play size={12} /> Replay
+              <Play size={11} /> Replay
             </button>
           )}
+
           <button
             onClick={onClose}
             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
@@ -385,21 +445,74 @@ export default function ExecutionPanel({ execution: initialExecution, onClose, o
         </div>
       </div>
 
-      {/* Steps */}
+      {/* Overall Error Diagnostic */}
+      {execution.error && (
+        <div style={{ padding: '12px 16px 0' }}>
+          <ErrorDebugger
+            error={execution.error}
+            nodeName="Workflow Execution"
+            technicalContext={{ executionId: execution._id, workflowId: execution.workflow?._id || execution.workflow }}
+            onRetry={() => setRetryDialogOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* Steps List */}
       <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
           Step-by-Step Results
         </div>
         {steps.map((step, i) => (
-          <StepResult key={step.nodeId || i} step={step} index={i} />
+          <StepResult
+            key={step.nodeId || i}
+            step={step}
+            index={i}
+            isSelected={activeStepModal?.nodeId === step.nodeId}
+            onSelect={(s) => setActiveStepModal(s)}
+          />
         ))}
-
-        {execution.error && (
-          <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: '0.8rem' }}>
-            <strong>Error:</strong> {execution.error}
-          </div>
-        )}
       </div>
+
+      {/* Detailed Modal for Single Step if user clicked Sliders icon */}
+      {activeStepModal && (
+        <div
+          className="modal-overlay"
+          style={{ zIndex: 9999 }}
+          onClick={() => setActiveStepModal(null)}
+        >
+          <div
+            className="modal"
+            style={{ maxWidth: 640, width: '90%', maxHeight: '85vh', overflow: 'hidden', padding: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Step Inspector: {activeStepModal.nodeName}</div>
+              <button
+                onClick={() => setActiveStepModal(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ maxHeight: 'calc(85vh - 55px)', overflowY: 'auto' }}>
+              <NodeInspector step={activeStepModal} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Side-Effect Warning Retry Dialog */}
+      <ConfirmDialog
+        isOpen={retryDialogOpen}
+        title="Retry Workflow Execution"
+        message="Are you sure you want to retry this workflow? This will start a fresh execution run. External actions (such as HTTP POST requests, sending emails, or database modifications) will execute again."
+        confirmLabel="Retry Execution"
+        cancelLabel="Cancel"
+        variant="warning"
+        loading={retrying}
+        onConfirm={handleRetryConfirm}
+        onClose={() => setRetryDialogOpen(false)}
+      />
     </div>
   );
 }

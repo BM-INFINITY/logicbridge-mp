@@ -1,4 +1,5 @@
 import React from 'react';
+import renderIcon from './renderIcon';
 
 /**
  * Standard IconButton component with accessible labeling and square dimensions.
@@ -86,7 +87,7 @@ export default function IconButton({
           aria-hidden="true"
         />
       ) : (
-        iconContent
+        renderIcon(iconContent, { size: size === 'xs' ? 12 : size === 'sm' ? 14 : size === 'lg' ? 20 : 16 })
       )}
     </button>
   );

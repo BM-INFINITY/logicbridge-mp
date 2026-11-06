@@ -19,6 +19,8 @@ const BranchTraversal = require('./BranchTraversal');
 const { validateConditionBranches } = require('../validators/workflowValidator');
 
 const MAX_LOOP_DEPTH = 5;
+const WORKER_ID = process.env.WORKER_ID || `engine_${process.pid}_${Math.random().toString(36).substring(2, 8)}`;
+const LEASE_DURATION_MS = 60 * 1000; // 60 seconds execution lease
 
 /**
  * Topological Sort via edges (Kahn's Algorithm with x-position fallback)
@@ -629,6 +631,7 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
       checkpoint: checkpointData,
       approval: approvalData,
       wait: waitData,
+      occurrenceId: (triggerPayload && typeof triggerPayload === 'object' && triggerPayload.occurrenceId) ? String(triggerPayload.occurrenceId) : null,
     });
 
     await Workflow.findByIdAndUpdate(workflow._id, {
@@ -650,6 +653,7 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
  * @returns {Promise<object>} Resumed Execution record
  */
 async function resume(executionId, resumeOptions = {}, user = null) {
+  // 1. Fetch and validate execution state BEFORE claiming
   const execution = await Execution.findById(executionId);
   if (!execution) {
     throw new ValidationError(`Execution ${executionId} not found`);
@@ -672,7 +676,7 @@ async function resume(executionId, resumeOptions = {}, user = null) {
   const isApproval = execution.status === ExecutionStatus.WAITING_APPROVAL;
   const isWait = execution.status === ExecutionStatus.PAUSED;
 
-  // Authorization check for approval decisions
+  // 2. Pre-claim authorization and parameter validation for approvals
   if (isApproval) {
     let { decision, comments } = resumeOptions;
     if (decision === 'approve') decision = 'approved';
@@ -694,6 +698,7 @@ async function resume(executionId, resumeOptions = {}, user = null) {
     const isRoleAllowed = role && user?.role === role;
     const isUnrestricted = allowed.length === 0 && !role;
 
+    // Reject unauthorized attempts IMMEDIATELY without claiming or modifying DB status
     if (!isOwner && !isEmailAllowed && !isIdAllowed && !isRoleAllowed && !isUnrestricted) {
       const authErr = new Error('Unauthorized to approve or reject this execution');
       authErr.statusCode = 403;
@@ -712,6 +717,31 @@ async function resume(executionId, resumeOptions = {}, user = null) {
     execution.approval.decidedBy = userEmail || userId || 'system';
     execution.approval.decidedAt = new Date();
     execution.approval.comments = comments || '';
+  }
+
+  // 3. Atomically claim execution only after authorization check passes
+  const claim = await Execution.findOneAndUpdate(
+    {
+      _id: executionId,
+      status: execution.status,
+    },
+    {
+      $set: {
+        status: ExecutionStatus.RUNNING,
+        workerId: WORKER_ID,
+        heartbeatAt: new Date(),
+        leaseExpiresAt: new Date(Date.now() + LEASE_DURATION_MS),
+        'wait.resumeToken': null, // Single-use token immediately invalidated on claim
+      },
+    },
+    { new: true }
+  );
+
+  if (!claim) {
+    const current = await Execution.findById(executionId);
+    throw new ValidationError(
+      `Execution ${executionId} is in status "${current?.status || 'unknown'}" and cannot be resumed (must be "waiting_approval" or "paused")`
+    );
   }
 
   if (isWait) {
@@ -806,6 +836,17 @@ async function resume(executionId, resumeOptions = {}, user = null) {
     let newCheckpointData = null;
     let newApprovalData = null;
     let newWaitData = null;
+
+    const resumeHeartbeatTimer = setInterval(async () => {
+      try {
+        await Execution.updateOne(
+          { _id: executionId, workerId: WORKER_ID },
+          { $set: { heartbeatAt: new Date(), leaseExpiresAt: new Date(Date.now() + LEASE_DURATION_MS) } }
+        );
+      } catch (hbErr) {
+        console.warn(`[WorkflowEngine] Resume heartbeat warning for ${executionId}:`, hbErr.message);
+      }
+    }, Math.min(LEASE_DURATION_MS / 2, 20000));
 
     try {
       for (const node of orderedNodes) {
@@ -969,6 +1010,7 @@ async function resume(executionId, resumeOptions = {}, user = null) {
         }
       }
     } finally {
+      if (resumeHeartbeatTimer) clearInterval(resumeHeartbeatTimer);
       clearActiveSecrets();
     }
 
@@ -976,6 +1018,9 @@ async function resume(executionId, resumeOptions = {}, user = null) {
 
     execution.status = executionStatus;
     execution.steps = steps;
+    execution.workerId = null;
+    execution.leaseExpiresAt = null;
+    execution.heartbeatAt = null;
     if (!isStillPaused) {
       execution.finishedAt = new Date();
       execution.duration = execution.finishedAt.getTime() - execution.startedAt.getTime();
@@ -1043,10 +1088,68 @@ async function sweepTimeouts() {
   return swept;
 }
 
+/**
+ * Recovers interrupted executions after a server restart or crash.
+ * Finds executions left in 'running' status whose lease has expired or have exceeded stale threshold,
+ * safely marking them 'failed' without touching healthy runs on other active worker instances.
+ *
+ * @param {object|number} [options={}] - Options or stale threshold in milliseconds
+ * @returns {Promise<number>} Count of recovered executions
+ */
+async function recoverInterruptedExecutions(options = {}) {
+  const staleThresholdMs = typeof options === 'number'
+    ? options
+    : (options?.staleThresholdMs ?? (parseInt(process.env.STALE_EXECUTION_THRESHOLD_MS, 10) || 15 * 60 * 1000));
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - staleThresholdMs);
+
+  const filter = {
+    status: ExecutionStatus.RUNNING,
+    $or: [
+      { leaseExpiresAt: { $lt: now } },
+      { leaseExpiresAt: null, startedAt: { $lte: cutoff } },
+    ],
+  };
+
+  const interruptedExecutions = await Execution.find(filter);
+  if (interruptedExecutions.length === 0) return 0;
+
+  for (const exec of interruptedExecutions) {
+    const finishedAt = new Date();
+    const duration = exec.startedAt ? finishedAt.getTime() - new Date(exec.startedAt).getTime() : 0;
+
+    // Mark last in-progress step as failed if applicable
+    if (Array.isArray(exec.steps) && exec.steps.length > 0) {
+      const lastStep = exec.steps[exec.steps.length - 1];
+      if (lastStep && (!lastStep.status || lastStep.status === 'running' || lastStep.status === 'waiting')) {
+        lastStep.status = 'failed';
+        lastStep.error = 'Execution interrupted by process termination or server restart';
+        lastStep.finishedAt = finishedAt;
+        if (lastStep.startedAt) {
+          lastStep.duration = finishedAt.getTime() - new Date(lastStep.startedAt).getTime();
+        }
+      }
+    }
+
+    exec.status = ExecutionStatus.FAILED;
+    exec.error = 'Execution interrupted by process termination or server restart';
+    exec.finishedAt = finishedAt;
+    exec.duration = duration;
+    exec.workerId = null;
+    exec.leaseExpiresAt = null;
+    exec.heartbeatAt = null;
+    await exec.save();
+  }
+
+  console.log(`[WorkflowEngine] Recovered ${interruptedExecutions.length} interrupted execution(s) after restart.`);
+  return interruptedExecutions.length;
+}
+
 module.exports = {
   run,
   resume,
   sweepTimeouts,
+  recoverInterruptedExecutions,
   buildExecutionOrder,
   findLoopBodyNodeIds,
   executeLoopStep,

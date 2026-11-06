@@ -1,4 +1,5 @@
 import React from 'react';
+import renderIcon from './renderIcon';
 
 /**
  * Standard Badge component for status tags, pill indicators, and counters.
@@ -56,7 +57,11 @@ export default function Badge({
           aria-hidden="true"
         />
       )}
-      {icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
+      {icon && (
+        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+          {renderIcon(icon, { size: size === 'md' ? 14 : 12 })}
+        </span>
+      )}
       {children}
     </span>
   );

@@ -5,6 +5,9 @@ import ReplayInspector from './ReplayInspector';
 import ExecutionStatistics from './ExecutionStatistics';
 import ExecutionTimeline from './ExecutionTimeline';
 import AgentToolCallViewer from './AgentToolCallViewer';
+import NodeInspector from './NodeInspector';
+import ErrorDebugger from './ErrorDebugger';
+import ExecutionDetailModal from './ExecutionDetailModal';
 
 export {
   TimelineNode,
@@ -14,4 +17,7 @@ export {
   ExecutionStatistics,
   ExecutionTimeline,
   AgentToolCallViewer,
+  NodeInspector,
+  ErrorDebugger,
+  ExecutionDetailModal,
 };

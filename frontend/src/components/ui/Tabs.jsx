@@ -1,4 +1,5 @@
 import React from 'react';
+import renderIcon from './renderIcon';
 
 /**
  * Standard Tabs component with accessible ARIA semantics and keyboard navigation.
@@ -147,7 +148,11 @@ export default function Tabs({
             style={getTabStyles(isActive, tab.disabled)}
             tabIndex={isActive ? 0 : -1}
           >
-            {tab.icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{tab.icon}</span>}
+            {tab.icon && (
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                {renderIcon(tab.icon, { size: size === 'sm' ? 12 : 14 })}
+              </span>
+            )}
             <span>{tab.label}</span>
             {tab.badge !== undefined && (
               <span

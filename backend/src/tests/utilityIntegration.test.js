@@ -23,6 +23,7 @@ const DateNode      = require('../nodes/DateNode');
 const JsonNode      = require('../nodes/JsonNode');
 const ConditionNode = require('../nodes/ConditionNode');
 const ExecutionContext = require('../utils/ExecutionContext');
+const axios         = require('axios');
 
 let passed = 0;
 let failed = 0;
@@ -34,6 +35,18 @@ function check(condition, label) {
 
 async function runTests() {
   console.log('\n🧪 Starting Utility Node Integration Tests...\n');
+
+  const originalAdapter = axios.defaults.adapter;
+  axios.defaults.adapter = async (config) => {
+    const isUser4 = config.url && (config.url.includes('users/4') || config.url.includes('/4'));
+    return {
+      status: 200,
+      statusText: 'OK',
+      headers: { 'content-type': 'application/json', ...(config.headers || {}) },
+      data: isUser4 ? { id: 4, name: 'Patricia Lebsack' } : { id: 1, name: 'Leanne Graham' },
+      config,
+    };
+  };
 
   const http      = new HttpNode();
   const transform = new TransformNode();
@@ -224,6 +237,8 @@ async function runTests() {
   const serialized = WorkflowSerializer.serialize(utilityWorkflow);
   const validRes = WorkflowImportValidator.validate(serialized);
   check(validRes.valid === true, 'Import validation: utility node workflow imports cleanly');
+
+  axios.defaults.adapter = originalAdapter;
 
   // ── Report ──────────────────────────────────────────────────────────────────
   const total = passed + failed;

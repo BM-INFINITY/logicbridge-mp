@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import IconButton from './IconButton';
+import renderIcon from './renderIcon';
 
 /**
  * Standard accessible Modal dialog component.
@@ -92,7 +93,7 @@ export default function Modal({
                     flexShrink: 0,
                   }}
                 >
-                  {icon}
+                  {renderIcon(icon, { size: 18 })}
                 </div>
               )}
               <div style={{ minWidth: 0 }}>

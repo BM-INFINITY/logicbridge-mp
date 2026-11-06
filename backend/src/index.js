@@ -12,6 +12,7 @@ const scheduleRoutes = require('./routes/schedules');
 const webhookRoutes = require('./routes/webhooks');
 const { initScheduler } = require('./services/scheduler');
 const { mailProvider } = require('./providers');
+const { recoverInterruptedExecutions } = require('./services/workflowEngine');
 
 const app = express();
 
@@ -75,6 +76,7 @@ mongoose
   .connect(MONGO_URI)
   .then(async () => {
     console.log('✅ MongoDB connected');
+    await recoverInterruptedExecutions(); // safely mark interrupted executions from server crashes
     app.listen(PORT, () => console.log(`🚀 LogicBridge API running on http://localhost:${PORT}`));
     await initScheduler(); // start all active scheduled workflows
     await checkSmtpStatus();

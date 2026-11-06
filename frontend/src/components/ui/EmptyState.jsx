@@ -1,4 +1,6 @@
 import React from 'react';
+import renderIcon from './renderIcon';
+import Button from './Button';
 
 /**
  * Standard EmptyState component for lists, tables, workflows, logs, and searches.
@@ -8,11 +10,23 @@ export default function EmptyState({
   title = 'No items found',
   description,
   action,
+  actionLabel,
+  onAction,
   secondaryAction,
   compact = false,
   className = '',
   style = {},
 }) {
+  const resolvedAction = action || (actionLabel ? (
+    <Button
+      size={compact ? 'sm' : 'md'}
+      variant="primary"
+      onClick={onAction}
+    >
+      {actionLabel}
+    </Button>
+  ) : null);
+
   return (
     <div
       className={`empty-state ${className}`.trim()}
@@ -37,7 +51,7 @@ export default function EmptyState({
           }}
           aria-hidden="true"
         >
-          {icon}
+          {renderIcon(icon, { size: compact ? 24 : 32 })}
         </div>
       )}
 
@@ -69,7 +83,7 @@ export default function EmptyState({
         </p>
       )}
 
-      {(action || secondaryAction) && (
+      {(resolvedAction || secondaryAction) && (
         <div
           style={{
             display: 'flex',
@@ -79,7 +93,7 @@ export default function EmptyState({
             marginTop: 8,
           }}
         >
-          {action}
+          {resolvedAction}
           {secondaryAction}
         </div>
       )}

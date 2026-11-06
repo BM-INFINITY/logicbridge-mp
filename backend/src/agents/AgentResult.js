@@ -1,4 +1,16 @@
 /**
+ * Sanitizes reasoning/chain-of-thought blocks (<thought>...</thought> or <thinking>...</thinking>)
+ * so internal scratchpad reasoning is not exposed to execution inspectors or logs.
+ */
+function sanitizeChainOfThought(raw) {
+  if (typeof raw !== 'string') return raw;
+  return raw
+    .replace(/<thought\b[^>]*>[\s\S]*?<\/thought>/gi, '')
+    .replace(/<thinking\b[^>]*>[\s\S]*?<\/thinking>/gi, '')
+    .trim();
+}
+
+/**
  * AgentResult — Standardized final response and execution metadata for an AI Agent run
  */
 class AgentResult {
@@ -18,9 +30,10 @@ class AgentResult {
     timestamp = new Date().toISOString(),
   } = {}) {
     const mainText = text || content || finalResponse || '';
-    this.text = mainText;
-    this.content = mainText;
-    this.finalResponse = mainText;
+    const cleanText = sanitizeChainOfThought(mainText);
+    this.text = cleanText;
+    this.content = cleanText;
+    this.finalResponse = cleanText;
     this.structured = structured;
     this.iterations = iterations;
     this.toolCalls = Array.isArray(toolCalls) ? toolCalls : [];
@@ -51,6 +64,8 @@ class AgentResult {
     };
   }
 }
+
+AgentResult.sanitizeChainOfThought = sanitizeChainOfThought;
 
 module.exports = AgentResult;
 

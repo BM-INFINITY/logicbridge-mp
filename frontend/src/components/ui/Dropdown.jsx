@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import renderIcon from './renderIcon';
 
 /**
  * Standard accessible Dropdown component for action menus, context menus, and select triggers.
@@ -84,7 +85,11 @@ export default function Dropdown({
                   cursor: item.disabled ? 'not-allowed' : 'pointer',
                 }}
               >
-                {item.icon && <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>}
+                {item.icon && (
+                  <span style={{ display: 'flex', alignItems: 'center' }}>
+                    {renderIcon(item.icon, { size: 14 })}
+                  </span>
+                )}
                 <span>{item.label}</span>
               </button>
             );

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import renderIcon from './renderIcon';
 
 /**
  * Standard FormSection component for grouping configuration fields into
@@ -75,7 +76,7 @@ export default function FormSection({
             )}
             {icon && (
               <span style={{ color: 'var(--accent-primary)', display: 'flex', flexShrink: 0 }}>
-                {icon}
+                {renderIcon(icon, { size: 15 })}
               </span>
             )}
             {title && (

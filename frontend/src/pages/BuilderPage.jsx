@@ -59,6 +59,7 @@ function BuilderContent() {
     isReplayActive,
     snapshots,
     timelineCursor,
+    inspectorNodeId,
     startReplay,
     stopReplay,
   } = useReplayStore();
@@ -282,6 +283,19 @@ function BuilderContent() {
     displayNodes = transformed.nodes;
     displayEdges = transformed.edges;
   }
+
+  // ── Canvas Focus Synchronization during Replay ──────────────────────────
+  useEffect(() => {
+    if (!isReplayActive || !rfInstance || snapshots.length === 0) return;
+    const currentSnap = snapshots[timelineCursor?.index];
+    const targetNodeId = currentSnap?.nodeId || inspectorNodeId;
+    if (!targetNodeId) return;
+
+    const node = nodes.find((n) => n.id === targetNodeId);
+    if (node && node.position) {
+      rfInstance.setCenter(node.position.x + 100, node.position.y + 40, { zoom: 1.15, duration: 350 });
+    }
+  }, [isReplayActive, rfInstance, timelineCursor?.index, inspectorNodeId, snapshots, nodes]);
 
   // ── Global Keyboard Shortcuts with Text Input Guard ──────────────────────
   useEffect(() => {

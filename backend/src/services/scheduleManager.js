@@ -62,7 +62,8 @@ function localToUtc(year, month, day, hour, minute, second = 0, timezone = 'UTC'
   const targetUtcTime = Date.UTC(year, month - 1, day, hour, minute, second);
   const actualTzTime = Date.UTC(tzYear, tzMonth - 1, tzDay, tzHour, tzMinute, tzSecond);
   const diff = targetUtcTime - actualTzTime;
-  return new Date(estDate.getTime() + diff);
+  const result = new Date(estDate.getTime() + diff);
+  return isNaN(result.getTime()) ? estDate : result;
 }
 
 /**
@@ -342,6 +343,9 @@ async function claimDueSchedules(workerId = WORKER_ID, limit = 10) {
 
   const claimed = [];
   for (const cand of candidates) {
+    if (cand.lockedAt && cand.lockExpiresAt && cand.lockExpiresAt < now) {
+      console.warn(`[ScheduleManager] Recovering abandoned lock on schedule ${cand._id} (previously locked by ${cand.lockedBy} until ${cand.lockExpiresAt.toISOString()})`);
+    }
     const claimedDoc = await Schedule.findOneAndUpdate(
       {
         _id: cand._id,
@@ -426,6 +430,29 @@ async function executeSchedule(schedule, workerId = WORKER_ID) {
 
     // 2. Catch-up policy handling for downtime recovery
     const scheduledTime = schedule.nextRunAt || now;
+    const occurrenceId = `${schedule._id}_${new Date(scheduledTime).toISOString()}`;
+
+    // Crash-window duplicate prevention: check if an execution already exists for this exact occurrence
+    const existingExecution = await Execution.findOne({
+      occurrenceId,
+      status: { $ne: ExecutionStatus.CANCELLED },
+    });
+
+    if (existingExecution) {
+      console.warn(`[ScheduleManager] Duplicate occurrence detected for schedule ${schedule._id} (${occurrenceId}). Skipping duplicate dispatch.`);
+      const next = calculateNextRun(schedule, now);
+      schedule.nextRunAt = next;
+      if (!next) {
+        schedule.status = 'completed';
+        schedule.enabled = false;
+      }
+      schedule.lockedAt = null;
+      schedule.lockedBy = null;
+      schedule.lockExpiresAt = null;
+      await schedule.save();
+      return { skipped: true, reason: 'duplicate_occurrence_detected', executionId: existingExecution._id };
+    }
+
     const isPastDue = now.getTime() - new Date(scheduledTime).getTime() > 10 * 60 * 1000; // >10m late
 
     if (isPastDue && schedule.catchUpPolicy === 'skip') {
@@ -449,48 +476,94 @@ async function executeSchedule(schedule, workerId = WORKER_ID) {
       scheduleId: String(schedule._id),
       scheduleName: schedule.name,
       scheduledTime: scheduledTime.toISOString(),
+      occurrenceId,
       timezone: schedule.timezone,
       recurrence: schedule.recurrence,
       type: schedule.type,
     };
 
-    const execution = await workflowEngine.run(workflow, schedule.owner, 'schedule', triggerPayload);
+    // Heartbeat to continuously renew lock during long-running workflow dispatch
+    let heartbeatTimer = null;
+    heartbeatTimer = setInterval(async () => {
+      try {
+        const renewRes = await Schedule.updateOne(
+          {
+            _id: schedule._id,
+            lockedBy: workerId,
+            lockExpiresAt: { $gt: new Date() },
+          },
+          { $set: { lockExpiresAt: new Date(Date.now() + LOCK_TTL_MS) } }
+        );
+        if (renewRes.matchedCount === 0) {
+          console.warn(`[ScheduleManager] Heartbeat lock lost for schedule ${schedule._id} (worker ${workerId}). Another worker may have claimed it or lock expired.`);
+          clearInterval(heartbeatTimer);
+        }
+      } catch (hbErr) {
+        console.warn(`[ScheduleManager] Lock heartbeat error for schedule ${schedule._id}:`, hbErr.message);
+      }
+    }, Math.min(LOCK_TTL_MS / 2, 60000));
 
-    // 4. Update Schedule stats and compute next run
-    schedule.lastRunAt = now;
-    schedule.lastExecution = execution._id;
-    schedule.runCount = (schedule.runCount || 0) + 1;
+    let execution;
+    try {
+      execution = await workflowEngine.run(workflow, schedule.owner, 'schedule', triggerPayload);
+    } finally {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+    }
 
+    // 4. Update Schedule stats and release distributed lock atomically ONLY if still owned by this worker
+    let next = null;
+    let newStatus = schedule.status;
+    let newEnabled = schedule.enabled;
     if (schedule.type === 'once') {
-      schedule.status = 'completed';
-      schedule.enabled = false;
-      schedule.nextRunAt = null;
+      newStatus = 'completed';
+      newEnabled = false;
+      next = null;
     } else {
-      const next = calculateNextRun(schedule, now);
-      schedule.nextRunAt = next;
+      next = calculateNextRun(schedule, now);
       if (!next) {
-        schedule.status = 'completed';
-        schedule.enabled = false;
+        newStatus = 'completed';
+        newEnabled = false;
       }
     }
 
-    // Release distributed lock
-    schedule.lockedAt = null;
-    schedule.lockedBy = null;
-    schedule.lockExpiresAt = null;
-    await schedule.save();
+    const releaseRes = await Schedule.updateOne(
+      { _id: schedule._id, lockedBy: workerId },
+      {
+        $set: {
+          lastRunAt: now,
+          lastExecution: execution._id,
+          nextRunAt: next,
+          status: newStatus,
+          enabled: newEnabled,
+          lockedAt: null,
+          lockedBy: null,
+          lockExpiresAt: null,
+        },
+        $inc: { runCount: 1 },
+      }
+    );
+
+    if (releaseRes.matchedCount === 0) {
+      console.warn(`[ScheduleManager] Schedule ${schedule._id} lock was lost during execution; not overwriting existing lock.`);
+    }
 
     return { success: true, executionId: execution._id };
   } catch (err) {
     console.error(`[ScheduleManager] Failed to execute schedule ${schedule._id}:`, err.message);
-    // Release lock on error and reschedule to prevent deadlocks
-    schedule.lockedAt = null;
-    schedule.lockedBy = null;
-    schedule.lockExpiresAt = null;
+    // Release lock on error only if still locked by this worker
     try {
       const next = calculateNextRun(schedule, new Date(now.getTime() + 60000));
-      schedule.nextRunAt = next;
-      await schedule.save();
+      await Schedule.updateOne(
+        { _id: schedule._id, lockedBy: workerId },
+        {
+          $set: {
+            lockedAt: null,
+            lockedBy: null,
+            lockExpiresAt: null,
+            nextRunAt: next,
+          },
+        }
+      );
     } catch {
       // Ignore fallback save error
     }

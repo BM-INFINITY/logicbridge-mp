@@ -8,6 +8,9 @@ const CredentialService = require('./CredentialService');
 const { WebhookPayload } = require('../utils');
 const { NodeTypes, WorkflowStatus } = require('../constants');
 
+// In-flight concurrency lock to prevent simultaneous duplicate deliveries
+const inFlightWebhookLocks = new Set();
+
 /**
  * Constant-time string equality check to prevent timing attacks
  * @param {string} a
@@ -547,11 +550,25 @@ async function processWebhook(workflow, req, rawBody = null) {
   }
 
   // 6. Deduplication & Idempotency Check
+  const inFlightKey = eventIdentifier ? `${workflow._id}:${eventIdentifier}` : null;
+  if (inFlightKey && inFlightWebhookLocks.has(inFlightKey)) {
+    console.warn(`[WebhookService] Concurrent in-flight duplicate webhook detected for key "${eventIdentifier}". Execution skipped.`);
+    return {
+      status: 200,
+      body: {
+        status: 'duplicate',
+        message: 'Concurrent duplicate event received and deduplicated',
+        eventIdentifier,
+        correlationId,
+      },
+    };
+  }
+
   if (eventIdentifier) {
     const existing = await WebhookEvent.findOne({
       workflow: workflow._id,
       eventIdentifier,
-      status: { $in: ['success', 'duplicate'] },
+      status: { $in: ['success', 'duplicate', 'processing'] },
     });
 
     if (existing) {
@@ -587,61 +604,116 @@ async function processWebhook(workflow, req, rawBody = null) {
     }
   }
 
-  // 7. Event Type Filtering
-  const filterCheck = evaluateEventFilter(config, req);
-  if (!filterCheck.passed) {
-    const httpStatus = filterCheck.action === 'reject' ? 400 : 200;
-    await recordEvent({
-      workflow: workflow._id,
-      endpointId,
-      correlationId,
-      eventIdentifier,
-      method: req.method,
-      url: req.originalUrl || req.url,
-      headers: req.headers,
-      query: req.query,
-      body: req.body,
-      status: 'ignored',
-      httpStatus,
-      failureReason: filterCheck.reason,
-      ip: req.ip || '127.0.0.1',
-      duration: Date.now() - startTime,
-    });
-
-    return {
-      status: httpStatus,
-      body: {
-        status: 'ignored',
-        reason: filterCheck.reason,
+  // Acquire persistent database claim upfront across horizontal instances
+  let persistentClaim = null;
+  if (eventIdentifier) {
+    try {
+      persistentClaim = await WebhookEvent.create({
+        workflow: workflow._id,
+        endpointId,
         correlationId,
-      },
-    };
+        eventIdentifier,
+        method: req.method,
+        url: req.originalUrl || req.url,
+        headers: redactWebhookHeaders(req.headers),
+        query: req.query,
+        body: redactWebhookBody(req.body),
+        status: 'processing',
+        httpStatus: 200,
+        ip: req.ip || '127.0.0.1',
+        receivedAt: new Date(startTime),
+      });
+    } catch (claimErr) {
+      if (claimErr.code === 11000 || claimErr.message?.includes('duplicate key') || claimErr.message?.includes('E11000')) {
+        console.warn(`[WebhookService] Persistent duplicate-key race intercepted for key "${eventIdentifier}". Execution skipped.`);
+        const existingRace = await WebhookEvent.findOne({ workflow: workflow._id, eventIdentifier });
+        return {
+          status: 200,
+          body: {
+            status: 'duplicate',
+            message: 'Duplicate event received and deduplicated',
+            eventIdentifier,
+            originalExecutionId: existingRace?.execution || null,
+            correlationId,
+          },
+        };
+      }
+      throw claimErr;
+    }
   }
 
-  // 8. Payload Schema & Required Fields Validation
-  const schemaCheck = validatePayloadSchema(config, req.body || {});
-  if (!schemaCheck.valid) {
-    await recordEvent({
-      workflow: workflow._id,
-      endpointId,
-      correlationId,
-      eventIdentifier,
-      method: req.method,
-      url: req.originalUrl || req.url,
-      headers: req.headers,
-      query: req.query,
-      body: req.body,
-      status: 'rejected',
-      httpStatus: schemaCheck.statusCode,
-      failureReason: schemaCheck.error,
-      ip: req.ip || '127.0.0.1',
-      duration: Date.now() - startTime,
-    });
-    return {
-      status: schemaCheck.statusCode,
-      body: { error: schemaCheck.error, correlationId },
-    };
-  }
+  if (inFlightKey) inFlightWebhookLocks.add(inFlightKey);
+
+  try {
+    // 7. Event Type Filtering
+    const filterCheck = evaluateEventFilter(config, req);
+    if (!filterCheck.passed) {
+      const httpStatus = filterCheck.action === 'reject' ? 400 : 200;
+      if (persistentClaim) {
+        await WebhookEvent.updateOne(
+          { _id: persistentClaim._id },
+          { $set: { status: 'ignored', httpStatus, failureReason: filterCheck.reason, duration: Date.now() - startTime } }
+        );
+      } else {
+        await recordEvent({
+          workflow: workflow._id,
+          endpointId,
+          correlationId,
+          eventIdentifier,
+          method: req.method,
+          url: req.originalUrl || req.url,
+          headers: req.headers,
+          query: req.query,
+          body: req.body,
+          status: 'ignored',
+          httpStatus,
+          failureReason: filterCheck.reason,
+          ip: req.ip || '127.0.0.1',
+          duration: Date.now() - startTime,
+        });
+      }
+
+      return {
+        status: httpStatus,
+        body: {
+          status: 'ignored',
+          reason: filterCheck.reason,
+          correlationId,
+        },
+      };
+    }
+
+    // 8. Payload Schema & Required Fields Validation
+    const schemaCheck = validatePayloadSchema(config, req.body || {});
+    if (!schemaCheck.valid) {
+      if (persistentClaim) {
+        await WebhookEvent.updateOne(
+          { _id: persistentClaim._id },
+          { $set: { status: 'rejected', httpStatus: schemaCheck.statusCode, failureReason: schemaCheck.error, duration: Date.now() - startTime } }
+        );
+      } else {
+        await recordEvent({
+          workflow: workflow._id,
+          endpointId,
+          correlationId,
+          eventIdentifier,
+          method: req.method,
+          url: req.originalUrl || req.url,
+          headers: req.headers,
+          query: req.query,
+          body: req.body,
+          status: 'rejected',
+          httpStatus: schemaCheck.statusCode,
+          failureReason: schemaCheck.error,
+          ip: req.ip || '127.0.0.1',
+          duration: Date.now() - startTime,
+        });
+      }
+      return {
+        status: schemaCheck.statusCode,
+        body: { error: schemaCheck.error, correlationId },
+      };
+    }
 
   // 9. Execute Workflow with Bounded Retries
   const webhookPayload = WebhookPayload.fromRequest(req);
@@ -684,24 +756,40 @@ async function processWebhook(workflow, req, rawBody = null) {
   const finalStatus = execution && !executionError ? 'success' : 'failed';
   const finalHttpStatus = finalStatus === 'success' ? (parseInt(config.responseStatus || 200, 10)) : 500;
 
-  await recordEvent({
-    workflow: workflow._id,
-    endpointId,
-    correlationId,
-    eventIdentifier,
-    method: req.method,
-    url: req.originalUrl || req.url,
-    headers: req.headers,
-    query: req.query,
-    body: req.body,
-    status: finalStatus,
-    httpStatus: finalHttpStatus,
-    execution: execution?._id || null,
-    failureReason: executionError,
-    retryCount: attemptsMade,
-    ip: req.ip || '127.0.0.1',
-    duration: Date.now() - startTime,
-  });
+  if (persistentClaim) {
+    await WebhookEvent.updateOne(
+      { _id: persistentClaim._id },
+      {
+        $set: {
+          status: finalStatus,
+          httpStatus: finalHttpStatus,
+          execution: execution?._id || null,
+          failureReason: executionError,
+          retryCount: attemptsMade,
+          duration: Date.now() - startTime,
+        },
+      }
+    );
+  } else {
+    await recordEvent({
+      workflow: workflow._id,
+      endpointId,
+      correlationId,
+      eventIdentifier,
+      method: req.method,
+      url: req.originalUrl || req.url,
+      headers: req.headers,
+      query: req.query,
+      body: req.body,
+      status: finalStatus,
+      httpStatus: finalHttpStatus,
+      execution: execution?._id || null,
+      failureReason: executionError,
+      retryCount: attemptsMade,
+      ip: req.ip || '127.0.0.1',
+      duration: Date.now() - startTime,
+    });
+  }
 
   if (finalStatus === 'failed') {
     return {
@@ -736,11 +824,14 @@ async function processWebhook(workflow, req, rawBody = null) {
     }
   }
 
-  return {
-    status: finalHttpStatus,
-    headers: config.responseHeaders || {},
-    body: responseBody,
-  };
+    return {
+      status: finalHttpStatus,
+      headers: config.responseHeaders || {},
+      body: responseBody,
+    };
+  } finally {
+    if (inFlightKey) inFlightWebhookLocks.delete(inFlightKey);
+  }
 }
 
 /**

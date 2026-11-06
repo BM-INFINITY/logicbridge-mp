@@ -10,6 +10,7 @@ import BuilderPage from './pages/BuilderPage';
 import LogsPage from './pages/LogsPage';
 import ConnectionsPage from './pages/ConnectionsPage';
 import SidebarPreviewPage from './pages/SidebarPreviewPage';
+import ExecutionPreviewPage from './pages/ExecutionPreviewPage';
 import './index.css';
 
 function ProtectedRoute({ children }) {
@@ -27,7 +28,11 @@ export default function App() {
 
   useEffect(() => {
     if (token) fetchMe();
-  }, []);
+  }, [token, fetchMe]);
+
+  if (typeof window !== 'undefined' && window.__PREVIEW_VIEW__) {
+    return <ExecutionPreviewPage />;
+  }
 
   return (
     <BrowserRouter>
@@ -52,6 +57,7 @@ export default function App() {
         <Route path="/connections" element={<ProtectedRoute><ConnectionsPage /></ProtectedRoute>} />
         <Route path="/preview-sidebars" element={<SidebarPreviewPage />} />
         <Route path="/preview-builder" element={<BuilderPage />} />
+        <Route path="/preview-executions" element={<ExecutionPreviewPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

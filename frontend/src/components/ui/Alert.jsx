@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2, AlertTriangle, AlertCircle, Info, X } from 'lucide-react';
+import renderIcon from './renderIcon';
 
 /**
  * Standard Alert component for user feedback, validation notices, and execution alerts.
@@ -48,7 +49,7 @@ export default function Alert({
       style={style}
       {...props}
     >
-      {iconElement && <div className="alert-icon">{iconElement}</div>}
+      {iconElement && <div className="alert-icon">{renderIcon(iconElement, { size: 18 })}</div>}
       <div className="alert-content">
         {title && <div className="alert-title">{title}</div>}
         {message && <div>{message}</div>}

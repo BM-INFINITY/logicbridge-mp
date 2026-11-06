@@ -17,7 +17,7 @@ const webhookEventSchema = new mongoose.Schema(
     // Delivery & processing outcome
     status: {
       type: String,
-      enum: ['success', 'failed', 'rejected', 'ignored', 'duplicate'],
+      enum: ['processing', 'success', 'failed', 'rejected', 'ignored', 'duplicate'],
       default: 'success',
       index: true,
     },
@@ -35,7 +35,17 @@ const webhookEventSchema = new mongoose.Schema(
 
 // High-performance compound indexes for history and deduplication lookups
 webhookEventSchema.index({ workflow: 1, receivedAt: -1 });
-webhookEventSchema.index({ workflow: 1, eventIdentifier: 1 });
+webhookEventSchema.index(
+  { workflow: 1, eventIdentifier: 1 },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: {
+      eventIdentifier: { $type: 'string', $gt: '' },
+      isReplay: false,
+    },
+  }
+);
 webhookEventSchema.index({ workflow: 1, status: 1 });
 webhookEventSchema.index({ correlationId: 1 });
 

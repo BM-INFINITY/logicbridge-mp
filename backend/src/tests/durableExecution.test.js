@@ -59,6 +59,48 @@ function setupMockDatabase() {
     return saved;
   };
 
+  Execution.findOneAndUpdate = async (query, update, options = {}) => {
+    let matched = null;
+    for (const exec of mockDb.executions.values()) {
+      let matches = true;
+      if (query._id && String(exec._id) !== String(query._id)) matches = false;
+      if (query.status?.$in && !query.status.$in.includes(exec.status)) matches = false;
+      if (matches) {
+        matched = exec;
+        break;
+      }
+    }
+    if (!matched) return null;
+    const oldDoc = {
+      ...matched,
+      toObject: function () {
+        return { ...this };
+      },
+      save: async function () {
+        mockDb.executions.set(String(this._id), this);
+        return this;
+      },
+    };
+    if (update.$set) {
+      Object.assign(matched, update.$set);
+    }
+    mockDb.executions.set(String(matched._id), matched);
+    return options.new ? matched : oldDoc;
+  };
+
+  Execution.updateOne = async (query, update) => {
+    for (const exec of mockDb.executions.values()) {
+      let matches = true;
+      if (query._id && String(exec._id) !== String(query._id)) matches = false;
+      if (matches) {
+        if (update.$set) Object.assign(exec, update.$set);
+        mockDb.executions.set(String(exec._id), exec);
+        return { matchedCount: 1, modifiedCount: 1 };
+      }
+    }
+    return { matchedCount: 0, modifiedCount: 0 };
+  };
+
   Execution.findById = async (id) => {
     const exec = mockDb.executions.get(String(id));
     if (!exec) return null;

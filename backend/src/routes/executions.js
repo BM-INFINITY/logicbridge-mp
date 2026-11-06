@@ -29,6 +29,9 @@ router.get('/detail/:id', protect, executionController.getExecutionDetail);
 // POST /api/executions/:id/replay — replay a past execution
 router.post('/:id/replay', protect, executionController.replayExecution);
 
+// POST /api/executions/:id/retry — retry a past execution (fresh retry run)
+router.post('/:id/retry', protect, executionController.retryExecution);
+
 // POST /api/executions/:id/cancel — cancel a waiting or paused execution
 router.post('/:id/cancel', protect, executionController.cancelExecution);
 

@@ -36,7 +36,9 @@ const getExecutionDetail = async (req, res, next) => {
  */
 const getExecutions = async (req, res, next) => {
   try {
-    const executions = await executionService.getExecutionsByOwner(req.user._id);
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const safeLimit = Math.min(Math.max(limit, 1), 200);
+    const executions = await executionService.getExecutionsByOwner(req.user._id, safeLimit);
     return success(res, executions);
   } catch (err) {
     return next(err);
@@ -51,6 +53,22 @@ const replayExecution = async (req, res, next) => {
   try {
     const replayed = await executionService.replayExecution(req.params.id, req.user._id);
     return success(res, replayed, 201);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
+/**
+ * Retry past execution (fresh retry run)
+ * POST /api/executions/:id/retry
+ */
+const retryExecution = async (req, res, next) => {
+  try {
+    const retried = await executionService.retryExecution(req.params.id, req.user._id);
+    return success(res, retried, 201);
   } catch (err) {
     if (err.statusCode) {
       return error(res, err.message, err.statusCode);
@@ -159,6 +177,7 @@ module.exports = {
   getExecutionDetail,
   getExecutions,
   replayExecution,
+  retryExecution,
   getPendingApprovals,
   getApprovalDetail,
   decideApproval,

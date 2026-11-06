@@ -1,4 +1,5 @@
 import React from 'react';
+import renderIcon from './renderIcon';
 
 /**
  * Standard Panel component for configuration sidebars and secondary view containers.
@@ -37,7 +38,7 @@ export default function Panel({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            {icon && <span style={{ color: 'var(--accent-primary)', display: 'flex' }}>{icon}</span>}
+            {icon && <span style={{ color: 'var(--accent-primary)', display: 'flex' }}>{renderIcon(icon, { size: 16 })}</span>}
             {title && (
               <span
                 style={{

@@ -34,3 +34,16 @@ scratch/
 # Documentation
 docs/
 
+# Test scripts and suites
+**/tests/
+**/test/
+*.test.js
+*.test.jsx
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.jsx
+*.spec.ts
+*.spec.tsx
+
+

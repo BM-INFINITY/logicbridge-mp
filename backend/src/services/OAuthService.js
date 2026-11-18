@@ -93,19 +93,41 @@ const OAuthService = {
       }
     }
 
-    // Register active nonce for single-use consumption in memory
-    activeNonces.set(nonce, { userId: String(userId), sessionId, expiresAt });
+    // Register active nonce for single-use consumption in memory (non-production only)
+    const isProd = process.env.NODE_ENV === 'production';
+    const isDbConnected = mongoose.connection && mongoose.connection.readyState === 1;
 
-    // Persist to MongoDB for durable cross-instance execution if connected
-    if (mongoose.connection && mongoose.connection.readyState === 1) {
-      OAuthNonce.create({
-        nonce,
-        userId: String(userId),
-        sessionId,
-        connectionName,
-        provider,
-        expiresAt: new Date(expiresAt),
-      }).catch(() => {});
+    if (isProd && !isDbConnected) {
+      const error = new Error('Database service unavailable for durable OAuth state persistence');
+      error.statusCode = 503;
+      throw error;
+    }
+
+    if (isDbConnected) {
+      try {
+        OAuthNonce.create({
+          nonce,
+          userId: String(userId),
+          sessionId,
+          connectionName,
+          provider,
+          expiresAt: new Date(expiresAt),
+        }).catch((err) => {
+          if (isProd) {
+            console.error('Failed to persist OAuthNonce in production:', err.message);
+          }
+        });
+      } catch (err) {
+        if (isProd) {
+          const error = new Error(`Database error saving OAuth nonce: ${err.message}`);
+          error.statusCode = 503;
+          throw error;
+        }
+      }
+    }
+
+    if (!isProd) {
+      activeNonces.set(nonce, { userId: String(userId), sessionId, expiresAt });
     }
 
     const payload = {
@@ -141,7 +163,7 @@ const OAuthService = {
    * @param {string} state - base64url encoded and signed state (payload.signature)
    * @param {object} [options]
    * @param {string} [options.sessionId] - Session identifier to enforce session binding
-   * @returns {{ userId: string, connectionName: string, provider: string, sessionId?: string }}
+   * @returns {{ userId: string, connectionName: string, provider: string, sessionId?: string, nonce: string }}
    */
   decodeState(state, options = {}) {
     if (!state || typeof state !== 'string') {
@@ -187,9 +209,20 @@ const OAuthService = {
       throw new Error('Invalid OAuth state parameter: state token has expired');
     }
 
-    // 4. Session binding verification (if session was attached to state)
-    if (sessionId && options.sessionId && sessionId !== options.sessionId) {
-      throw new Error('Invalid OAuth state parameter: session mismatch / cross-session injection detected');
+    // 4. Session binding verification: cannot be bypassed by omitting options.sessionId
+    if (sessionId) {
+      if (!options.sessionId || options.sessionId !== sessionId) {
+        throw new Error('Invalid OAuth state parameter: session mismatch / cross-session injection detected');
+      }
+    }
+
+    const isProd = process.env.NODE_ENV === 'production';
+    const isDbConnected = mongoose.connection && mongoose.connection.readyState === 1;
+
+    if (isProd && !isDbConnected) {
+      const error = new Error('Database service unavailable for OAuth state verification');
+      error.statusCode = 503;
+      throw error;
     }
 
     // 5. One-time nonce consumption (replay protection)
@@ -205,12 +238,12 @@ const OAuthService = {
       throw new Error('Invalid OAuth state parameter: user mismatch detected');
     }
 
-    if (nonceMeta.sessionId && options.sessionId && nonceMeta.sessionId !== options.sessionId) {
+    if (nonceMeta.sessionId && (!options.sessionId || nonceMeta.sessionId !== options.sessionId)) {
       throw new Error('Invalid OAuth state parameter: session mismatch / cross-session injection detected');
     }
 
-    if (mongoose.connection && mongoose.connection.readyState === 1) {
-      OAuthNonce.updateOne({ nonce }, { consumedAt: new Date() }).catch(() => {});
+    if (isDbConnected) {
+      OAuthNonce.findOneAndDelete({ nonce }).catch(() => {});
     }
 
     return {
@@ -218,7 +251,96 @@ const OAuthService = {
       connectionName: connectionName || 'My Google Account',
       provider,
       sessionId: sessionId || null,
+      nonce,
     };
+  },
+
+  /**
+   * Distributed atomic state verification and consumption across backend instances
+   */
+  async verifyAndConsumeState(state, options = {}) {
+    const isProd = process.env.NODE_ENV === 'production';
+    const isDbConnected = mongoose.connection && mongoose.connection.readyState === 1;
+
+    if (isProd && !isDbConnected) {
+      const error = new Error('Database service unavailable for OAuth state verification');
+      error.statusCode = 503;
+      throw error;
+    }
+
+    if (isDbConnected) {
+      // 1. Basic decode without popping in-memory activeNonces first
+      const parts = String(state || '').trim().split('.');
+      if (parts.length !== 2) {
+        throw new Error('Invalid OAuth state parameter: malformed signature format');
+      }
+      const [serializedPayload, providedSignature] = parts;
+      const expectedSignature = crypto
+        .createHmac('sha256', getStateSigningSecret())
+        .update(serializedPayload)
+        .digest('base64url');
+
+      const bufExpected = Buffer.from(expectedSignature);
+      const bufProvided = Buffer.from(providedSignature);
+
+      if (bufExpected.length !== bufProvided.length || !crypto.timingSafeEqual(bufExpected, bufProvided)) {
+        throw new Error('Invalid OAuth state parameter: signature mismatch / tampered state');
+      }
+
+      let decoded;
+      try {
+        decoded = JSON.parse(Buffer.from(serializedPayload, 'base64url').toString('utf8'));
+      } catch {
+        throw new Error('Invalid OAuth state parameter: malformed payload');
+      }
+
+      const { userId, connectionName, provider = 'gmail', nonce, sessionId, expiresAt } = decoded;
+
+      if (!userId || !nonce) {
+        throw new Error('Invalid OAuth state parameter: missing required claims');
+      }
+
+      if (!expiresAt || Date.now() > Number(expiresAt)) {
+        throw new Error('Invalid OAuth state parameter: state token has expired');
+      }
+
+      if (sessionId && (!options.sessionId || options.sessionId !== sessionId)) {
+        throw new Error('Invalid OAuth state parameter: session mismatch / cross-session injection detected');
+      }
+
+      // Atomic single-use deletion from MongoDB across instances
+      const dbNonce = await OAuthNonce.findOneAndDelete({ nonce, expiresAt: { $gt: new Date() } });
+      if (!dbNonce) {
+        // Check activeNonces as fallback in non-production
+        if (!isProd && activeNonces.has(nonce)) {
+          activeNonces.delete(nonce);
+        } else {
+          throw new Error('Invalid OAuth state parameter: state has already been consumed (replay detected)');
+        }
+      } else {
+        if (String(dbNonce.userId) !== String(userId)) {
+          throw new Error('Invalid OAuth state parameter: user mismatch detected');
+        }
+        if (dbNonce.provider && provider && dbNonce.provider !== provider) {
+          throw new Error(`Invalid OAuth state parameter: provider mismatch ("${dbNonce.provider}" !== "${provider}")`);
+        }
+        if (dbNonce.sessionId && (!options.sessionId || dbNonce.sessionId !== options.sessionId)) {
+          throw new Error('Invalid OAuth state parameter: session mismatch / cross-session injection detected');
+        }
+        activeNonces.delete(nonce);
+      }
+
+      return {
+        userId,
+        connectionName: connectionName || 'My Google Account',
+        provider,
+        sessionId: sessionId || null,
+        nonce,
+      };
+    }
+
+    // Offline / non-production fallback
+    return this.decodeState(state, options);
   },
 
   /**
@@ -362,6 +484,9 @@ const OAuthService = {
       return { ok: false, valid: false, message: msg };
     }
   },
+
+  _activeNonces: activeNonces,
+  _clearActiveNonces: () => activeNonces.clear(),
 };
 
 module.exports = OAuthService;

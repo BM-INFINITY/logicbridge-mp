@@ -1,6 +1,6 @@
 const express = require('express');
 const { authController } = require('../controllers');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, requireRole } = require('../middleware/authMiddleware');
 const { loginRateLimiter, registerRateLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
@@ -22,5 +22,8 @@ router.post('/revoke-all', protect, authController.revokeAll);
 
 // GET /api/auth/me (authenticated user profile)
 router.get('/me', protect, authController.getMe);
+
+// PATCH /api/auth/users/:id/role (Admin only role management)
+router.patch('/users/:id/role', protect, requireRole('admin'), authController.updateUserRole);
 
 module.exports = router;

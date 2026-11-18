@@ -13,11 +13,17 @@ const ipAttemptStore = new Map();     // ip -> { count, firstAttempt, lockedUnti
 const accountAttemptStore = new Map();  // email -> { count, firstAttempt, lockedUntil }
 
 function getClientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded && typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim();
+  // Only honor X-Forwarded-For if running behind an explicitly configured trusted proxy
+  const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.TRUSTED_PROXY === 'true';
+  if (trustProxy) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded && typeof forwarded === 'string') {
+      const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean);
+      if (parts.length > 0) return parts[0];
+    }
   }
-  return req.ip || req.connection?.remoteAddress || '127.0.0.1';
+  // When not behind a trusted proxy, use direct socket remoteAddress to prevent spoofing bypasses
+  return req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress || '127.0.0.1';
 }
 
 function getLoginConfig() {

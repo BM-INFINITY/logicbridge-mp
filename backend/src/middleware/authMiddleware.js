@@ -19,15 +19,15 @@ const protect = async (req, res, next) => {
         return res.status(401).json({ message: 'User not found' });
       }
 
-      // Check session revocation: if token was issued prior to a session revocation event
-      if (
-        decoded.tokenVersion !== undefined &&
-        user.tokenVersion !== undefined &&
-        decoded.tokenVersion < user.tokenVersion
-      ) {
+      // Check session revocation: verify tokenVersion against persistent user record
+      const userTokenVersion = user.tokenVersion || 0;
+      const tokenVersion = decoded.tokenVersion;
+      if (tokenVersion === undefined || tokenVersion < userTokenVersion) {
         return res.status(401).json({ message: 'Session has been revoked. Please log in again.' });
       }
 
+      // Safe legacy default: Ensure missing legacy roles resolve safely to 'user'
+      user.role = user.role || 'user';
       req.user = user;
       return next();
     } catch (err) {

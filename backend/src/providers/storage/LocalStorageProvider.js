@@ -37,6 +37,14 @@ class LocalStorageProvider extends StorageProvider {
     }
 
     const safePath = resolveSafePath(key, { baseDir: this.storageRoot, ownerId });
+    const expectedStorageRoot = ownerId
+      ? path.resolve(this.storageRoot, 'users', String(ownerId).replace(/[^a-zA-Z0-9_-]/g, ''))
+      : this.storageRoot;
+
+    // Pre-write symlink defense: reject writing through an existing symlink
+    if (fs.existsSync(safePath) && fs.lstatSync(safePath).isSymbolicLink()) {
+      throw new Error(`Security Error: Symlink writing attempt rejected for key "${key}"`);
+    }
 
     if (!overwrite && fs.existsSync(safePath)) {
       throw new Error(`File already exists at key "${key}" and overwrite is disabled`);
@@ -53,14 +61,22 @@ class LocalStorageProvider extends StorageProvider {
       fs.mkdirSync(dir, { recursive: true });
     }
 
+    // Verify parent directory does not escape via symlink substitution
+    const realDir = fs.realpathSync(dir);
+    if (realDir !== expectedStorageRoot && !realDir.startsWith(expectedStorageRoot + path.sep)) {
+      throw new Error(`Security Error: Parent directory symlink traversal rejected for key "${key}"`);
+    }
+
     fs.writeFileSync(safePath, buffer);
 
     // Post-write symlink TOCTOU assertion: ensure target did not escape via concurrent symlink creation
     try {
+      if (fs.lstatSync(safePath).isSymbolicLink()) {
+        try { fs.unlinkSync(safePath); } catch {}
+        throw new Error(`Security Error: Symlink TOCTOU substitution attack rejected for key "${key}"`);
+      }
+
       const canonicalTarget = fs.realpathSync(safePath);
-      const expectedStorageRoot = ownerId
-        ? path.resolve(this.storageRoot, 'users', String(ownerId).replace(/[^a-zA-Z0-9_-]/g, ''))
-        : this.storageRoot;
       const isContained = canonicalTarget === expectedStorageRoot || canonicalTarget.startsWith(expectedStorageRoot + path.sep);
       if (!isContained) {
         try { fs.unlinkSync(safePath); } catch {}
@@ -97,9 +113,21 @@ class LocalStorageProvider extends StorageProvider {
     }
 
     const safePath = resolveSafePath(key, { baseDir: this.storageRoot, ownerId });
+    const expectedStorageRoot = ownerId
+      ? path.resolve(this.storageRoot, 'users', String(ownerId).replace(/[^a-zA-Z0-9_-]/g, ''))
+      : this.storageRoot;
 
     if (!fs.existsSync(safePath)) {
       throw new Error(`File not found in storage at key "${key}"`);
+    }
+
+    // Pre-read symlink verification
+    const lstats = fs.lstatSync(safePath);
+    if (lstats.isSymbolicLink()) {
+      const realLinkTarget = fs.realpathSync(safePath);
+      if (realLinkTarget !== expectedStorageRoot && !realLinkTarget.startsWith(expectedStorageRoot + path.sep)) {
+        throw new Error(`Security Error: Symlink traversal attempt rejected for "${key}"`);
+      }
     }
 
     const stats = fs.statSync(safePath);
@@ -112,6 +140,13 @@ class LocalStorageProvider extends StorageProvider {
     }
 
     const rawBuffer = fs.readFileSync(safePath);
+
+    // Post-read symlink verification
+    const postReal = fs.realpathSync(safePath);
+    if (postReal !== expectedStorageRoot && !postReal.startsWith(expectedStorageRoot + path.sep)) {
+      throw new Error(`Security Error: Post-read symlink escape detected for "${key}"`);
+    }
+
     const { content, rawContent } = parseContent(rawBuffer, format, encoding);
 
     const fileRef = buildFileReference(safePath, stats, content, format, { ownerId, baseDir: this.storageRoot });
@@ -145,6 +180,19 @@ class LocalStorageProvider extends StorageProvider {
       for (const entry of entries) {
         if (results.length >= limit) break;
         const fullPath = path.join(currentDir, entry.name);
+
+        // Skip escaping symlinks during list traversal
+        if (entry.isSymbolicLink()) {
+          try {
+            const realTarget = fs.realpathSync(fullPath);
+            if (realTarget !== safeBase && !realTarget.startsWith(safeBase + path.sep)) {
+              continue;
+            }
+          } catch {
+            continue;
+          }
+        }
+
         const relKey = getRelativeStoragePath(fullPath, { ownerId, baseDir: this.storageRoot });
 
         if (cleanPrefix && !relKey.startsWith(cleanPrefix)) {
@@ -197,12 +245,32 @@ class LocalStorageProvider extends StorageProvider {
     }
 
     const safePath = resolveSafePath(key, { baseDir: this.storageRoot, ownerId });
+    const expectedStorageRoot = ownerId
+      ? path.resolve(this.storageRoot, 'users', String(ownerId).replace(/[^a-zA-Z0-9_-]/g, ''))
+      : this.storageRoot;
 
     if (!fs.existsSync(safePath)) {
       if (ignoreMissing) {
         return { ok: true, provider: 'local', key, deleted: false, message: 'File did not exist' };
       }
       throw new Error(`File not found in storage at key "${key}"`);
+    }
+
+    const lstats = fs.lstatSync(safePath);
+    if (lstats.isSymbolicLink()) {
+      // Unlink the symlink itself, never delete the target destination
+      fs.unlinkSync(safePath);
+      return {
+        ok: true,
+        provider: 'local',
+        key: getRelativeStoragePath(safePath, { ownerId, baseDir: this.storageRoot }),
+        deleted: true,
+      };
+    }
+
+    const canonical = fs.realpathSync(safePath);
+    if (canonical !== expectedStorageRoot && !canonical.startsWith(expectedStorageRoot + path.sep)) {
+      throw new Error(`Security Error: Symlink deletion traversal rejected for key "${key}"`);
     }
 
     const stats = fs.statSync(safePath);
@@ -221,6 +289,65 @@ class LocalStorageProvider extends StorageProvider {
   }
 
   /**
+   * Move or rename a file within local storage
+   */
+  async move({ sourceKey, destinationKey, ownerId, overwrite = false }) {
+    if (!sourceKey || !String(sourceKey).trim()) {
+      throw new Error('sourceKey is required for move');
+    }
+    if (!destinationKey || !String(destinationKey).trim()) {
+      throw new Error('destinationKey is required for move');
+    }
+
+    const safeSrc = resolveSafePath(sourceKey, { baseDir: this.storageRoot, ownerId });
+    const safeDest = resolveSafePath(destinationKey, { baseDir: this.storageRoot, ownerId });
+    const expectedStorageRoot = ownerId
+      ? path.resolve(this.storageRoot, 'users', String(ownerId).replace(/[^a-zA-Z0-9_-]/g, ''))
+      : this.storageRoot;
+
+    if (!fs.existsSync(safeSrc)) {
+      throw new Error(`Source file does not exist at "${sourceKey}"`);
+    }
+
+    if (fs.existsSync(safeDest) && !overwrite) {
+      throw new Error(`Destination file already exists at "${destinationKey}" and overwrite is disabled`);
+    }
+
+    // Check source symlink escape
+    if (fs.lstatSync(safeSrc).isSymbolicLink()) {
+      const realSrc = fs.realpathSync(safeSrc);
+      if (realSrc !== expectedStorageRoot && !realSrc.startsWith(expectedStorageRoot + path.sep)) {
+        throw new Error(`Security Error: Source symlink traversal attempt rejected for "${sourceKey}"`);
+      }
+    }
+
+    const destDir = path.dirname(safeDest);
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+
+    fs.renameSync(safeSrc, safeDest);
+
+    // Post-move destination verification
+    const realDest = fs.realpathSync(safeDest);
+    if (realDest !== expectedStorageRoot && !realDest.startsWith(expectedStorageRoot + path.sep)) {
+      throw new Error(`Security Error: Destination symlink traversal rejected for "${destinationKey}"`);
+    }
+
+    const stats = fs.statSync(safeDest);
+    const relKey = getRelativeStoragePath(safeDest, { ownerId, baseDir: this.storageRoot });
+
+    return {
+      ok: true,
+      provider: 'local',
+      key: relKey,
+      path: relKey,
+      filename: path.basename(safeDest),
+      size: stats.size,
+    };
+  }
+
+  /**
    * Get metadata for a file in local storage
    */
   async getMetadata({ key, ownerId }) {
@@ -229,9 +356,20 @@ class LocalStorageProvider extends StorageProvider {
     }
 
     const safePath = resolveSafePath(key, { baseDir: this.storageRoot, ownerId });
+    const expectedStorageRoot = ownerId
+      ? path.resolve(this.storageRoot, 'users', String(ownerId).replace(/[^a-zA-Z0-9_-]/g, ''))
+      : this.storageRoot;
 
     if (!fs.existsSync(safePath)) {
       throw new Error(`File not found in storage at key "${key}"`);
+    }
+
+    const lstats = fs.lstatSync(safePath);
+    if (lstats.isSymbolicLink()) {
+      const realPath = fs.realpathSync(safePath);
+      if (realPath !== expectedStorageRoot && !realPath.startsWith(expectedStorageRoot + path.sep)) {
+        throw new Error(`Security Error: Symlink traversal attempt rejected for "${key}"`);
+      }
     }
 
     const stats = fs.statSync(safePath);

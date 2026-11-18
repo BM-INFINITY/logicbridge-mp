@@ -199,7 +199,8 @@ async function getPendingApprovals(user) {
 
   const userId = user?._id ? String(user._id) : null;
   const userEmail = user?.email;
-  const userRole = user?.role;
+  const userRole = user?.role || 'user';
+  const isAdmin = userRole === 'admin';
 
   const query = {
     status: ExecutionStatus.WAITING_APPROVAL,
@@ -213,13 +214,13 @@ async function getPendingApprovals(user) {
   // Filter by user authorization
   return executions
     .filter((exec) => {
-      if (String(exec.owner) === userId) return true;
+      if (isAdmin) return true;
       const allowed = exec.approval?.allowedApprovers || [];
       const role = exec.approval?.approverRole;
-      if (allowed.length === 0 && !role) return true; // Unrestricted
+      if (role && (userRole === role || isAdmin)) return true;
       if (userEmail && allowed.some((a) => a.toLowerCase() === userEmail.toLowerCase())) return true;
       if (userId && allowed.includes(userId)) return true;
-      if (role && userRole === role) return true;
+      if (allowed.length === 0 && !role && String(exec.owner) === userId) return true;
       return false;
     })
     .map(sanitizeExecution);
@@ -238,17 +239,31 @@ async function getApprovalById(executionId, user) {
 
   const userId = user?._id ? String(user._id) : null;
   const userEmail = user?.email;
-  const userRole = user?.role;
+  const userRole = user?.role || 'user';
+  const isAdmin = userRole === 'admin';
   const allowed = execution.approval.allowedApprovers || [];
   const role = execution.approval.approverRole;
 
   const isOwner = String(execution.owner) === userId;
   const isEmail = userEmail && allowed.some((a) => a.toLowerCase() === userEmail.toLowerCase());
   const isId = userId && allowed.includes(userId);
-  const isRole = role && userRole === role;
+  const isRole = role && (userRole === role || isAdmin);
   const isUnrestricted = allowed.length === 0 && !role;
 
-  if (!isOwner && !isEmail && !isId && !isRole && !isUnrestricted) {
+  let isAuthorized = false;
+  if (isAdmin) {
+    isAuthorized = true;
+  } else if (role && allowed.length > 0) {
+    isAuthorized = isRole || isEmail || isId;
+  } else if (role) {
+    isAuthorized = isRole;
+  } else if (allowed.length > 0) {
+    isAuthorized = isEmail || isId;
+  } else {
+    isAuthorized = isOwner;
+  }
+
+  if (!isAuthorized) {
     const error = new Error('Unauthorized to view this approval request');
     error.statusCode = 403;
     throw error;

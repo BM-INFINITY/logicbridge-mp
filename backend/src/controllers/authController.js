@@ -138,6 +138,24 @@ const getMe = async (req, res) => {
   return error(res, 'Not authorized', 401);
 };
 
+/**
+ * Update user role (Admin only)
+ * PATCH /api/auth/users/:id/role
+ */
+const updateUserRole = async (req, res, next) => {
+  try {
+    const { role } = req.body || {};
+    const targetUserId = req.params.id;
+    const updated = await userService.updateUserRole(req.user, targetUserId, role);
+    return success(res, updated, 200);
+  } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
+    return next(err);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -145,4 +163,5 @@ module.exports = {
   logout,
   revokeAll,
   getMe,
+  updateUserRole,
 };

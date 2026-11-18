@@ -1,5 +1,5 @@
 const express = require('express');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, requireRole } = require('../middleware/authMiddleware');
 const { executionController } = require('../controllers');
 
 const router = express.Router();
@@ -20,8 +20,8 @@ router.post('/approvals/:id/decide', protect, executionController.decideApproval
 // POST /api/executions/resume/:resumeToken — external resume webhook/event (token authorized)
 router.post('/resume/:resumeToken', executionController.resumeByToken);
 
-// POST /api/executions/sweep — sweep expired timers and approvals
-router.post('/sweep', protect, executionController.sweepTimeouts);
+// POST /api/executions/sweep — sweep expired timers and approvals (admin only)
+router.post('/sweep', protect, requireRole('admin'), executionController.sweepTimeouts);
 
 // GET /api/executions/detail/:id — get single execution detail
 router.get('/detail/:id', protect, executionController.getExecutionDetail);

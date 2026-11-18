@@ -435,8 +435,10 @@ function isAllowedPrivateAiDestination(hostnameOrIp, providerId) {
     }
   }
 
-  // 3. Fallback broad flag if explicitly configured
-  if (process.env.ALLOW_PRIVATE_AI_ENDPOINTS === 'true') {
+  // 3. Fallback broad flag only permitted in development / test environments.
+  // In production, explicit host/IP allowlisting via ALLOWED_PRIVATE_AI_HOSTS is mandatory.
+  const isProd = process.env.NODE_ENV === 'production';
+  if (!isProd && process.env.ALLOW_PRIVATE_AI_ENDPOINTS === 'true') {
     return true;
   }
 
@@ -449,17 +451,17 @@ function isAllowedPrivateAiDestination(hostnameOrIp, providerId) {
  * @returns {boolean}
  */
 function isPrivateAiEndpointAllowed(providerId) {
-  if (providerId !== 'ollama' && !process.env.ALLOWED_PRIVATE_AI_HOSTS) return false;
   const isProd = process.env.NODE_ENV === 'production';
   if (isProd) {
-    return (
-      process.env.ALLOW_OLLAMA_LOCAL === 'true' ||
-      process.env.ALLOW_PRIVATE_AI_ENDPOINTS === 'true' ||
-      Boolean(process.env.ALLOWED_PRIVATE_AI_HOSTS)
-    );
+    if (providerId === 'ollama' && process.env.ALLOW_OLLAMA_LOCAL === 'true') return true;
+    return Boolean(process.env.ALLOWED_PRIVATE_AI_HOSTS);
   }
   // In development and test environments, allow local Ollama by default unless explicitly disabled
-  return process.env.ALLOW_OLLAMA_LOCAL !== 'false' || Boolean(process.env.ALLOWED_PRIVATE_AI_HOSTS);
+  return (
+    process.env.ALLOW_OLLAMA_LOCAL !== 'false' ||
+    Boolean(process.env.ALLOWED_PRIVATE_AI_HOSTS) ||
+    process.env.ALLOW_PRIVATE_AI_ENDPOINTS === 'true'
+  );
 }
 
 /**

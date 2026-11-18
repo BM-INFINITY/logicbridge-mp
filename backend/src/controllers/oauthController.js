@@ -46,11 +46,14 @@ const googleCallback = async (req, res, next) => {
     return res.redirect(`${FRONTEND}/connections?oauth=error&msg=Missing+code+or+state`);
   }
 
+  const sessionId = req.cookies?.sessionId || req.headers?.['x-session-id'] || req.query.sessionId || null;
+
   let userId, connectionName, provider;
   try {
-    ({ userId, connectionName, provider = 'gmail' } = OAuthService.decodeState(state));
-  } catch {
-    return res.redirect(`${FRONTEND}/connections?oauth=error&msg=Invalid+state`);
+    ({ userId, connectionName, provider = 'gmail' } = await OAuthService.decodeState(state, { sessionId }));
+  } catch (stateErr) {
+    const errorMsg = encodeURIComponent(stateErr.message || 'Invalid state');
+    return res.redirect(`${FRONTEND}/connections?oauth=error&msg=${errorMsg}`);
   }
 
   try {

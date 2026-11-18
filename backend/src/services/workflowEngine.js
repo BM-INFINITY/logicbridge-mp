@@ -705,16 +705,33 @@ async function resume(executionId, resumeOptions = {}, user = null) {
     const userEmail = user?.email;
     const userId = user?._id ? String(user._id) : null;
     const ownerId = String(execution.owner);
+    const userRole = user?.role || 'user';
+    const isAdmin = userRole === 'admin';
 
-    const isOwner = userId && userId === ownerId;
     const isEmailAllowed = userEmail && allowed.some((a) => a.toLowerCase() === userEmail.toLowerCase());
     const isIdAllowed = userId && allowed.includes(userId);
-    const isRoleAllowed = role && user?.role === role;
-    const isUnrestricted = allowed.length === 0 && !role;
+    const isRoleAllowed = role && (userRole === role || isAdmin);
+    const isOwner = userId && userId === ownerId;
+
+    let isAuthorized = false;
+    if (isAdmin) {
+      isAuthorized = true;
+    } else if (role && allowed.length > 0) {
+      isAuthorized = isRoleAllowed || isEmailAllowed || isIdAllowed;
+    } else if (role) {
+      // Role explicitly required — owner cannot approve unless they hold the role or are admin
+      isAuthorized = isRoleAllowed;
+    } else if (allowed.length > 0) {
+      // Specific approvers explicitly required
+      isAuthorized = isEmailAllowed || isIdAllowed;
+    } else {
+      // Unrestricted: workflow owner or admin
+      isAuthorized = isOwner;
+    }
 
     // Reject unauthorized attempts IMMEDIATELY without claiming or modifying DB status
-    if (!isOwner && !isEmailAllowed && !isIdAllowed && !isRoleAllowed && !isUnrestricted) {
-      const authErr = new Error('Unauthorized to approve or reject this execution');
+    if (!isAuthorized) {
+      const authErr = new Error('Unauthorized to approve or reject this execution: insufficient role or not in approvers list');
       authErr.statusCode = 403;
       throw authErr;
     }
@@ -1094,7 +1111,11 @@ async function sweepTimeouts() {
   for (const exec of expiredApprovals) {
     try {
       const decision = exec.approval?.timeoutAction || 'reject';
-      const resumed = await resume(exec._id, { decision, comments: 'Auto-resolved via approval timeout' });
+      const resumed = await resume(
+        exec._id,
+        { decision, comments: 'Auto-resolved via approval timeout' },
+        { role: 'admin', email: 'system' }
+      );
       swept.push({ executionId: exec._id, type: 'approval', status: resumed.status });
     } catch (err) {
       console.warn(`[SweepTimeouts] Failed to auto-resolve approval for ${exec._id}:`, err.message);
@@ -1114,10 +1135,14 @@ async function sweepTimeouts() {
   for (const exec of expiredWaits) {
     try {
       const isTimeout = exec.wait?.type === 'event';
-      const resumed = await resume(exec._id, {
-        resumedBy: isTimeout ? 'timeout' : 'timer',
-        payload: { expiredAt: now.toISOString() },
-      });
+      const resumed = await resume(
+        exec._id,
+        {
+          resumedBy: isTimeout ? 'timeout' : 'timer',
+          payload: { expiredAt: now.toISOString() },
+        },
+        { role: 'admin', email: 'system' }
+      );
       swept.push({ executionId: exec._id, type: 'wait', status: resumed.status });
     } catch (err) {
       console.warn(`[SweepTimeouts] Failed to resume wait for ${exec._id}:`, err.message);

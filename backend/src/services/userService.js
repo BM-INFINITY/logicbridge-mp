@@ -36,6 +36,15 @@ function generateAccessToken(user) {
  * Generates and stores a new refresh token with rotation family tracking
  */
 async function issueRefreshToken(user, ipAddress = null, userAgent = null, existingFamily = null) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const isDbConnected = mongoose.connection && mongoose.connection.readyState === 1;
+
+  if (isProd && !isDbConnected) {
+    const error = new Error('Database service unavailable for session persistence');
+    error.statusCode = 503;
+    throw error;
+  }
+
   const rawToken = crypto.randomBytes(32).toString('hex');
   const tokenHash = hashToken(rawToken);
   const family = existingFamily || crypto.randomUUID();
@@ -56,16 +65,21 @@ async function issueRefreshToken(user, ipAddress = null, userAgent = null, exist
     createdAt: new Date(),
   };
 
-  // Always keep in memory store
-  memoryRefreshTokens.set(tokenHash, tokenRecord);
-
-  // If Mongo is connected, persist to DB
-  if (mongoose.connection.readyState === 1) {
+  if (isDbConnected) {
     try {
       await RefreshToken.create(tokenRecord);
-    } catch {
-      // Fallback stays in memoryRefreshTokens
+    } catch (dbErr) {
+      if (isProd) {
+        const error = new Error(`Database error saving refresh token: ${dbErr.message}`);
+        error.statusCode = 503;
+        throw error;
+      }
     }
+  }
+
+  // Memory fallback only permitted in development / offline test mode
+  if (!isProd) {
+    memoryRefreshTokens.set(tokenHash, tokenRecord);
   }
 
   return rawToken;
@@ -171,86 +185,217 @@ async function refreshUserToken({ refreshToken, ipAddress = null, userAgent = nu
     throw error;
   }
 
+  const isProd = process.env.NODE_ENV === 'production';
+  const isDbConnected = mongoose.connection && mongoose.connection.readyState === 1;
+
+  if (isProd && !isDbConnected) {
+    const error = new Error('Database service unavailable');
+    error.statusCode = 503;
+    throw error;
+  }
+
   const tokenHash = hashToken(refreshToken.trim());
-  let tokenDoc = null;
+  const newRawRefreshToken = crypto.randomBytes(32).toString('hex');
+  const newHash = hashToken(newRawRefreshToken);
+  const refreshTtlDays = parseInt(process.env.JWT_REFRESH_EXPIRATION_DAYS || '7', 10);
+  const newExpiresAt = new Date(Date.now() + refreshTtlDays * 24 * 60 * 60 * 1000);
 
-  if (mongoose.connection.readyState === 1) {
+  let user = null;
+  let family = null;
+
+  if (isDbConnected) {
+    let rotatedDoc = null;
     try {
-      tokenDoc = await RefreshToken.findOne({ tokenHash });
-    } catch {
-      tokenDoc = null;
+      // Atomic Compare-And-Swap (CAS): Only succeeds if token exists, is NOT revoked, and not expired
+      rotatedDoc = await RefreshToken.findOneAndUpdate(
+        { tokenHash, isRevoked: false, expiresAt: { $gt: new Date() } },
+        {
+          $set: {
+            isRevoked: true,
+            revokedAt: new Date(),
+            revokedReason: 'Rotated',
+            replacedByTokenHash: newHash,
+          },
+        },
+        { new: false }
+      );
+    } catch (dbErr) {
+      if (isProd) {
+        const error = new Error(`Database error during token refresh: ${dbErr.message}`);
+        error.statusCode = 503;
+        throw error;
+      }
     }
+
+    if (!rotatedDoc) {
+      // The token was not updated: check if it already existed and was revoked (reuse detection)
+      let existing = null;
+      try {
+        existing = await RefreshToken.findOne({ tokenHash });
+      } catch (dbErr) {
+        if (isProd) {
+          const error = new Error(`Database error checking token: ${dbErr.message}`);
+          error.statusCode = 503;
+          throw error;
+        }
+      }
+
+      if (existing) {
+        if (existing.isRevoked) {
+          // Token reuse detected! Revoke entire family across DB and memory
+          const compromisedFamily = existing.family;
+          try {
+            await RefreshToken.updateMany(
+              { family: compromisedFamily },
+              { $set: { isRevoked: true, revokedAt: new Date(), revokedReason: 'Token reuse detected' } }
+            );
+          } catch {}
+
+          for (const [, rec] of memoryRefreshTokens.entries()) {
+            if (rec.family === compromisedFamily) {
+              rec.isRevoked = true;
+              rec.revokedAt = new Date();
+              rec.revokedReason = 'Token reuse detected';
+            }
+          }
+
+          const error = new Error('Security Alert: Compromised refresh token reuse detected. Session terminated.');
+          error.statusCode = 401;
+          throw error;
+        }
+
+        if (existing.expiresAt <= new Date()) {
+          const error = new Error('Refresh token has expired. Please log in again.');
+          error.statusCode = 401;
+          throw error;
+        }
+      }
+
+      // If not in DB, in non-production check memory store
+      if (!isProd && memoryRefreshTokens.has(tokenHash)) {
+        const memDoc = memoryRefreshTokens.get(tokenHash);
+        if (memDoc.isRevoked) {
+          const memFamily = memDoc.family;
+          for (const [, rec] of memoryRefreshTokens.entries()) {
+            if (rec.family === memFamily) {
+              rec.isRevoked = true;
+              rec.revokedAt = new Date();
+              rec.revokedReason = 'Token reuse detected';
+            }
+          }
+          const error = new Error('Security Alert: Compromised refresh token reuse detected. Session terminated.');
+          error.statusCode = 401;
+          throw error;
+        }
+        if (new Date(memDoc.expiresAt) <= new Date()) {
+          const error = new Error('Refresh token has expired. Please log in again.');
+          error.statusCode = 401;
+          throw error;
+        }
+
+        memDoc.isRevoked = true;
+        memDoc.revokedAt = new Date();
+        memDoc.revokedReason = 'Rotated';
+        memDoc.replacedByTokenHash = newHash;
+        family = memDoc.family;
+
+        user = await User.findById(memDoc.userId);
+      } else {
+        const error = new Error('Invalid or expired refresh token');
+        error.statusCode = 401;
+        throw error;
+      }
+    } else {
+      family = rotatedDoc.family;
+      user = await User.findById(rotatedDoc.userId);
+    }
+
+    if (!user) {
+      const error = new Error('User associated with refresh token no longer exists');
+      error.statusCode = 401;
+      throw error;
+    }
+
+    const newTokenRecord = {
+      userId: user._id,
+      tokenHash: newHash,
+      family,
+      isRevoked: false,
+      revokedAt: null,
+      revokedReason: null,
+      replacedByTokenHash: null,
+      expiresAt: newExpiresAt,
+      ipAddress,
+      userAgent,
+      createdAt: new Date(),
+    };
+
+    try {
+      await RefreshToken.create(newTokenRecord);
+    } catch (dbErr) {
+      if (isProd) {
+        const error = new Error(`Database error saving rotated token: ${dbErr.message}`);
+        error.statusCode = 503;
+        throw error;
+      }
+    }
+
+    if (!isProd) {
+      memoryRefreshTokens.set(newHash, newTokenRecord);
+    }
+
+    const newAccessToken = generateAccessToken(user);
+    return {
+      token: newAccessToken,
+      accessToken: newAccessToken,
+      refreshToken: newRawRefreshToken,
+    };
   }
 
-  if (!tokenDoc && memoryRefreshTokens.has(tokenHash)) {
-    tokenDoc = memoryRefreshTokens.get(tokenHash);
-  }
-
-  if (!tokenDoc) {
+  // Non-production offline memory-only mode
+  const memDoc = memoryRefreshTokens.get(tokenHash);
+  if (!memDoc) {
     const error = new Error('Invalid or expired refresh token');
     error.statusCode = 401;
     throw error;
   }
 
-  // Check expiration
-  if (new Date(tokenDoc.expiresAt) < new Date()) {
-    const error = new Error('Refresh token has expired. Please log in again.');
-    error.statusCode = 401;
-    throw error;
-  }
-
-  // Token reuse detection: if a revoked refresh token is presented, revoke its entire family!
-  if (tokenDoc.isRevoked) {
-    const family = tokenDoc.family;
-    // Revoke all in memory
-    for (const [h, rec] of memoryRefreshTokens.entries()) {
-      if (rec.family === family) {
+  if (memDoc.isRevoked) {
+    const memFamily = memDoc.family;
+    for (const [, rec] of memoryRefreshTokens.entries()) {
+      if (rec.family === memFamily) {
         rec.isRevoked = true;
         rec.revokedAt = new Date();
         rec.revokedReason = 'Token reuse detected';
       }
     }
-    // Revoke all in DB
-    if (mongoose.connection.readyState === 1) {
-      await RefreshToken.updateMany(
-        { family },
-        { isRevoked: true, revokedAt: new Date(), revokedReason: 'Token reuse detected' }
-      ).catch(() => {});
-    }
-
     const error = new Error('Security Alert: Compromised refresh token reuse detected. Session terminated.');
     error.statusCode = 401;
     throw error;
   }
 
-  // Find user
-  const user = await User.findById(tokenDoc.userId);
+  if (new Date(memDoc.expiresAt) <= new Date()) {
+    const error = new Error('Refresh token has expired. Please log in again.');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  memDoc.isRevoked = true;
+  memDoc.revokedAt = new Date();
+  memDoc.revokedReason = 'Rotated';
+  memDoc.replacedByTokenHash = newHash;
+
+  user = await User.findById(memDoc.userId);
   if (!user) {
     const error = new Error('User associated with refresh token no longer exists');
     error.statusCode = 401;
     throw error;
   }
 
-  // Mark current token as revoked and rotated
-  tokenDoc.isRevoked = true;
-  tokenDoc.revokedAt = new Date();
-  tokenDoc.revokedReason = 'Rotated';
-
-  const newRawRefreshToken = crypto.randomBytes(32).toString('hex');
-  const newHash = hashToken(newRawRefreshToken);
-  tokenDoc.replacedByTokenHash = newHash;
-
-  if (tokenDoc.save) {
-    await tokenDoc.save().catch(() => {});
-  }
-
-  // Save new refresh token in same family
-  const refreshTtlDays = parseInt(process.env.JWT_REFRESH_EXPIRATION_DAYS || '7', 10);
-  const newExpiresAt = new Date(Date.now() + refreshTtlDays * 24 * 60 * 60 * 1000);
   const newTokenRecord = {
     userId: user._id,
     tokenHash: newHash,
-    family: tokenDoc.family,
+    family: memDoc.family,
     isRevoked: false,
     revokedAt: null,
     revokedReason: null,
@@ -262,10 +407,6 @@ async function refreshUserToken({ refreshToken, ipAddress = null, userAgent = nu
   };
 
   memoryRefreshTokens.set(newHash, newTokenRecord);
-  if (mongoose.connection.readyState === 1) {
-    await RefreshToken.create(newTokenRecord).catch(() => {});
-  }
-
   const newAccessToken = generateAccessToken(user);
 
   return {
@@ -279,20 +420,37 @@ async function refreshUserToken({ refreshToken, ipAddress = null, userAgent = nu
  * Log out and revoke active refresh token session
  */
 async function logoutUser({ refreshToken, userId }) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const isDbConnected = mongoose.connection && mongoose.connection.readyState === 1;
+
+  if (isProd && !isDbConnected) {
+    const error = new Error('Database service unavailable');
+    error.statusCode = 503;
+    throw error;
+  }
+
   if (refreshToken) {
     const tokenHash = hashToken(refreshToken.trim());
-    if (memoryRefreshTokens.has(tokenHash)) {
+    if (isDbConnected) {
+      try {
+        await RefreshToken.updateOne(
+          { tokenHash },
+          { isRevoked: true, revokedAt: new Date(), revokedReason: 'User logout' }
+        );
+      } catch (dbErr) {
+        if (isProd) {
+          const error = new Error(`Database error during logout: ${dbErr.message}`);
+          error.statusCode = 503;
+          throw error;
+        }
+      }
+    }
+
+    if (!isProd && memoryRefreshTokens.has(tokenHash)) {
       const rec = memoryRefreshTokens.get(tokenHash);
       rec.isRevoked = true;
       rec.revokedAt = new Date();
       rec.revokedReason = 'User logout';
-    }
-
-    if (mongoose.connection.readyState === 1) {
-      await RefreshToken.updateOne(
-        { tokenHash },
-        { isRevoked: true, revokedAt: new Date(), revokedReason: 'User logout' }
-      ).catch(() => {});
     }
   }
 
@@ -303,33 +461,88 @@ async function logoutUser({ refreshToken, userId }) {
  * Revoke all active sessions for a user (e.g. password change, security compromise)
  */
 async function revokeAllUserSessions(userId) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const isDbConnected = mongoose.connection && mongoose.connection.readyState === 1;
+
+  if (isProd && !isDbConnected) {
+    const error = new Error('Database service unavailable');
+    error.statusCode = 503;
+    throw error;
+  }
+
   const uid = String(userId);
 
-  // Invalidate in memory
-  for (const [, rec] of memoryRefreshTokens.entries()) {
-    if (String(rec.userId) === uid) {
-      rec.isRevoked = true;
-      rec.revokedAt = new Date();
-      rec.revokedReason = 'Revoke all sessions';
+  if (isDbConnected) {
+    try {
+      await RefreshToken.updateMany(
+        { userId: uid },
+        { isRevoked: true, revokedAt: new Date(), revokedReason: 'Revoke all sessions' }
+      );
+    } catch (dbErr) {
+      if (isProd) {
+        const error = new Error(`Database error revoking sessions: ${dbErr.message}`);
+        error.statusCode = 503;
+        throw error;
+      }
     }
   }
 
-  // Invalidate in DB
-  if (mongoose.connection.readyState === 1) {
-    await RefreshToken.updateMany(
-      { userId: uid },
-      { isRevoked: true, revokedAt: new Date(), revokedReason: 'Revoke all sessions' }
-    ).catch(() => {});
+  if (!isProd) {
+    for (const [, rec] of memoryRefreshTokens.entries()) {
+      if (String(rec.userId) === uid) {
+        rec.isRevoked = true;
+        rec.revokedAt = new Date();
+        rec.revokedReason = 'Revoke all sessions';
+      }
+    }
   }
 
   // Increment tokenVersion on user document to immediately invalidate all access tokens
   const user = await User.findById(uid);
   if (user) {
     user.tokenVersion = (user.tokenVersion || 0) + 1;
-    await user.save().catch(() => {});
+    await user.save();
   }
 
   return { success: true, message: 'All active sessions have been revoked' };
+}
+
+/**
+ * Update user role (Admin only)
+ * Increments tokenVersion to immediately revoke old sessions and require re-authentication with new role
+ */
+async function updateUserRole(adminUser, targetUserId, newRole) {
+  if (!adminUser || adminUser.role !== 'admin') {
+    const error = new Error('Forbidden: Only administrators can modify user roles');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const validRoles = ['user', 'admin', 'approver'];
+  if (!newRole || !validRoles.includes(newRole)) {
+    const error = new Error(`Invalid role "${newRole}". Supported roles: ${validRoles.join(', ')}`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const user = await User.findById(targetUserId);
+  if (!user) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  user.role = newRole;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  await user.save();
+
+  return {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    tokenVersion: user.tokenVersion,
+  };
 }
 
 /**
@@ -345,6 +558,10 @@ async function getUserById(userId) {
   return user;
 }
 
+function _clearMemoryRefreshTokens() {
+  memoryRefreshTokens.clear();
+}
+
 module.exports = {
   generateAccessToken,
   issueRefreshToken,
@@ -353,7 +570,9 @@ module.exports = {
   refreshUserToken,
   logoutUser,
   revokeAllUserSessions,
+  updateUserRole,
   getUserById,
   hashToken,
   _memoryRefreshTokens: memoryRefreshTokens,
+  _clearMemoryRefreshTokens,
 };

@@ -256,8 +256,11 @@ class FileNode extends BaseNode {
             throw new Error(`File not found for deletion at "${resolvedPath}"`);
           }
 
-          const stats = fs.statSync(safePath);
-          if (stats.isDirectory()) {
+          const lstats = fs.lstatSync(safePath);
+          if (lstats.isSymbolicLink()) {
+            // Unlink symlink link itself, never delete target contents
+            fs.unlinkSync(safePath);
+          } else if (lstats.isDirectory()) {
             fs.rmSync(safePath, { recursive: true, force: true });
           } else {
             fs.unlinkSync(safePath);
@@ -313,19 +316,30 @@ class FileNode extends BaseNode {
             throw new Error(`Destination file already exists at "${resolvedDest}" and overwrite is disabled`);
           }
 
+          // Check for symlink traversal in source
+          if (fs.lstatSync(safeSrc).isSymbolicLink()) {
+            throw new Error(`Security Error: Source symlink traversal attempt rejected for "${resolvedSrc}"`);
+          }
+
           const destDir = path.dirname(safeDest);
           if (!fs.existsSync(destDir)) {
             fs.mkdirSync(destDir, { recursive: true });
           }
 
           fs.renameSync(safeSrc, safeDest);
+
+          // Post-move validation
+          if (fs.lstatSync(safeDest).isSymbolicLink()) {
+            throw new Error(`Security Error: Destination symlink traversal rejected for "${resolvedDest}"`);
+          }
+
           const stats = fs.statSync(safeDest);
           const fileRef = buildFileReference(safeDest, stats, undefined, resolvedFormat);
 
           resultPayload = {
             ok: true,
             operation: 'move_file',
-            previousPath: getRelativeStoragePath(safeSrc),
+            previousPath: getRelativeStoragePath(safeSrc, securityOpts),
             file: fileRef,
             ...fileRef,
           };

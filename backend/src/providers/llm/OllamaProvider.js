@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { LLMProvider } = require('./LLMProvider');
 const { NodeExecutionError } = require('../../errors');
+const NetworkSecurity = require('../../utils/NetworkSecurity');
 
 class OllamaProvider extends LLMProvider {
   constructor(options = {}) {
@@ -44,6 +45,7 @@ class OllamaProvider extends LLMProvider {
   } = {}) {
     this.validateCapability('chat');
     const endpoint = `${(baseUrl || this.defaultBaseUrl).replace(/\/+$/, '')}/api/chat`;
+    await NetworkSecurity.validateUrl(endpoint, { providerId: this.id });
 
     const formattedMessages = [];
     if (systemPrompt && String(systemPrompt).trim()) {
@@ -106,15 +108,27 @@ class OllamaProvider extends LLMProvider {
       payload.options = optionsObj;
     }
 
-    const res = await this.executeWithRetry(() =>
-      httpClient({
-        method: 'POST',
-        url: endpoint,
-        headers: this._getHeaders(apiKey),
-        data: payload,
-        timeout,
-      })
-    );
+    const res = await this.executeWithRetry(() => {
+      if (httpClient && httpClient !== axios) {
+        return httpClient({
+          method: 'POST',
+          url: endpoint,
+          headers: this._getHeaders(apiKey),
+          data: payload,
+          timeout,
+        });
+      }
+      return NetworkSecurity.executeSafeRequest(
+        {
+          method: 'POST',
+          url: endpoint,
+          headers: this._getHeaders(apiKey),
+          data: payload,
+          timeout,
+        },
+        { providerId: this.id, maxRedirects: 3 }
+      );
+    });
 
     const text = res.data?.message?.content || '';
     const finishReason = res.data?.done_reason || (res.data?.done ? 'stop' : 'unknown');
@@ -276,6 +290,7 @@ Respond with JSON only:
 
     const base = (baseUrl || this.defaultBaseUrl).replace(/\/+$/, '');
     const modelName = model || this.defaultModels.embeddings;
+    await NetworkSecurity.validateUrl(`${base}/api/embeddings`, { providerId: this.id });
 
     let res;
     try {

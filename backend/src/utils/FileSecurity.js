@@ -109,6 +109,41 @@ function resolveSafePath(userPath, options = {}) {
     throw new Error(`Security Error: Path traversal attempt rejected for "${rawPath}". Access denied outside storage root.`);
   }
 
+  // Symlink escape verification: verify canonical target resides strictly within storageRoot
+  if (fs.existsSync(resolved)) {
+    try {
+      const real = fs.realpathSync(resolved);
+      const isRealContained = real === storageRoot || real.startsWith(storageRoot + path.sep);
+      if (!isRealContained) {
+        throw new Error(`Security Error: Symlink traversal attempt rejected for "${rawPath}". Access denied outside storage root.`);
+      }
+    } catch (err) {
+      if (err.message && err.message.includes('Security Error')) {
+        throw err;
+      }
+    }
+  } else {
+    // If target file does not exist yet, verify closest existing ancestor directory for symlink escapes
+    let checkDir = path.dirname(resolved);
+    while (checkDir && checkDir !== storageRoot && checkDir.startsWith(storageRoot + path.sep)) {
+      if (fs.existsSync(checkDir)) {
+        try {
+          const realDir = fs.realpathSync(checkDir);
+          const isRealDirContained = realDir === storageRoot || realDir.startsWith(storageRoot + path.sep);
+          if (!isRealDirContained) {
+            throw new Error(`Security Error: Symlink directory traversal attempt rejected for "${rawPath}". Access denied outside storage root.`);
+          }
+        } catch (err) {
+          if (err.message && err.message.includes('Security Error')) {
+            throw err;
+          }
+        }
+        break;
+      }
+      checkDir = path.dirname(checkDir);
+    }
+  }
+
   return resolved;
 }
 
@@ -121,7 +156,7 @@ function resolveSafePath(userPath, options = {}) {
  * @returns {string} Forward-slash normalized relative path
  */
 function getRelativeStoragePath(absolutePath, options = {}) {
-  const baseStorage = getStorageRoot();
+  const baseStorage = options.baseDir ? path.resolve(options.baseDir) : getStorageRoot();
   const rawOwner = options.ownerId || options.userId;
   const storageRoot = rawOwner
     ? path.resolve(baseStorage, 'users', String(rawOwner).replace(/[^a-zA-Z0-9_-]/g, ''))
@@ -334,14 +369,15 @@ function serializeContent(input, format = 'text', encoding = 'utf8') {
  * @param {fs.Stats} [stats]
  * @param {any} [content]
  * @param {string} [format]
+ * @param {object} [options]
  * @returns {object} Standard file reference
  */
-function buildFileReference(absolutePath, stats, content, format = 'text') {
+function buildFileReference(absolutePath, stats, content, format = 'text', options = {}) {
   const statObj = stats || (fs.existsSync(absolutePath) ? fs.statSync(absolutePath) : null);
   const size = statObj ? statObj.size : 0;
   const filename = path.basename(absolutePath);
   const ext = path.extname(absolutePath).toLowerCase();
-  const relPath = getRelativeStoragePath(absolutePath);
+  const relPath = getRelativeStoragePath(absolutePath, options);
 
   const fileRef = {
     $type: 'file_reference',

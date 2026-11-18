@@ -5,8 +5,11 @@ const WebhookEvent = require('../models/WebhookEvent');
 const WorkflowSecret = require('../models/WorkflowSecret');
 const workflowEngine = require('./workflowEngine');
 const CredentialService = require('./CredentialService');
-const { WebhookPayload } = require('../utils');
+const { WebhookPayload, generateWorkerId } = require('../utils');
 const { NodeTypes, WorkflowStatus } = require('../constants');
+
+const WORKER_ID = generateWorkerId('webhook');
+const CLAIM_TIMEOUT_MS = parseInt(process.env.WEBHOOK_CLAIM_TIMEOUT_MS, 10) || 60 * 1000; // 60 seconds claim lease
 
 // In-flight concurrency lock to prevent simultaneous duplicate deliveries
 const inFlightWebhookLocks = new Set();
@@ -124,21 +127,36 @@ async function resolveSecret(secretRef, workflowId, ownerId) {
 }
 
 /**
+ * Finds the trigger-webhook node in a workflow
+ * @param {object} workflow
+ * @returns {object|null}
+ */
+function getWebhookNode(workflow) {
+  if (!workflow || !Array.isArray(workflow.nodes)) return null;
+  return workflow.nodes.find((n) => n.type === NodeTypes.TRIGGER_WEBHOOK) || null;
+}
+
+/**
  * Finds the trigger-webhook node configuration in a workflow
  * @param {object} workflow
- * @returns {object} Webhook configuration data
+ * @returns {object|null} Webhook configuration data or null if not found
  */
 function getWebhookNodeConfig(workflow) {
-  const node = workflow.nodes?.find((n) => n.type === NodeTypes.TRIGGER_WEBHOOK);
-  return node?.data || {};
+  const node = getWebhookNode(workflow);
+  return node ? (node.data || {}) : null;
 }
 
 /**
  * Verifies webhook authentication (None, Bearer, API Key, HMAC Signature)
  */
 async function verifyAuthentication(config, req, rawBody, workflowId, ownerId) {
-  const authType = String(config.authType || 'none').toLowerCase().trim();
+  if (!config || config.authType === undefined || config.authType === null || String(config.authType).trim() === '') {
+    return { valid: false, error: 'Unauthorized: Webhook authentication type is not configured (fail closed)', statusCode: 401 };
+  }
 
+  const authType = String(config.authType).toLowerCase().trim();
+
+  // Explicit unauthenticated mode must be intentionally configured as 'none'
   if (authType === 'none') {
     return { valid: true };
   }
@@ -410,12 +428,21 @@ function extractEventIdentifier(config, req) {
  */
 async function processWebhook(workflow, req, rawBody = null) {
   const startTime = Date.now();
-  const config = getWebhookNodeConfig(workflow);
-  const endpointId = config.endpointId || `wh_${workflow._id}`;
   const correlationId = req.headers['x-correlation-id'] || `corr_${crypto.randomBytes(12).toString('hex')}`;
+  const config = getWebhookNodeConfig(workflow);
+
+  // 1. Verify target workflow contains a valid Webhook Trigger node
+  if (!config) {
+    return {
+      status: 400,
+      body: { error: 'Workflow does not contain an active Webhook Trigger node', correlationId },
+    };
+  }
+
+  const endpointId = config.endpointId || `wh_${workflow._id}`;
   const eventIdentifier = extractEventIdentifier(config, req);
 
-  // 1. Check if workflow or endpoint is disabled
+  // 2. Check if workflow or endpoint is disabled
   if (config.enabled === false) {
     await recordEvent({
       workflow: workflow._id,
@@ -564,6 +591,8 @@ async function processWebhook(workflow, req, rawBody = null) {
     };
   }
 
+  let persistentClaim = null;
+
   if (eventIdentifier) {
     const existing = await WebhookEvent.findOne({
       workflow: workflow._id,
@@ -572,41 +601,138 @@ async function processWebhook(workflow, req, rawBody = null) {
     });
 
     if (existing) {
-      console.log(`[WebhookService] Duplicate event detected for key "${eventIdentifier}". Execution skipped.`);
-      await recordEvent({
-        workflow: workflow._id,
-        endpointId,
-        correlationId,
-        eventIdentifier,
-        method: req.method,
-        url: req.originalUrl || req.url,
-        headers: req.headers,
-        query: req.query,
-        body: req.body,
-        status: 'duplicate',
-        httpStatus: 200,
-        execution: existing.execution,
-        failureReason: null,
-        ip: req.ip || '127.0.0.1',
-        duration: Date.now() - startTime,
-      });
+      if (existing.status === 'processing') {
+        const now = new Date();
+        const isClaimExpired = existing.claimExpiresAt && new Date(existing.claimExpiresAt) < now;
 
-      return {
-        status: 200,
-        body: {
-          status: 'duplicate',
-          message: 'Duplicate event received and deduplicated',
-          eventIdentifier,
-          originalExecutionId: existing.execution,
+        if (!isClaimExpired) {
+          // Healthy active worker is processing this event within its valid lease
+          console.warn(`[WebhookService] Event "${eventIdentifier}" is actively processing by worker ${existing.workerId}. Request deduplicated.`);
+          return {
+            status: 200,
+            body: {
+              status: 'duplicate',
+              message: 'Event is currently being processed by another active worker',
+              eventIdentifier,
+              correlationId,
+            },
+          };
+        }
+
+        // Claim is expired (previous worker crashed or abandoned before completion).
+        // Atomically reclaim the claim so only ONE worker can recover it:
+        const reclaimed = await WebhookEvent.findOneAndUpdate(
+          {
+            _id: existing._id,
+            status: 'processing',
+            claimExpiresAt: { $lt: now },
+          },
+          {
+            $set: {
+              workerId: WORKER_ID,
+              claimExpiresAt: new Date(now.getTime() + CLAIM_TIMEOUT_MS),
+              heartbeatAt: now,
+            },
+          },
+          { new: true }
+        );
+
+        if (!reclaimed) {
+          // Another worker won the race to reclaim this abandoned claim
+          return {
+            status: 200,
+            body: {
+              status: 'duplicate',
+              message: 'Concurrent duplicate event reclaimed by sibling worker',
+              eventIdentifier,
+              correlationId,
+            },
+          };
+        }
+
+        console.log(`[WebhookService] Worker ${WORKER_ID} successfully reclaimed abandoned processing claim ${reclaimed._id} for event "${eventIdentifier}".`);
+        persistentClaim = reclaimed;
+
+        // Check if an execution already completed before or during crash (Cases B and C)
+        // to preserve idempotency and prevent duplicate side effects
+        let existingExec = null;
+        if (reclaimed.execution) {
+          existingExec = await Execution.findById(reclaimed.execution);
+        }
+        if (!existingExec) {
+          existingExec = await Execution.findOne({ workflow: workflow._id, occurrenceId: eventIdentifier });
+        }
+
+        if (existingExec) {
+          const isSuccess = existingExec.status === 'success' || existingExec.status === 'waiting_approval' || existingExec.status === 'paused';
+          const finalStatus = isSuccess ? 'success' : 'failed';
+          const httpStatus = isSuccess ? 200 : 500;
+
+          await WebhookEvent.updateOne(
+            { _id: reclaimed._id },
+            {
+              $set: {
+                status: finalStatus,
+                httpStatus,
+                execution: existingExec._id,
+                failureReason: existingExec.error || null,
+                claimExpiresAt: null,
+                workerId: null,
+                duration: Date.now() - startTime,
+              },
+            }
+          );
+
+          return {
+            status: httpStatus,
+            body: {
+              status: finalStatus,
+              message: 'Recovered existing execution from prior attempt',
+              executionId: existingExec._id,
+              eventIdentifier,
+              correlationId,
+            },
+          };
+        }
+
+        // Case A (or interrupted run without completed execution): proceed with persistentClaim = reclaimed!
+      } else {
+        // Status is 'success' or 'duplicate': standard completed duplicate
+        console.log(`[WebhookService] Duplicate event detected for key "${eventIdentifier}". Execution skipped.`);
+        await recordEvent({
+          workflow: workflow._id,
+          endpointId,
           correlationId,
-        },
-      };
+          eventIdentifier,
+          method: req.method,
+          url: req.originalUrl || req.url,
+          headers: req.headers,
+          query: req.query,
+          body: req.body,
+          status: 'duplicate',
+          httpStatus: 200,
+          execution: existing.execution,
+          failureReason: null,
+          ip: req.ip || '127.0.0.1',
+          duration: Date.now() - startTime,
+        });
+
+        return {
+          status: 200,
+          body: {
+            status: 'duplicate',
+            message: 'Duplicate event received and deduplicated',
+            eventIdentifier,
+            originalExecutionId: existing.execution,
+            correlationId,
+          },
+        };
+      }
     }
   }
 
-  // Acquire persistent database claim upfront across horizontal instances
-  let persistentClaim = null;
-  if (eventIdentifier) {
+  // Acquire persistent database claim upfront across horizontal instances if not already reclaimed
+  if (eventIdentifier && !persistentClaim) {
     try {
       persistentClaim = await WebhookEvent.create({
         workflow: workflow._id,
@@ -619,6 +745,9 @@ async function processWebhook(workflow, req, rawBody = null) {
         query: req.query,
         body: redactWebhookBody(req.body),
         status: 'processing',
+        workerId: WORKER_ID,
+        claimExpiresAt: new Date(Date.now() + CLAIM_TIMEOUT_MS),
+        heartbeatAt: new Date(),
         httpStatus: 200,
         ip: req.ip || '127.0.0.1',
         receivedAt: new Date(startTime),
@@ -719,6 +848,7 @@ async function processWebhook(workflow, req, rawBody = null) {
   const webhookPayload = WebhookPayload.fromRequest(req);
   webhookPayload.correlationId = correlationId;
   webhookPayload.eventIdentifier = eventIdentifier;
+  webhookPayload.occurrenceId = eventIdentifier;
 
   const retryPolicy = config.retryPolicy || {};
   const maxRetries = Math.min(3, Math.max(0, parseInt(retryPolicy.maxRetries || 0, 10)));
@@ -767,6 +897,8 @@ async function processWebhook(workflow, req, rawBody = null) {
           failureReason: executionError,
           retryCount: attemptsMade,
           duration: Date.now() - startTime,
+          claimExpiresAt: null,
+          workerId: null,
         },
       }
     );
@@ -970,6 +1102,111 @@ async function getEventDetail(eventId, ownerId) {
   return event;
 }
 
+/**
+ * Recovers abandoned 'processing' webhook claims whose lease has expired.
+ * If an execution already completed for the event, links the existing execution and marks 'success'.
+ * Otherwise, marks the claim 'failed' so it does not remain stuck indefinitely.
+ */
+async function recoverAbandonedWebhookClaims(timeoutMs = CLAIM_TIMEOUT_MS) {
+  const now = new Date();
+  const abandoned = await WebhookEvent.find({
+    status: 'processing',
+    claimExpiresAt: { $lt: now },
+  });
+
+  if (abandoned.length === 0) return 0;
+
+  let recovered = 0;
+  for (const claim of abandoned) {
+    let existingExec = claim.execution ? await Execution.findById(claim.execution) : null;
+    if (!existingExec && claim.eventIdentifier) {
+      existingExec = await Execution.findOne({ workflow: claim.workflow, occurrenceId: claim.eventIdentifier });
+    }
+
+    if (existingExec) {
+      const isSuccess = existingExec.status === 'success' || existingExec.status === 'waiting_approval' || existingExec.status === 'paused';
+      claim.status = isSuccess ? 'success' : 'failed';
+      claim.execution = existingExec._id;
+      claim.claimExpiresAt = null;
+      claim.workerId = null;
+      await claim.save();
+      recovered++;
+    } else {
+      claim.status = 'failed';
+      claim.failureReason = 'Abandoned processing claim expired without workflow completion (worker crash)';
+      claim.claimExpiresAt = null;
+      claim.workerId = null;
+      await claim.save();
+      recovered++;
+    }
+  }
+
+  console.log(`[WebhookService] Recovered ${recovered} abandoned processing webhook claim(s).`);
+  return recovered;
+}
+
+/**
+ * Ensures WebhookEvent indexes are safely synced against existing production data.
+ * Reconciles any historical duplicate event identifiers before applying the unique partial index,
+ * and surfaces any index creation errors clearly with actionable diagnostic messages.
+ */
+async function ensureWebhookIndexes() {
+  try {
+    // 1. Reconcile any historical duplicates on { workflow, eventIdentifier }
+    const mongoose = require('mongoose');
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      try {
+        const duplicates = await WebhookEvent.aggregate([
+          {
+            $match: {
+              eventIdentifier: { $exists: true, $ne: '' },
+              isReplay: false,
+            },
+          },
+          {
+            $group: {
+              _id: { workflow: '$workflow', eventIdentifier: '$eventIdentifier' },
+              count: { $sum: 1 },
+              ids: { $push: '$_id' },
+            },
+          },
+          { $match: { count: { $gt: 1 } } },
+        ]);
+
+        if (duplicates.length > 0) {
+          console.warn(`[WebhookService] Found ${duplicates.length} historical duplicate webhook event groups. Reconciling...`);
+          for (const group of duplicates) {
+            // Keep the first document, mark subsequent duplicates with isReplay: true, status: 'duplicate'
+            const duplicateIds = group.ids.slice(1);
+            await WebhookEvent.updateMany(
+              { _id: { $in: duplicateIds } },
+              { $set: { status: 'duplicate', isReplay: true } }
+            );
+          }
+          console.log(`[WebhookService] Historical duplicate reconciliation complete.`);
+        }
+      } catch (aggErr) {
+        console.warn(`[WebhookService] Non-fatal duplicate scan warning:`, aggErr.message);
+      }
+    }
+
+    // 2. Synchronize indexes
+    if (typeof WebhookEvent.syncIndexes === 'function') {
+      await WebhookEvent.syncIndexes();
+      console.log(`[WebhookService] WebhookEvent indexes synchronized successfully.`);
+    }
+  } catch (err) {
+    console.error(`[WebhookService] CRITICAL: Failed to build or sync WebhookEvent indexes: ${err.message}`);
+    if (err.code === 11000 || err.message?.includes('duplicate key') || err.message?.includes('E11000')) {
+      console.error(
+        `[WebhookService] Index Build Failure: Duplicate keys detected in WebhookEvent for unique index on { workflow: 1, eventIdentifier: 1 }. ` +
+        `Action Required: Run historical event deduplication migration.`
+      );
+    }
+    throw err;
+  }
+}
+
 module.exports = {
   timingSafeCompare,
   redactWebhookHeaders,
@@ -987,5 +1224,9 @@ module.exports = {
   replayEvent,
   getEventsByWorkflow,
   getEventDetail,
+  recoverAbandonedWebhookClaims,
+  ensureWebhookIndexes,
+  WORKER_ID,
+  CLAIM_TIMEOUT_MS,
 };
 

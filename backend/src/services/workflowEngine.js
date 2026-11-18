@@ -12,6 +12,7 @@ const {
   registerActiveSecrets,
   clearActiveSecrets,
   runWithScope,
+  generateWorkerId,
 } = require('../utils');
 const { ExecutionStatus, NodeTypes, ExecutionEvents, BranchTypes } = require('../constants');
 const { ValidationError, ExecutionPauseSignal } = require('../errors');
@@ -19,7 +20,7 @@ const BranchTraversal = require('./BranchTraversal');
 const { validateConditionBranches } = require('../validators/workflowValidator');
 
 const MAX_LOOP_DEPTH = 5;
-const WORKER_ID = process.env.WORKER_ID || `engine_${process.pid}_${Math.random().toString(36).substring(2, 8)}`;
+const WORKER_ID = generateWorkerId('engine');
 const LEASE_DURATION_MS = 60 * 1000; // 60 seconds execution lease
 
 /**
@@ -382,6 +383,18 @@ async function executeLoopStep(node, context, executionPath, steps, workflow, ex
  * @returns {Promise<object>} - Execution Mongoose document
  */
 async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null) {
+  // Deduplicate scheduled or event occurrences upfront across workers
+  const occurrenceId = (triggerPayload && typeof triggerPayload === 'object' && triggerPayload.occurrenceId)
+    ? String(triggerPayload.occurrenceId)
+    : null;
+  if (occurrenceId) {
+    const existingOccurrence = await Execution.findOne({ occurrenceId });
+    if (existingOccurrence) {
+      console.warn(`[WorkflowEngine] Occurrence "${occurrenceId}" already executed. Skipping duplicate dispatch.`);
+      return existingOccurrence;
+    }
+  }
+
   const startedAt = Date.now();
   const steps = [];
   let executionStatus = ExecutionStatus.SUCCESS;
@@ -546,6 +559,7 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
               output: redactSecrets({
                 pauseReason: err.pauseType,
                 ...err.details,
+                resumeToken: err.details?.resumeToken ? '[REDACTED]' : undefined,
               }),
               error: null,
               duration: Date.now() - stepStart,
@@ -836,13 +850,19 @@ async function resume(executionId, resumeOptions = {}, user = null) {
     let newCheckpointData = null;
     let newApprovalData = null;
     let newWaitData = null;
+    let ownershipLost = false;
 
     const resumeHeartbeatTimer = setInterval(async () => {
       try {
-        await Execution.updateOne(
+        const renewRes = await Execution.updateOne(
           { _id: executionId, workerId: WORKER_ID },
           { $set: { heartbeatAt: new Date(), leaseExpiresAt: new Date(Date.now() + LEASE_DURATION_MS) } }
         );
+        if (renewRes.matchedCount === 0) {
+          ownershipLost = true;
+          console.warn(`[WorkflowEngine] Resume heartbeat lock lost for execution ${executionId} (worker ${WORKER_ID}).`);
+          clearInterval(resumeHeartbeatTimer);
+        }
       } catch (hbErr) {
         console.warn(`[WorkflowEngine] Resume heartbeat warning for ${executionId}:`, hbErr.message);
       }
@@ -850,6 +870,9 @@ async function resume(executionId, resumeOptions = {}, user = null) {
 
     try {
       for (const node of orderedNodes) {
+        if (ownershipLost) {
+          throw new Error(`Execution ${executionId} aborted: worker lease was lost or claimed by another worker.`);
+        }
         if (!resumeStarted) {
           if (node.id === resumeNodeId) {
             resumeStarted = true;
@@ -952,6 +975,7 @@ async function resume(executionId, resumeOptions = {}, user = null) {
               output: redactSecrets({
                 pauseReason: err.pauseType,
                 ...err.details,
+                resumeToken: err.details?.resumeToken ? '[REDACTED]' : undefined,
               }),
               error: null,
               duration: Date.now() - stepStart,
@@ -1014,25 +1038,40 @@ async function resume(executionId, resumeOptions = {}, user = null) {
       clearActiveSecrets();
     }
 
-    const isStillPaused = executionStatus === ExecutionStatus.WAITING_APPROVAL || executionStatus === ExecutionStatus.PAUSED;
-
-    execution.status = executionStatus;
-    execution.steps = steps;
-    execution.workerId = null;
-    execution.leaseExpiresAt = null;
-    execution.heartbeatAt = null;
-    if (!isStillPaused) {
-      execution.finishedAt = new Date();
-      execution.duration = execution.finishedAt.getTime() - execution.startedAt.getTime();
-      execution.error = executionError;
-      execution.checkpoint = null;
-    } else {
-      execution.checkpoint = newCheckpointData;
-      if (newApprovalData) execution.approval = newApprovalData;
-      if (newWaitData) execution.wait = newWaitData;
+    if (ownershipLost) {
+      console.warn(`[WorkflowEngine] Fencing: Worker ${WORKER_ID} lost lease for execution ${executionId}; aborting authoritative state save.`);
+      return execution;
     }
 
-    await execution.save();
+    const isStillPaused = executionStatus === ExecutionStatus.WAITING_APPROVAL || executionStatus === ExecutionStatus.PAUSED;
+
+    const updateFields = {
+      status: executionStatus,
+      steps,
+      workerId: null,
+      leaseExpiresAt: null,
+      heartbeatAt: null,
+      checkpoint: isStillPaused ? newCheckpointData : null,
+    };
+    if (!isStillPaused) {
+      updateFields.finishedAt = new Date();
+      updateFields.duration = updateFields.finishedAt.getTime() - execution.startedAt.getTime();
+      updateFields.error = executionError;
+    } else {
+      if (newApprovalData) updateFields.approval = newApprovalData;
+      if (newWaitData) updateFields.wait = newWaitData;
+    }
+
+    const saveRes = await Execution.updateOne(
+      { _id: executionId, workerId: WORKER_ID },
+      { $set: updateFields }
+    );
+
+    if (saveRes.matchedCount === 0) {
+      console.warn(`[WorkflowEngine] Fencing: Worker ${WORKER_ID} could not save execution ${executionId} because ownership was lost to another worker.`);
+    }
+
+    Object.assign(execution, updateFields);
     return execution;
   });
 }
@@ -1107,7 +1146,14 @@ async function recoverInterruptedExecutions(options = {}) {
     status: ExecutionStatus.RUNNING,
     $or: [
       { leaseExpiresAt: { $lt: now } },
-      { leaseExpiresAt: null, startedAt: { $lte: cutoff } },
+      {
+        leaseExpiresAt: null,
+        $or: [
+          { startedAt: { $lte: cutoff } },
+          { startedAt: null },
+          { createdAt: { $lte: cutoff } },
+        ],
+      },
     ],
   };
 

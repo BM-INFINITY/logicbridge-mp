@@ -8,18 +8,67 @@ const activeReplays = new Map();
 const activeRetries = new Map();
 
 /**
- * Defensive sanitizer to ensure wait.resumeToken is never exposed in API payloads
+ * Defensive sanitizer to ensure resume tokens (wait, approval, root, steps, checkpoint)
+ * are never exposed in API payloads, lean queries, or serialization exports.
  */
 function sanitizeExecution(exec) {
   if (!exec) return exec;
   if (Array.isArray(exec)) return exec.map(sanitizeExecution);
-  if (exec.wait && exec.wait.resumeToken) {
-    if (typeof exec.toObject === 'function') {
-      exec = exec.toObject();
-    }
-    exec.wait.resumeToken = '[REDACTED]';
+
+  let ret;
+  if (typeof exec.toObject === 'function') {
+    ret = exec.toObject();
+  } else if (typeof exec.toJSON === 'function') {
+    ret = exec.toJSON();
+  } else {
+    ret = { ...exec };
   }
-  return exec;
+
+  // Redact wait.resumeToken
+  if (ret.wait && ret.wait.resumeToken) {
+    ret.wait = { ...ret.wait, resumeToken: '[REDACTED]' };
+  }
+  // Redact approval.resumeToken
+  if (ret.approval && ret.approval.resumeToken) {
+    ret.approval = { ...ret.approval, resumeToken: '[REDACTED]' };
+  }
+  // Redact root resumeToken
+  if (ret.resumeToken) {
+    ret.resumeToken = '[REDACTED]';
+  }
+  // Redact in steps outputs
+  if (Array.isArray(ret.steps)) {
+    ret.steps = ret.steps.map((s) => {
+      if (s?.output && s.output.resumeToken) {
+        return {
+          ...s,
+          output: { ...s.output, resumeToken: '[REDACTED]' },
+        };
+      }
+      return s;
+    });
+  }
+  // Redact in checkpoint outputs
+  if (ret.checkpoint) {
+    const cp = { ...ret.checkpoint };
+    if (cp.lastOutput && cp.lastOutput.resumeToken) {
+      cp.lastOutput = { ...cp.lastOutput, resumeToken: '[REDACTED]' };
+    }
+    if (cp.executedOutputs && typeof cp.executedOutputs === 'object') {
+      const sanitizedOutputs = {};
+      for (const [k, v] of Object.entries(cp.executedOutputs)) {
+        if (v && typeof v === 'object' && v.resumeToken) {
+          sanitizedOutputs[k] = { ...v, resumeToken: '[REDACTED]' };
+        } else {
+          sanitizedOutputs[k] = v;
+        }
+      }
+      cp.executedOutputs = sanitizedOutputs;
+    }
+    ret.checkpoint = cp;
+  }
+
+  return ret;
 }
 
 /**
@@ -33,10 +82,11 @@ async function getExecutionsByOwner(ownerId, limit = 50) {
     console.warn('[ExecutionService] Timeout sweep warning:', err.message);
   }
 
-  return Execution.find({ owner: ownerId })
+  const docs = await Execution.find({ owner: ownerId })
     .sort({ startedAt: -1 })
     .limit(limit)
     .populate('workflow', 'name');
+  return sanitizeExecution(docs);
 }
 
 /**
@@ -49,12 +99,13 @@ async function getExecutionsByWorkflow(workflowId, ownerId, limit = 50) {
     console.warn('[ExecutionService] Timeout sweep warning:', err.message);
   }
 
-  return Execution.find({
+  const docs = await Execution.find({
     workflow: workflowId,
     owner: ownerId,
   })
     .sort({ startedAt: -1 })
     .limit(limit);
+  return sanitizeExecution(docs);
 }
 
 /**
@@ -68,7 +119,7 @@ async function getExecutionByIdAndOwner(executionId, ownerId) {
     error.statusCode = 404;
     throw error;
   }
-  return execution;
+  return sanitizeExecution(execution);
 }
 
 /**
@@ -160,16 +211,18 @@ async function getPendingApprovals(user) {
     .populate('workflow', 'name');
 
   // Filter by user authorization
-  return executions.filter((exec) => {
-    if (String(exec.owner) === userId) return true;
-    const allowed = exec.approval?.allowedApprovers || [];
-    const role = exec.approval?.approverRole;
-    if (allowed.length === 0 && !role) return true; // Unrestricted
-    if (userEmail && allowed.some((a) => a.toLowerCase() === userEmail.toLowerCase())) return true;
-    if (userId && allowed.includes(userId)) return true;
-    if (role && userRole === role) return true;
-    return false;
-  });
+  return executions
+    .filter((exec) => {
+      if (String(exec.owner) === userId) return true;
+      const allowed = exec.approval?.allowedApprovers || [];
+      const role = exec.approval?.approverRole;
+      if (allowed.length === 0 && !role) return true; // Unrestricted
+      if (userEmail && allowed.some((a) => a.toLowerCase() === userEmail.toLowerCase())) return true;
+      if (userId && allowed.includes(userId)) return true;
+      if (role && userRole === role) return true;
+      return false;
+    })
+    .map(sanitizeExecution);
 }
 
 /**
@@ -201,14 +254,15 @@ async function getApprovalById(executionId, user) {
     throw error;
   }
 
-  return execution;
+  return sanitizeExecution(execution);
 }
 
 /**
  * Submit decision for a pending approval
  */
 async function decideApproval(executionId, decision, comments, user) {
-  return workflowEngine.resume(executionId, { decision, comments }, user);
+  const updated = await workflowEngine.resume(executionId, { decision, comments }, user);
+  return sanitizeExecution(updated);
 }
 
 /**
@@ -285,7 +339,7 @@ async function cancelExecution(executionId, user) {
   if (execution.wait) execution.wait.status = 'cancelled';
 
   await execution.save();
-  return execution;
+  return sanitizeExecution(execution);
 }
 
 module.exports = {

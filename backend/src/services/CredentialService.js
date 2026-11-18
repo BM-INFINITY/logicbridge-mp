@@ -7,21 +7,45 @@ const TAG_LENGTH = 16;   // 128-bit auth tag
 
 /**
  * Derives a 32-byte key from the CREDENTIAL_ENCRYPTION_KEY env var.
- * Falls back to a deterministic dev key so the app starts without config,
- * but logs a clear warning.
+ * In production mode, CREDENTIAL_ENCRYPTION_KEY is strictly mandatory and must
+ * have sufficient entropy (>= 32 characters).
+ * In development/test mode, falls back to a deterministic development key with a warning.
  */
 function getKey() {
   const raw = process.env.CREDENTIAL_ENCRYPTION_KEY;
-  if (!raw) {
+  const isProd = process.env.NODE_ENV === 'production';
+
+  if (!raw || !String(raw).trim()) {
+    if (isProd) {
+      throw new Error(
+        'Configuration Error: CREDENTIAL_ENCRYPTION_KEY environment variable is required in production mode. Refusing startup to prevent insecure secret storage.'
+      );
+    }
     console.warn(
       '⚠  CREDENTIAL_ENCRYPTION_KEY is not set. Using insecure development key. ' +
       'Set this variable in production!'
     );
-    // Always derives a stable 32-byte key regardless of source string length
+    // Stable 32-byte dev key for development/test backwards compatibility
     return crypto.createHash('sha256').update('logicbridge_dev_key').digest();
   }
-  // Derive a stable 32-byte key from however long the user-supplied string is
-  return crypto.createHash('sha256').update(raw).digest();
+
+  const cleanKey = String(raw).trim();
+  if (isProd && cleanKey.length < 32) {
+    throw new Error(
+      'Configuration Error: CREDENTIAL_ENCRYPTION_KEY must be at least 32 characters in length in production.'
+    );
+  }
+
+  // Derive a stable 32-byte key from the user-supplied string
+  return crypto.createHash('sha256').update(cleanKey).digest();
+}
+
+/**
+ * Validates encryption configuration at startup.
+ * Throws a fatal configuration error if key is missing or invalid in production.
+ */
+function validateConfiguration() {
+  return getKey();
 }
 
 /**
@@ -91,6 +115,9 @@ const CredentialService = {
       Object.keys(credentials).map((k) => [k, '***'])
     );
   },
+
+  validateConfiguration,
+  getKey,
 };
 
 module.exports = CredentialService;

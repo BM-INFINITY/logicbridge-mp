@@ -31,12 +31,12 @@ class LocalStorageProvider extends StorageProvider {
   /**
    * Upload (write) file to local storage root
    */
-  async upload({ key, content, encoding = 'utf8', contentType, format = 'text', overwrite = true }) {
+  async upload({ key, content, encoding = 'utf8', contentType, format = 'text', overwrite = true, ownerId }) {
     if (!key || !String(key).trim()) {
       throw new Error('Storage key / path is required for upload');
     }
 
-    const safePath = resolveSafePath(key, { baseDir: this.storageRoot });
+    const safePath = resolveSafePath(key, { baseDir: this.storageRoot, ownerId });
 
     if (!overwrite && fs.existsSync(safePath)) {
       throw new Error(`File already exists at key "${key}" and overwrite is disabled`);
@@ -55,7 +55,7 @@ class LocalStorageProvider extends StorageProvider {
 
     fs.writeFileSync(safePath, buffer);
     const stats = fs.statSync(safePath);
-    const relKey = getRelativeStoragePath(safePath);
+    const relKey = getRelativeStoragePath(safePath, { ownerId, baseDir: this.storageRoot });
 
     return {
       ok: true,
@@ -75,12 +75,12 @@ class LocalStorageProvider extends StorageProvider {
   /**
    * Download (read) file from local storage root
    */
-  async download({ key, format = 'text', encoding = 'utf8' }) {
+  async download({ key, format = 'text', encoding = 'utf8', ownerId }) {
     if (!key || !String(key).trim()) {
       throw new Error('Storage key / path is required for download');
     }
 
-    const safePath = resolveSafePath(key, { baseDir: this.storageRoot });
+    const safePath = resolveSafePath(key, { baseDir: this.storageRoot, ownerId });
 
     if (!fs.existsSync(safePath)) {
       throw new Error(`File not found in storage at key "${key}"`);
@@ -98,7 +98,7 @@ class LocalStorageProvider extends StorageProvider {
     const rawBuffer = fs.readFileSync(safePath);
     const { content, rawContent } = parseContent(rawBuffer, format, encoding);
 
-    const fileRef = buildFileReference(safePath, stats, content, format);
+    const fileRef = buildFileReference(safePath, stats, content, format, { ownerId, baseDir: this.storageRoot });
     return {
       ok: true,
       provider: 'local',
@@ -111,8 +111,12 @@ class LocalStorageProvider extends StorageProvider {
   /**
    * List files within storage root matching optional prefix
    */
-  async list({ prefix = '', limit = 100 } = {}) {
-    const safeBase = this.storageRoot;
+  async list({ prefix = '', limit = 100, ownerId } = {}) {
+    const rawOwner = ownerId;
+    const safeBase = rawOwner
+      ? path.resolve(this.storageRoot, 'users', String(rawOwner).replace(/[^a-zA-Z0-9_-]/g, ''))
+      : this.storageRoot;
+
     if (!fs.existsSync(safeBase)) {
       return { ok: true, provider: 'local', files: [], count: 0, prefix, isTruncated: false };
     }
@@ -125,7 +129,7 @@ class LocalStorageProvider extends StorageProvider {
       for (const entry of entries) {
         if (results.length >= limit) break;
         const fullPath = path.join(currentDir, entry.name);
-        const relKey = getRelativeStoragePath(fullPath);
+        const relKey = getRelativeStoragePath(fullPath, { ownerId, baseDir: this.storageRoot });
 
         if (cleanPrefix && !relKey.startsWith(cleanPrefix)) {
           if (entry.isDirectory() && cleanPrefix.startsWith(relKey)) {
@@ -171,12 +175,12 @@ class LocalStorageProvider extends StorageProvider {
   /**
    * Delete file from local storage
    */
-  async delete({ key, ignoreMissing = false }) {
+  async delete({ key, ignoreMissing = false, ownerId }) {
     if (!key || !String(key).trim()) {
       throw new Error('Storage key / path is required for delete');
     }
 
-    const safePath = resolveSafePath(key, { baseDir: this.storageRoot });
+    const safePath = resolveSafePath(key, { baseDir: this.storageRoot, ownerId });
 
     if (!fs.existsSync(safePath)) {
       if (ignoreMissing) {
@@ -195,7 +199,7 @@ class LocalStorageProvider extends StorageProvider {
     return {
       ok: true,
       provider: 'local',
-      key: getRelativeStoragePath(safePath),
+      key: getRelativeStoragePath(safePath, { ownerId, baseDir: this.storageRoot }),
       deleted: true,
     };
   }
@@ -203,19 +207,19 @@ class LocalStorageProvider extends StorageProvider {
   /**
    * Get metadata for a file in local storage
    */
-  async getMetadata({ key }) {
+  async getMetadata({ key, ownerId }) {
     if (!key || !String(key).trim()) {
       throw new Error('Storage key / path is required for getMetadata');
     }
 
-    const safePath = resolveSafePath(key, { baseDir: this.storageRoot });
+    const safePath = resolveSafePath(key, { baseDir: this.storageRoot, ownerId });
 
     if (!fs.existsSync(safePath)) {
       throw new Error(`File not found in storage at key "${key}"`);
     }
 
     const stats = fs.statSync(safePath);
-    const relKey = getRelativeStoragePath(safePath);
+    const relKey = getRelativeStoragePath(safePath, { ownerId, baseDir: this.storageRoot });
 
     return {
       ok: true,

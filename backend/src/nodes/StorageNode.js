@@ -117,6 +117,10 @@ class StorageNode extends BaseNode {
       credentials._axiosClient = clientOverride;
     }
 
+    if (providerId === 'local' && (options.storageRoot || data.storageRoot)) {
+      credentials.storageRoot = options.storageRoot || data.storageRoot;
+    }
+
     const storage = storageRegistry.resolve(providerId, credentials);
 
     // 2. Resolve parameters & variables
@@ -124,6 +128,7 @@ class StorageNode extends BaseNode {
     const resolvedKey = rawKey ? resolveVariable(String(rawKey), context) : '';
     const rawBucket = data.bucket || credentials.bucket || '';
     const resolvedBucket = rawBucket ? resolveVariable(String(rawBucket), context) : '';
+    const trustedOwnerId = context?.ownerId || context?.userId || context?.user?._id || context?.user?.id;
 
     let resultPayload = null;
 
@@ -167,6 +172,7 @@ class StorageNode extends BaseNode {
             encoding,
             bucket: resolvedBucket,
             clientOverride,
+            ownerId: trustedOwnerId,
           });
 
           resultPayload = {
@@ -189,6 +195,7 @@ class StorageNode extends BaseNode {
             encoding,
             bucket: resolvedBucket,
             clientOverride,
+            ownerId: trustedOwnerId,
           });
 
           resultPayload = {
@@ -213,6 +220,7 @@ class StorageNode extends BaseNode {
             cursor,
             bucket: resolvedBucket,
             clientOverride,
+            ownerId: trustedOwnerId,
           });
 
           resultPayload = {
@@ -229,6 +237,7 @@ class StorageNode extends BaseNode {
             key: resolvedKey,
             bucket: resolvedBucket,
             clientOverride,
+            ownerId: trustedOwnerId,
           });
 
           resultPayload = {
@@ -245,6 +254,7 @@ class StorageNode extends BaseNode {
             key: resolvedKey,
             bucket: resolvedBucket,
             clientOverride,
+            ownerId: trustedOwnerId,
           });
 
           resultPayload = {

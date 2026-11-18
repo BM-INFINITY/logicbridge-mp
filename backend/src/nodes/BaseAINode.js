@@ -2,6 +2,7 @@ const BaseNode = require('./BaseNode');
 const { resolveVariable } = require('../utils/variableResolver');
 const { registerActiveSecrets } = require('../utils/secretRedactor');
 const { providerRegistry } = require('../providers/llm');
+const NetworkSecurity = require('../utils/NetworkSecurity');
 const ConnectionService = require('../services/ConnectionService');
 const NodeExecutionError = require('../errors/NodeExecutionError');
 const AgentResult = require('../agents/AgentResult');
@@ -65,6 +66,15 @@ class BaseAINode extends BaseNode {
     }
     if (baseUrl) {
       baseUrl = resolveVariable(baseUrl, context);
+      try {
+        await NetworkSecurity.validateUrl(baseUrl, { providerId });
+      } catch (ssrfErr) {
+        throw new NodeExecutionError(`AI Provider SSRF Security Error: ${ssrfErr.message}`, {
+          nodeId: node.id,
+          nodeType: this.type,
+          originalError: ssrfErr,
+        });
+      }
     }
     if (model) {
       model = resolveVariable(model, context);

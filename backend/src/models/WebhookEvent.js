@@ -28,6 +28,9 @@ const webhookEventSchema = new mongoose.Schema(
     ip: { type: String, default: '127.0.0.1' },
     duration: { type: Number, default: 0 }, // ms
     isReplay: { type: Boolean, default: false },
+    workerId: { type: String, default: null, index: true },
+    claimExpiresAt: { type: Date, default: null, index: true },
+    heartbeatAt: { type: Date, default: null },
     receivedAt: { type: Date, default: Date.now, index: true },
   },
   { timestamps: true }
@@ -47,6 +50,7 @@ webhookEventSchema.index(
   }
 );
 webhookEventSchema.index({ workflow: 1, status: 1 });
+webhookEventSchema.index({ status: 1, claimExpiresAt: 1 });
 webhookEventSchema.index({ correlationId: 1 });
 
 module.exports = mongoose.model('WebhookEvent', webhookEventSchema);

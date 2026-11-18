@@ -51,6 +51,7 @@ const approvalSchema = new mongoose.Schema(
     timeoutMinutes: { type: Number, default: null },
     timeoutAt: { type: Date, default: null },
     timeoutAction: { type: String, enum: ['reject', 'approve', null], default: 'reject' },
+    resumeToken: { type: String, default: null },
   },
   { _id: false }
 );
@@ -96,6 +97,7 @@ const executionSchema = new mongoose.Schema(
     approval: { type: approvalSchema, default: null },
     wait: { type: waitSchema, default: null },
     occurrenceId: { type: String, default: null },
+    resumeToken: { type: String, default: null },
     workerId: { type: String, default: null },
     heartbeatAt: { type: Date, default: null },
     leaseExpiresAt: { type: Date, default: null },
@@ -104,16 +106,42 @@ const executionSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: {
       transform: (doc, ret, options) => {
-        if (!options?.includeResumeToken && ret.wait && ret.wait.resumeToken) {
-          ret.wait.resumeToken = '[REDACTED]';
+        if (!options?.includeResumeToken) {
+          if (ret.wait && ret.wait.resumeToken) ret.wait.resumeToken = '[REDACTED]';
+          if (ret.approval && ret.approval.resumeToken) ret.approval.resumeToken = '[REDACTED]';
+          if (ret.resumeToken) ret.resumeToken = '[REDACTED]';
+          if (Array.isArray(ret.steps)) {
+            ret.steps.forEach((s) => {
+              if (s?.output && s.output.resumeToken) s.output.resumeToken = '[REDACTED]';
+            });
+          }
+          if (ret.checkpoint?.lastOutput?.resumeToken) ret.checkpoint.lastOutput.resumeToken = '[REDACTED]';
+          if (ret.checkpoint?.executedOutputs && typeof ret.checkpoint.executedOutputs === 'object') {
+            for (const v of Object.values(ret.checkpoint.executedOutputs)) {
+              if (v && typeof v === 'object' && v.resumeToken) v.resumeToken = '[REDACTED]';
+            }
+          }
         }
         return ret;
       },
     },
     toObject: {
       transform: (doc, ret, options) => {
-        if (!options?.includeResumeToken && ret.wait && ret.wait.resumeToken) {
-          ret.wait.resumeToken = '[REDACTED]';
+        if (!options?.includeResumeToken) {
+          if (ret.wait && ret.wait.resumeToken) ret.wait.resumeToken = '[REDACTED]';
+          if (ret.approval && ret.approval.resumeToken) ret.approval.resumeToken = '[REDACTED]';
+          if (ret.resumeToken) ret.resumeToken = '[REDACTED]';
+          if (Array.isArray(ret.steps)) {
+            ret.steps.forEach((s) => {
+              if (s?.output && s.output.resumeToken) s.output.resumeToken = '[REDACTED]';
+            });
+          }
+          if (ret.checkpoint?.lastOutput?.resumeToken) ret.checkpoint.lastOutput.resumeToken = '[REDACTED]';
+          if (ret.checkpoint?.executedOutputs && typeof ret.checkpoint.executedOutputs === 'object') {
+            for (const v of Object.values(ret.checkpoint.executedOutputs)) {
+              if (v && typeof v === 'object' && v.resumeToken) v.resumeToken = '[REDACTED]';
+            }
+          }
         }
         return ret;
       },
@@ -126,9 +154,10 @@ executionSchema.index({ workflow: 1, startedAt: -1 });
 executionSchema.index({ owner: 1, startedAt: -1 });
 executionSchema.index({ status: 1 });
 executionSchema.index({ 'approval.status': 1 });
+executionSchema.index({ 'approval.resumeToken': 1 }, { sparse: true, unique: true });
 executionSchema.index({ 'wait.status': 1, 'wait.waitUntil': 1 });
 executionSchema.index({ 'wait.resumeToken': 1 }, { sparse: true, unique: true });
-executionSchema.index({ occurrenceId: 1 }, { sparse: true });
+executionSchema.index({ occurrenceId: 1 }, { sparse: true, unique: true });
 executionSchema.index({ status: 1, leaseExpiresAt: 1 });
 
 module.exports = mongoose.model('Execution', executionSchema);

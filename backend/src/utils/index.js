@@ -10,6 +10,8 @@ const WebhookPayload = require('./WebhookPayload');
 const SecretRedactor = require('./SecretRedactor');
 const FileSecurity = require('./FileSecurity');
 const ConditionEvaluator = require('./ConditionEvaluator');
+const NetworkSecurity = require('./NetworkSecurity');
+const { generateWorkerId } = require('./workerId');
 
 module.exports = {
   VariableResolver,
@@ -24,6 +26,8 @@ module.exports = {
   SecretRedactor,
   FileSecurity,
   ConditionEvaluator,
+  NetworkSecurity,
+  generateWorkerId,
   resolveVariable: VariableResolver.resolveVariable,
   resolveRawValue: VariableResolver.resolveRawValue,
   generateCsvFile: CsvGenerator.generateFile,

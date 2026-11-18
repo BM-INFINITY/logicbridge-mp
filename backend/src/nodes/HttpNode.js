@@ -1,6 +1,7 @@
 const BaseNode = require('./BaseNode');
 const { NodeTypes, HttpMethods } = require('../constants');
 const { resolveVariable, redactSecrets } = require('../utils');
+const NetworkSecurity = require('../utils/NetworkSecurity');
 const ConnectionService = require('../services/ConnectionService');
 const NodeExecutionError = require('../errors/NodeExecutionError');
 const axios = require('axios');
@@ -227,11 +228,23 @@ class HttpNode extends BaseNode {
       }
     }
 
-    // 5. Execute Request with Retry & Timeout Policy
+    // 5. Execute Request with Retry & Timeout Policy and SSRF Defense
     const timeoutMs = Math.min(Math.max(Number(timeout || 15000), 100), 300000);
     const maxRetries = Math.min(Math.max(Number(retries || 0), 0), 5);
     const delayMs = Math.max(Number(retryDelay || 1000), 0);
     const maxAttempts = 1 + maxRetries;
+    const client = context?._httpClient || this._clientOverride || axios;
+
+    // Validate destination URL before initiating request to prevent SSRF
+    try {
+      await NetworkSecurity.validateUrl(resolvedUrl);
+    } catch (ssrfErr) {
+      throw new NodeExecutionError(`SSRF Security Error: ${ssrfErr.message}`, {
+        nodeId: node.id,
+        nodeType: this.type,
+        originalError: ssrfErr,
+      });
+    }
 
     let attempts = 0;
     let response = null;
@@ -242,21 +255,35 @@ class HttpNode extends BaseNode {
       try {
         const validAxiosResponseType = responseType === 'text' ? 'text' : 'json';
 
-        response = await axios({
-          method: resolvedMethod,
-          url: resolvedUrl,
-          data: requestData,
-          timeout: timeoutMs,
-          maxRedirects: 10,
-          headers: customHeaders,
-          responseType: validAxiosResponseType,
-          validateStatus: (status) => status < 500,
-        });
+        response = await NetworkSecurity.executeSafeRequest(
+          {
+            method: resolvedMethod,
+            url: resolvedUrl,
+            data: requestData,
+            timeout: timeoutMs,
+            headers: customHeaders,
+            responseType: validAxiosResponseType,
+          },
+          {
+            client,
+            maxRedirects: 5,
+          }
+        );
 
         // Break retry loop on successful completion (2xx, 3xx, 4xx)
         break;
       } catch (err) {
         lastError = err;
+
+        // SSRF and security blocks are never retryable
+        if (err.message && (err.message.includes('SSRF blocked') || err.message.includes('prohibited'))) {
+          throw new NodeExecutionError(`SSRF Security Error: ${err.message}`, {
+            nodeId: node.id,
+            nodeType: this.type,
+            originalError: err,
+          });
+        }
+
         const isRetryable =
           attempts < maxAttempts &&
           (!err.response || err.response.status >= 500 || err.code === 'ECONNABORTED' || err.code === 'ENOTFOUND');

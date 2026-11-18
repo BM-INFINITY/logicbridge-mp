@@ -33,6 +33,9 @@ class StorageRegistry {
     const key = String(providerId || 'local').toLowerCase().trim();
 
     if (key === 'local') {
+      if (credentials && credentials.storageRoot) {
+        return new LocalStorageProvider({ storageRoot: credentials.storageRoot });
+      }
       return this._defaultLocalProvider;
     }
 

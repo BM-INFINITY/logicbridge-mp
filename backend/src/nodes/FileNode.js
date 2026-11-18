@@ -101,7 +101,8 @@ class FileNode extends BaseNode {
     const rawPath = typeof rawPathObj === 'object' && rawPathObj?.path ? rawPathObj.path : rawPathObj;
     const resolvedPath = rawPath ? resolveVariable(String(rawPath), context) : '';
 
-    const securityOpts = { ownerId: context?.ownerId || data.ownerId };
+    const trustedOwnerId = context?.ownerId || context?.userId || context?.user?._id || context?.user?.id;
+    const securityOpts = { ownerId: trustedOwnerId };
 
     const rawFormat = data.format || 'text';
     const resolvedFormat = resolveVariable(String(rawFormat), context).toLowerCase();

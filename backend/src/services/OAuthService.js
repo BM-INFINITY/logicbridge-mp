@@ -1,5 +1,17 @@
+const crypto = require('crypto');
 const { google } = require('googleapis');
 const CredentialService = require('./CredentialService');
+
+/**
+ * In-memory active nonce registry for single-use OAuth state protection.
+ * Pruned periodically based on expiration time.
+ */
+const activeNonces = new Map(); // nonce -> { userId, expiresAt }
+const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function getStateSigningSecret() {
+  return process.env.OAUTH_STATE_SECRET || process.env.JWT_SECRET || 'logicbridge_secure_oauth_signing_secret';
+}
 
 /**
  * OAuthService — Google OAuth 2.0 Authorization Code Flow.
@@ -50,8 +62,8 @@ const OAuthService = {
 
   /**
    * Generate a Google OAuth consent URL.
-   * The state param encodes the authenticated userId and provider so the callback can
-   * associate the token with the correct user and provider.
+   * Cryptographically generates a random nonce, sets a 10-minute expiration window,
+   * binds the state to the initiating userId, and signs it with HMAC-SHA256.
    *
    * @param {string} userId - MongoDB user _id
    * @param {string} connectionName - User-provided display name
@@ -64,8 +76,38 @@ const OAuthService = {
     }
     const client = buildClient();
     const scopes = PROVIDER_SCOPES[provider] || PROVIDER_SCOPES.gmail;
-    // Encode userId + connectionName + provider in state so callback can retrieve them
-    const state = Buffer.from(JSON.stringify({ userId, connectionName, provider })).toString('base64url');
+
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const now = Date.now();
+    const expiresAt = now + STATE_TTL_MS;
+
+    // Prune expired nonces
+    for (const [n, meta] of activeNonces.entries()) {
+      if (meta.expiresAt < now) {
+        activeNonces.delete(n);
+      }
+    }
+
+    // Register active nonce for single-use consumption
+    activeNonces.set(nonce, { userId: String(userId), expiresAt });
+
+    const payload = {
+      userId: String(userId),
+      connectionName,
+      provider,
+      nonce,
+      issuedAt: now,
+      expiresAt,
+    };
+
+    const serializedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const signature = crypto
+      .createHmac('sha256', getStateSigningSecret())
+      .update(serializedPayload)
+      .digest('base64url');
+
+    const state = `${serializedPayload}.${signature}`;
+
     return client.generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',         // force consent so we always get refresh_token
@@ -75,21 +117,74 @@ const OAuthService = {
   },
 
   /**
-   * Decode the state param from the OAuth callback.
-   * @param {string} state - base64url encoded state
+   * Decode, verify integrity, check expiration, and single-use consume the OAuth state param.
+   * Protects against OAuth CSRF, token replay, and cross-user account injection.
+   *
+   * @param {string} state - base64url encoded and signed state (payload.signature)
    * @returns {{ userId: string, connectionName: string, provider: string }}
    */
   decodeState(state) {
-    try {
-      const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
-      return {
-        userId: decoded.userId,
-        connectionName: decoded.connectionName,
-        provider: decoded.provider || 'gmail',
-      };
-    } catch {
-      throw new Error('Invalid OAuth state parameter');
+    if (!state || typeof state !== 'string') {
+      throw new Error('Invalid OAuth state parameter: missing state');
     }
+
+    const parts = state.trim().split('.');
+    if (parts.length !== 2) {
+      throw new Error('Invalid OAuth state parameter: malformed signature format');
+    }
+
+    const [serializedPayload, providedSignature] = parts;
+
+    // 1. Verify HMAC signature in constant time
+    const expectedSignature = crypto
+      .createHmac('sha256', getStateSigningSecret())
+      .update(serializedPayload)
+      .digest('base64url');
+
+    const bufExpected = Buffer.from(expectedSignature);
+    const bufProvided = Buffer.from(providedSignature);
+
+    if (bufExpected.length !== bufProvided.length || !crypto.timingSafeEqual(bufExpected, bufProvided)) {
+      throw new Error('Invalid OAuth state parameter: signature mismatch / tampered state');
+    }
+
+    // 2. Deserialize payload
+    let decoded;
+    try {
+      decoded = JSON.parse(Buffer.from(serializedPayload, 'base64url').toString('utf8'));
+    } catch {
+      throw new Error('Invalid OAuth state parameter: malformed payload');
+    }
+
+    const { userId, connectionName, provider = 'gmail', nonce, expiresAt } = decoded;
+
+    if (!userId || !nonce) {
+      throw new Error('Invalid OAuth state parameter: missing required claims');
+    }
+
+    // 3. Expiration check
+    if (!expiresAt || Date.now() > Number(expiresAt)) {
+      throw new Error('Invalid OAuth state parameter: state token has expired');
+    }
+
+    // 4. One-time nonce consumption (replay protection)
+    if (!activeNonces.has(nonce)) {
+      throw new Error('Invalid OAuth state parameter: state has already been consumed (replay detected)');
+    }
+
+    const nonceMeta = activeNonces.get(nonce);
+    activeNonces.delete(nonce); // Single-use consumption
+
+    // 5. Cross-user verification
+    if (nonceMeta.userId !== String(userId)) {
+      throw new Error('Invalid OAuth state parameter: user mismatch detected');
+    }
+
+    return {
+      userId,
+      connectionName: connectionName || 'My Google Account',
+      provider,
+    };
   },
 
   /**

@@ -138,6 +138,11 @@ const handleWebhook = async (req, res, next) => {
       return error(res, 'Workflow not found', 404);
     }
 
+    const webhookNode = workflow.nodes?.find((n) => n.type === NodeTypes.TRIGGER_WEBHOOK);
+    if (!webhookNode) {
+      return error(res, `Workflow "${req.params.id}" does not contain a Webhook Trigger node`, 400);
+    }
+
     const result = await webhookService.processWebhook(workflow, req, req.rawBody);
     if (result.headers) {
       res.set(result.headers);

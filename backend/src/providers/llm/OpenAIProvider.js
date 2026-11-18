@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { LLMProvider } = require('./LLMProvider');
 const { NodeExecutionError } = require('../../errors');
+const NetworkSecurity = require('../../utils/NetworkSecurity');
 
 class OpenAIProvider extends LLMProvider {
   constructor(options = {}) {
@@ -49,6 +50,7 @@ class OpenAIProvider extends LLMProvider {
   } = {}) {
     this.validateCapability('chat');
     const endpoint = `${(baseUrl || this.defaultBaseUrl).replace(/\/+$/, '')}/chat/completions`;
+    await NetworkSecurity.validateUrl(endpoint, { providerId: this.id });
 
     const formattedMessages = [];
     if (systemPrompt && String(systemPrompt).trim()) {
@@ -126,15 +128,27 @@ class OpenAIProvider extends LLMProvider {
       }
     }
 
-    const res = await this.executeWithRetry(() =>
-      httpClient({
-        method: 'POST',
-        url: endpoint,
-        headers: this._getHeaders(apiKey),
-        data: payload,
-        timeout,
-      })
-    );
+    const res = await this.executeWithRetry(() => {
+      if (httpClient && httpClient !== axios) {
+        return httpClient({
+          method: 'POST',
+          url: endpoint,
+          headers: this._getHeaders(apiKey),
+          data: payload,
+          timeout,
+        });
+      }
+      return NetworkSecurity.executeSafeRequest(
+        {
+          method: 'POST',
+          url: endpoint,
+          headers: this._getHeaders(apiKey),
+          data: payload,
+          timeout,
+        },
+        { providerId: this.id, maxRedirects: 3 }
+      );
+    });
 
     const choice = res.data?.choices?.[0];
     const text = choice?.message?.content || '';
@@ -310,6 +324,7 @@ You MUST respond with a JSON object strictly conforming to:
     }
 
     const endpoint = `${(baseUrl || this.defaultBaseUrl).replace(/\/+$/, '')}/embeddings`;
+    await NetworkSecurity.validateUrl(endpoint, { providerId: this.id });
     const payload = {
       model: model || this.defaultModels.embeddings,
       input: String(input),
@@ -318,15 +333,27 @@ You MUST respond with a JSON object strictly conforming to:
       payload.dimensions = parseInt(dimensions, 10);
     }
 
-    const res = await this.executeWithRetry(() =>
-      httpClient({
-        method: 'POST',
-        url: endpoint,
-        headers: this._getHeaders(apiKey),
-        data: payload,
-        timeout,
-      })
-    );
+    const res = await this.executeWithRetry(() => {
+      if (httpClient && httpClient !== axios) {
+        return httpClient({
+          method: 'POST',
+          url: endpoint,
+          headers: this._getHeaders(apiKey),
+          data: payload,
+          timeout,
+        });
+      }
+      return NetworkSecurity.executeSafeRequest(
+        {
+          method: 'POST',
+          url: endpoint,
+          headers: this._getHeaders(apiKey),
+          data: payload,
+          timeout,
+        },
+        { providerId: this.id, maxRedirects: 3 }
+      );
+    });
 
     const embedding = res.data?.data?.[0]?.embedding || [];
 

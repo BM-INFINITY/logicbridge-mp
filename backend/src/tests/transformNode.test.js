@@ -233,6 +233,16 @@ async function runTests() {
   // ── Group 10: HTTP → Transform Integration ──────────────────────────────
   console.log('\nGroup 10: HTTP → Transform Integration');
 
+  const axios = require('axios');
+  const originalAdapter = axios.defaults.adapter;
+  axios.defaults.adapter = async (config) => ({
+    status: 200,
+    statusText: 'OK',
+    headers: { 'content-type': 'application/json' },
+    data: { id: 1, name: 'Leanne Graham', email: 'Sincere@april.biz' },
+    config,
+  });
+
   const httpNode = new HttpNode();
   const httpCtx = new ExecutionContext();
   const httpRes = await httpNode.execute({

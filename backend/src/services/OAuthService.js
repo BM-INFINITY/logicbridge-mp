@@ -1,6 +1,8 @@
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const { google } = require('googleapis');
 const CredentialService = require('./CredentialService');
+const OAuthNonce = require('../models/OAuthNonce');
 
 /**
  * In-memory active nonce registry for single-use OAuth state protection.
@@ -63,14 +65,16 @@ const OAuthService = {
   /**
    * Generate a Google OAuth consent URL.
    * Cryptographically generates a random nonce, sets a 10-minute expiration window,
-   * binds the state to the initiating userId, and signs it with HMAC-SHA256.
+   * binds the state to the initiating userId and browser session, and signs it with HMAC-SHA256.
    *
    * @param {string} userId - MongoDB user _id
    * @param {string} connectionName - User-provided display name
    * @param {string} provider - Provider id ('gmail' or 'google_sheets')
+   * @param {object} [options]
+   * @param {string} [options.sessionId] - Session ID / browser session fingerprint
    * @returns {string} redirect URL
    */
-  generateAuthUrl(userId, connectionName = 'My Google Account', provider = 'gmail') {
+  generateAuthUrl(userId, connectionName = 'My Google Account', provider = 'gmail', options = {}) {
     if (!OAuthService.isConfigured()) {
       throw new Error('Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI.');
     }
@@ -80,6 +84,7 @@ const OAuthService = {
     const nonce = crypto.randomBytes(16).toString('hex');
     const now = Date.now();
     const expiresAt = now + STATE_TTL_MS;
+    const sessionId = options.sessionId || options.sessionToken || null;
 
     // Prune expired nonces
     for (const [n, meta] of activeNonces.entries()) {
@@ -88,14 +93,27 @@ const OAuthService = {
       }
     }
 
-    // Register active nonce for single-use consumption
-    activeNonces.set(nonce, { userId: String(userId), expiresAt });
+    // Register active nonce for single-use consumption in memory
+    activeNonces.set(nonce, { userId: String(userId), sessionId, expiresAt });
+
+    // Persist to MongoDB for durable cross-instance execution if connected
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      OAuthNonce.create({
+        nonce,
+        userId: String(userId),
+        sessionId,
+        connectionName,
+        provider,
+        expiresAt: new Date(expiresAt),
+      }).catch(() => {});
+    }
 
     const payload = {
       userId: String(userId),
       connectionName,
       provider,
       nonce,
+      sessionId,
       issuedAt: now,
       expiresAt,
     };
@@ -121,9 +139,11 @@ const OAuthService = {
    * Protects against OAuth CSRF, token replay, and cross-user account injection.
    *
    * @param {string} state - base64url encoded and signed state (payload.signature)
-   * @returns {{ userId: string, connectionName: string, provider: string }}
+   * @param {object} [options]
+   * @param {string} [options.sessionId] - Session identifier to enforce session binding
+   * @returns {{ userId: string, connectionName: string, provider: string, sessionId?: string }}
    */
-  decodeState(state) {
+  decodeState(state, options = {}) {
     if (!state || typeof state !== 'string') {
       throw new Error('Invalid OAuth state parameter: missing state');
     }
@@ -156,7 +176,7 @@ const OAuthService = {
       throw new Error('Invalid OAuth state parameter: malformed payload');
     }
 
-    const { userId, connectionName, provider = 'gmail', nonce, expiresAt } = decoded;
+    const { userId, connectionName, provider = 'gmail', nonce, sessionId, expiresAt } = decoded;
 
     if (!userId || !nonce) {
       throw new Error('Invalid OAuth state parameter: missing required claims');
@@ -167,7 +187,12 @@ const OAuthService = {
       throw new Error('Invalid OAuth state parameter: state token has expired');
     }
 
-    // 4. One-time nonce consumption (replay protection)
+    // 4. Session binding verification (if session was attached to state)
+    if (sessionId && options.sessionId && sessionId !== options.sessionId) {
+      throw new Error('Invalid OAuth state parameter: session mismatch / cross-session injection detected');
+    }
+
+    // 5. One-time nonce consumption (replay protection)
     if (!activeNonces.has(nonce)) {
       throw new Error('Invalid OAuth state parameter: state has already been consumed (replay detected)');
     }
@@ -175,15 +200,24 @@ const OAuthService = {
     const nonceMeta = activeNonces.get(nonce);
     activeNonces.delete(nonce); // Single-use consumption
 
-    // 5. Cross-user verification
+    // 6. Cross-user verification
     if (nonceMeta.userId !== String(userId)) {
       throw new Error('Invalid OAuth state parameter: user mismatch detected');
+    }
+
+    if (nonceMeta.sessionId && options.sessionId && nonceMeta.sessionId !== options.sessionId) {
+      throw new Error('Invalid OAuth state parameter: session mismatch / cross-session injection detected');
+    }
+
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      OAuthNonce.updateOne({ nonce }, { consumedAt: new Date() }).catch(() => {});
     }
 
     return {
       userId,
       connectionName: connectionName || 'My Google Account',
       provider,
+      sessionId: sessionId || null,
     };
   },
 

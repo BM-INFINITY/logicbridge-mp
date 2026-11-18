@@ -1,15 +1,26 @@
 const express = require('express');
 const { authController } = require('../controllers');
+const { protect } = require('../middleware/authMiddleware');
+const { loginRateLimiter, registerRateLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
-// POST /api/auth/register
-router.post('/register', authController.register);
+// POST /api/auth/register (rate limited)
+router.post('/register', registerRateLimiter, authController.register);
 
-// POST /api/auth/login
-router.post('/login', authController.login);
+// POST /api/auth/login (rate limited with brute-force lockout)
+router.post('/login', loginRateLimiter, authController.login);
 
-// GET /api/auth/me
-router.get('/me', authController.getMe);
+// POST /api/auth/refresh (rotate refresh token)
+router.post('/refresh', authController.refreshToken);
+
+// POST /api/auth/logout (revoke refresh token)
+router.post('/logout', protect, authController.logout);
+
+// POST /api/auth/revoke-all (revoke all active sessions)
+router.post('/revoke-all', protect, authController.revokeAll);
+
+// GET /api/auth/me (authenticated user profile)
+router.get('/me', protect, authController.getMe);
 
 module.exports = router;

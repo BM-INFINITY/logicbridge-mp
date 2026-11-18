@@ -6,9 +6,29 @@ const IV_LENGTH = 12;    // 96-bit IV recommended for GCM
 const TAG_LENGTH = 16;   // 128-bit auth tag
 
 /**
+ * Calculates Shannon entropy of a string (in bits per character)
+ * @param {string} str
+ * @returns {number}
+ */
+function calculateEntropy(str) {
+  if (!str || typeof str !== 'string') return 0;
+  const len = str.length;
+  const freq = {};
+  for (let i = 0; i < len; i++) {
+    freq[str[i]] = (freq[str[i]] || 0) + 1;
+  }
+  let entropy = 0;
+  for (const count of Object.values(freq)) {
+    const p = count / len;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+}
+
+/**
  * Derives a 32-byte key from the CREDENTIAL_ENCRYPTION_KEY env var.
  * In production mode, CREDENTIAL_ENCRYPTION_KEY is strictly mandatory and must
- * have sufficient entropy (>= 32 characters).
+ * have sufficient entropy (>= 32 characters and high-entropy Shannon score).
  * In development/test mode, falls back to a deterministic development key with a warning.
  */
 function getKey() {
@@ -30,10 +50,19 @@ function getKey() {
   }
 
   const cleanKey = String(raw).trim();
-  if (isProd && cleanKey.length < 32) {
-    throw new Error(
-      'Configuration Error: CREDENTIAL_ENCRYPTION_KEY must be at least 32 characters in length in production.'
-    );
+  if (isProd) {
+    if (cleanKey.length < 32) {
+      throw new Error(
+        'Configuration Error: CREDENTIAL_ENCRYPTION_KEY must be at least 32 characters in length in production.'
+      );
+    }
+    const entropy = calculateEntropy(cleanKey);
+    const uniqueChars = new Set(cleanKey).size;
+    if (entropy < 2.5 || uniqueChars < 8) {
+      throw new Error(
+        'Configuration Error: CREDENTIAL_ENCRYPTION_KEY lacks sufficient entropy. Do not use repeated characters or predictable patterns. Generate a cryptographically random key (e.g. openssl rand -base64 32).'
+      );
+    }
   }
 
   // Derive a stable 32-byte key from the user-supplied string
@@ -118,6 +147,7 @@ const CredentialService = {
 
   validateConfiguration,
   getKey,
+  calculateEntropy,
 };
 
 module.exports = CredentialService;

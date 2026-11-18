@@ -54,6 +54,22 @@ class LocalStorageProvider extends StorageProvider {
     }
 
     fs.writeFileSync(safePath, buffer);
+
+    // Post-write symlink TOCTOU assertion: ensure target did not escape via concurrent symlink creation
+    try {
+      const canonicalTarget = fs.realpathSync(safePath);
+      const expectedStorageRoot = ownerId
+        ? path.resolve(this.storageRoot, 'users', String(ownerId).replace(/[^a-zA-Z0-9_-]/g, ''))
+        : this.storageRoot;
+      const isContained = canonicalTarget === expectedStorageRoot || canonicalTarget.startsWith(expectedStorageRoot + path.sep);
+      if (!isContained) {
+        try { fs.unlinkSync(safePath); } catch {}
+        throw new Error(`Security Error: Symlink TOCTOU substitution attack rejected for key "${key}"`);
+      }
+    } catch (err) {
+      if (err.message && err.message.includes('Security Error')) throw err;
+    }
+
     const stats = fs.statSync(safePath);
     const relKey = getRelativeStoragePath(safePath, { ownerId, baseDir: this.storageRoot });
 

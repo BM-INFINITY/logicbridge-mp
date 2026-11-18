@@ -196,8 +196,19 @@ async function verifyAuthentication(config, req, rawBody, workflowId, ownerId) {
 
   if (authType === 'hmac') {
     const algorithm = (config.hmacAlgorithm || 'sha256').toLowerCase().trim();
-    if (!['sha256', 'sha512', 'sha1', 'md5'].includes(algorithm)) {
-      return { valid: false, error: `Unsupported HMAC algorithm "${algorithm}"`, statusCode: 400 };
+    if (['md5', 'sha1'].includes(algorithm)) {
+      return {
+        valid: false,
+        error: `Insecure HMAC algorithm "${algorithm}" is rejected. Only SHA-2 family algorithms (sha256, sha384, sha512) are permitted.`,
+        statusCode: 400,
+      };
+    }
+    if (!['sha256', 'sha384', 'sha512'].includes(algorithm)) {
+      return {
+        valid: false,
+        error: `Unsupported HMAC algorithm "${algorithm}". Supported: sha256, sha384, sha512`,
+        statusCode: 400,
+      };
     }
 
     const rawSecret = config.hmacSecret || config.secret;

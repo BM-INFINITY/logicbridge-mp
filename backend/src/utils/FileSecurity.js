@@ -89,12 +89,17 @@ function resolveSafePath(userPath, options = {}) {
 
   const baseStorage = options.baseDir ? path.resolve(options.baseDir) : getStorageRoot();
   const rawOwner = options.ownerId || options.userId;
-  const storageRoot = rawOwner
-    ? path.resolve(baseStorage, 'users', String(rawOwner).replace(/[^a-zA-Z0-9_-]/g, ''))
-    : baseStorage;
 
-  if (rawOwner && !fs.existsSync(storageRoot)) {
-    fs.mkdirSync(storageRoot, { recursive: true });
+  let storageRoot = baseStorage;
+  if (rawOwner) {
+    const sanitizedOwner = String(rawOwner).replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!sanitizedOwner || sanitizedOwner.length === 0) {
+      throw new Error(`Security Error: Invalid ownerId provided for "${rawPath}"`);
+    }
+    storageRoot = path.resolve(baseStorage, 'users', sanitizedOwner);
+    if (!fs.existsSync(storageRoot)) {
+      fs.mkdirSync(storageRoot, { recursive: true });
+    }
   }
 
   // Strip leading drive letters or absolute root slashes to confine to storageRoot
@@ -107,6 +112,13 @@ function resolveSafePath(userPath, options = {}) {
   const isContained = resolved === storageRoot || resolved.startsWith(storageRoot + path.sep);
   if (!isContained) {
     throw new Error(`Security Error: Path traversal attempt rejected for "${rawPath}". Access denied outside storage root.`);
+  }
+
+  // Defense against owner-less access to user storage namespace (Part B.4):
+  // When no ownerId is provided, strictly forbid resolving into or accessing any user directory
+  const usersDir = path.resolve(baseStorage, 'users');
+  if (!rawOwner && (resolved === usersDir || resolved.startsWith(usersDir + path.sep))) {
+    throw new Error(`Security Error: Access to user storage namespace requires an authenticated ownerId for "${rawPath}"`);
   }
 
   // Symlink escape verification: verify canonical target resides strictly within storageRoot

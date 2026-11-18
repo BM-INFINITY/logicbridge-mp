@@ -40,6 +40,7 @@ const MOCK_DNS_TABLE = new Map([
   ['example.com', [{ address: '93.184.216.34', family: 4 }]],
   ['api.example.com', [{ address: '93.184.216.34', family: 4 }]],
   ['jsonplaceholder.typicode.com', [{ address: '93.184.216.34', family: 4 }]],
+  ['script.google.com', [{ address: '142.250.190.74', family: 4 }]],
   ['api.openai.com', [{ address: '104.18.7.192', family: 4 }]],
   ['api.anthropic.com', [{ address: '104.18.7.192', family: 4 }]],
   ['openrouter.ai', [{ address: '104.18.7.192', family: 4 }]],
@@ -74,6 +75,7 @@ function clearMockDns(hostname) {
     MOCK_DNS_TABLE.set('example.com', [{ address: '93.184.216.34', family: 4 }]);
     MOCK_DNS_TABLE.set('api.example.com', [{ address: '93.184.216.34', family: 4 }]);
     MOCK_DNS_TABLE.set('jsonplaceholder.typicode.com', [{ address: '93.184.216.34', family: 4 }]);
+    MOCK_DNS_TABLE.set('script.google.com', [{ address: '142.250.190.74', family: 4 }]);
     MOCK_DNS_TABLE.set('api.openai.com', [{ address: '104.18.7.192', family: 4 }]);
     MOCK_DNS_TABLE.set('api.anthropic.com', [{ address: '104.18.7.192', family: 4 }]);
     MOCK_DNS_TABLE.set('openrouter.ai', [{ address: '104.18.7.192', family: 4 }]);
@@ -392,21 +394,72 @@ function isCloudMetadata(hostOrUrl) {
 }
 
 /**
+ * Determines whether a specific destination hostname or IP is explicitly permitted
+ * under the self-hosted AI endpoint security policy (SEC-02 & Part B.2).
+ *
+ * Policy precedence:
+ *   1. Cloud metadata is unconditionally blocked (non-overridable)
+ *   2. Explicit allowlisting via ALLOWED_PRIVATE_AI_HOSTS takes precedence
+ *   3. Local Ollama loopback allowed via ALLOW_OLLAMA_LOCAL
+ *   4. Backward-compatible broad override via ALLOW_PRIVATE_AI_ENDPOINTS
+ *
+ * @param {string} hostnameOrIp
+ * @param {string} [providerId]
+ * @returns {boolean}
+ */
+function isAllowedPrivateAiDestination(hostnameOrIp, providerId) {
+  if (!hostnameOrIp || typeof hostnameOrIp !== 'string') return false;
+  const clean = hostnameOrIp.toLowerCase().trim().replace(/^\[|\]$/g, '');
+
+  // Cloud metadata is strictly forbidden under all circumstances
+  if (isCloudMetadata(clean)) return false;
+
+  // 1. Explicit hostname/IP allowlist via ALLOWED_PRIVATE_AI_HOSTS
+  const explicitHosts = (process.env.ALLOWED_PRIVATE_AI_HOSTS || '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (explicitHosts.length > 0) {
+    if (explicitHosts.includes(clean)) return true;
+  }
+
+  // 2. Ollama local loopback policy
+  if (providerId === 'ollama') {
+    const isLoopback = clean === 'localhost' || clean === '127.0.0.1' || clean === '::1';
+    const isProd = process.env.NODE_ENV === 'production';
+    if (isProd) {
+      if (process.env.ALLOW_OLLAMA_LOCAL === 'true' && isLoopback) return true;
+    } else {
+      if (process.env.ALLOW_OLLAMA_LOCAL !== 'false' && isLoopback) return true;
+    }
+  }
+
+  // 3. Fallback broad flag if explicitly configured
+  if (process.env.ALLOW_PRIVATE_AI_ENDPOINTS === 'true') {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Determines if administrative controls permit local Ollama / private AI deployment
  * @param {string} providerId
  * @returns {boolean}
  */
 function isPrivateAiEndpointAllowed(providerId) {
-  if (providerId !== 'ollama') return false;
+  if (providerId !== 'ollama' && !process.env.ALLOWED_PRIVATE_AI_HOSTS) return false;
   const isProd = process.env.NODE_ENV === 'production';
   if (isProd) {
     return (
       process.env.ALLOW_OLLAMA_LOCAL === 'true' ||
-      process.env.ALLOW_PRIVATE_AI_ENDPOINTS === 'true'
+      process.env.ALLOW_PRIVATE_AI_ENDPOINTS === 'true' ||
+      Boolean(process.env.ALLOWED_PRIVATE_AI_HOSTS)
     );
   }
   // In development and test environments, allow local Ollama by default unless explicitly disabled
-  return process.env.ALLOW_OLLAMA_LOCAL !== 'false';
+  return process.env.ALLOW_OLLAMA_LOCAL !== 'false' || Boolean(process.env.ALLOWED_PRIVATE_AI_HOSTS);
 }
 
 /**
@@ -453,10 +506,8 @@ async function validateUrl(targetUrl, options = {}) {
 
   // 4. Blacklisted Hostname and TLD checks
   const cleanHostname = rawHostname.replace(/^\[|\]$/g, '');
-  const allowPrivate = Boolean(
-    options.allowPrivate ||
-    (options.providerId && isPrivateAiEndpointAllowed(options.providerId))
-  );
+  const isAllowedAi = isAllowedPrivateAiDestination(cleanHostname, options.providerId);
+  const allowPrivate = Boolean(options.allowPrivate || isAllowedAi);
 
   if (BLOCKED_HOSTNAMES.has(cleanHostname)) {
     if (!allowPrivate) {
@@ -526,14 +577,11 @@ async function validateUrl(targetUrl, options = {}) {
  * @returns {Function} Custom lookup function compatible with http/https/axios
  */
 function createSafeLookup(options = {}) {
-  const allowPrivate = Boolean(
-    options.allowPrivate ||
-    (options.providerId && isPrivateAiEndpointAllowed(options.providerId))
-  );
-
   return function safeLookup(hostname, lookupOptions, callback) {
     const cb = typeof lookupOptions === 'function' ? lookupOptions : callback;
     const cleanHostname = String(hostname || '').toLowerCase().trim().replace(/^\[|\]$/g, '');
+    const isAllowedAi = isAllowedPrivateAiDestination(cleanHostname, options.providerId);
+    const allowPrivate = Boolean(options.allowPrivate || isAllowedAi);
 
     // Check hostname blacklist
     if (BLOCKED_HOSTNAMES.has(cleanHostname) && !allowPrivate) {
@@ -566,8 +614,12 @@ function createSafeLookup(options = {}) {
           }
         }
 
-        // Return the validated address to net.Socket.connect
-        cb(null, addresses[0].address, addresses[0].family);
+        const isAll = Boolean(lookupOptions && typeof lookupOptions === 'object' && lookupOptions.all);
+        if (isAll) {
+          cb(null, addresses);
+        } else {
+          cb(null, addresses[0].address, addresses[0].family);
+        }
       })
       .catch((err) => cb(err));
   };
@@ -677,6 +729,7 @@ module.exports = {
   ipv6ToBlocks,
   isCloudMetadata,
   isPrivateAiEndpointAllowed,
+  isAllowedPrivateAiDestination,
   validateUrl,
   createSafeLookup,
   createSafeAgents,

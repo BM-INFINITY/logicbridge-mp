@@ -1,6 +1,7 @@
 const ConnectionService = require('../services/ConnectionService');
 const { connectionRegistry } = require('../providers/connections');
 const { success, error } = require('../utils/ResponseHelper');
+const AuditLogger = require('../services/AuditLogger');
 
 /**
  * GET /api/connections
@@ -32,6 +33,18 @@ const createConnection = async (req, res, next) => {
       name,
       credentials: credentials || {},
     });
+
+    AuditLogger.recordEvent({
+      eventType: AuditLogger.AuditEvents.CREDENTIAL_CREATED,
+      severity: 'info',
+      actorId: req.user._id,
+      actorEmail: req.user.email,
+      actorRole: req.user.role,
+      targetResource: `connection:${conn._id}`,
+      outcome: 'success',
+      details: { provider, name },
+    });
+
     return success(res, conn, 201);
   } catch (err) {
     if (err.statusCode) return error(res, err.message, err.statusCode);
@@ -65,6 +78,18 @@ const updateConnection = async (req, res, next) => {
       req.user._id,
       req.body
     );
+
+    AuditLogger.recordEvent({
+      eventType: AuditLogger.AuditEvents.CREDENTIAL_UPDATED,
+      severity: 'info',
+      actorId: req.user._id,
+      actorEmail: req.user.email,
+      actorRole: req.user.role,
+      targetResource: `connection:${req.params.id}`,
+      outcome: 'success',
+      details: { updatedFields: Object.keys(req.body || {}) },
+    });
+
     return success(res, conn);
   } catch (err) {
     if (err.statusCode) return error(res, err.message, err.statusCode);
@@ -78,6 +103,17 @@ const updateConnection = async (req, res, next) => {
 const deleteConnection = async (req, res, next) => {
   try {
     const result = await ConnectionService.deleteConnection(req.params.id, req.user._id);
+
+    AuditLogger.recordEvent({
+      eventType: AuditLogger.AuditEvents.CREDENTIAL_DELETED,
+      severity: 'warn',
+      actorId: req.user._id,
+      actorEmail: req.user.email,
+      actorRole: req.user.role,
+      targetResource: `connection:${req.params.id}`,
+      outcome: 'success',
+    });
+
     return success(res, result);
   } catch (err) {
     if (err.statusCode) return error(res, err.message, err.statusCode);

@@ -15,6 +15,7 @@ const { mailProvider } = require('./providers');
 const { recoverInterruptedExecutions } = require('./services/workflowEngine');
 const { ensureWebhookIndexes, recoverAbandonedWebhookClaims } = require('./services/webhookService');
 const CredentialService = require('./services/CredentialService');
+const createSecurityHeadersMiddleware = require('./middleware/securityHeaders');
 
 // Validate encryption key configuration immediately on startup
 try {
@@ -27,6 +28,8 @@ try {
 }
 
 const app = express();
+app.disable('x-powered-by');
+app.use(createSecurityHeadersMiddleware());
 
 // ── Secure CORS Configuration ───────────────────────────────────────────────
 const DEFAULT_DEV_ORIGINS = [

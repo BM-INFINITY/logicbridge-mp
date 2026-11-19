@@ -1,0 +1,59 @@
+name: Security & Dependency Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly dependency audit scan at midnight on Sundays
+    - cron: '0 0 * * 0'
+
+jobs:
+  dependency-audit:
+    name: Dependency Vulnerability Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Audit Backend Dependencies (Fail on Critical)
+        working-directory: ./backend
+        run: |
+          npm audit --audit-level=critical
+
+      - name: Audit Frontend Dependencies (Fail on Critical)
+        working-directory: ./frontend
+        run: |
+          npm audit --audit-level=critical
+
+  build-and-lint:
+    name: Lint & Production Build Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Frontend Linting (oxlint)
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Frontend Production Build (vite build)
+        working-directory: ./frontend
+        run: npm run build

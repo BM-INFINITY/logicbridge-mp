@@ -9,6 +9,8 @@ import DashboardPage from './pages/DashboardPage';
 import BuilderPage from './pages/BuilderPage';
 import LogsPage from './pages/LogsPage';
 import ConnectionsPage from './pages/ConnectionsPage';
+import AdminPage from './pages/AdminPage';
+import RoleGuard from './components/auth/RoleGuard';
 import SidebarPreviewPage from './pages/SidebarPreviewPage';
 import ExecutionPreviewPage from './pages/ExecutionPreviewPage';
 import './index.css';
@@ -55,6 +57,7 @@ export default function App() {
         <Route path="/builder/:id" element={<ProtectedRoute><BuilderPage /></ProtectedRoute>} />
         <Route path="/logs" element={<ProtectedRoute><LogsPage /></ProtectedRoute>} />
         <Route path="/connections" element={<ProtectedRoute><ConnectionsPage /></ProtectedRoute>} />
+        <Route path="/admin" element={<RoleGuard allowedRoles={['admin']}><AdminPage /></RoleGuard>} />
         <Route path="/preview-sidebars" element={<SidebarPreviewPage />} />
         <Route path="/preview-builder" element={<BuilderPage />} />
         <Route path="/preview-executions" element={<ExecutionPreviewPage />} />

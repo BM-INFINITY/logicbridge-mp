@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const AuditLogger = require('../services/AuditLogger');
 
 /**
  * Protect middleware: validates Bearer access token, checks session revocation via tokenVersion
@@ -55,6 +56,18 @@ const requireRole = (...roles) => {
 
     const currentRole = req.user.role || 'user';
     if (!roles.includes(currentRole)) {
+      AuditLogger.recordEvent({
+        eventType: AuditLogger.AuditEvents.AUTHORIZATION_FAILURE,
+        severity: 'warn',
+        actorId: req.user._id,
+        actorEmail: req.user.email,
+        actorRole: currentRole,
+        ipAddress: req.ip || req.connection?.remoteAddress,
+        targetResource: req.originalUrl,
+        outcome: 'blocked',
+        details: { requiredRoles: roles, currentRole },
+      });
+
       return res.status(403).json({
         message: `Forbidden: Requires ${roles.join(' or ')} privilege`,
         requiredRoles: roles,

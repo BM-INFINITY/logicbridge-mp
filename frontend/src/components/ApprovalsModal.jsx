@@ -9,8 +9,10 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import API from '../api/client';
+import useAuthStore from '../store/authStore';
 
 export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
+  const { user } = useAuthStore();
   const [approvals, setApprovals] = useState([]);
   const [loading, setLoading] = useState(false);
   const [decidingId, setDecidingId] = useState(null);
@@ -197,6 +199,30 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
                 const wfName = exec.workflow?.name || 'Untitled Workflow';
                 const isDeciding = decidingId === exec._id;
 
+                const userRole = user?.role || 'user';
+                const isAdmin = userRole === 'admin';
+                const requiredRole = appr.approverRole;
+                const allowedList = appr.allowedApprovers || [];
+                const userEmail = user?.email;
+                const userId = user?._id || user?.id;
+
+                const isEmailAllowed = userEmail && allowedList.some((a) => a.toLowerCase() === userEmail.toLowerCase());
+                const isIdAllowed = userId && allowedList.includes(userId);
+                const isRoleAllowed = requiredRole && (userRole === requiredRole || isAdmin);
+
+                let canDecide = false;
+                if (isAdmin) {
+                  canDecide = true;
+                } else if (requiredRole && allowedList.length > 0) {
+                  canDecide = isRoleAllowed || isEmailAllowed || isIdAllowed;
+                } else if (requiredRole) {
+                  canDecide = isRoleAllowed;
+                } else if (allowedList.length > 0) {
+                  canDecide = isEmailAllowed || isIdAllowed;
+                } else {
+                  canDecide = true;
+                }
+
                 return (
                   <div
                     key={exec._id}
@@ -272,12 +298,28 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
 
                     {/* Comments & Decision Actions */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-color)', paddingTop: 12 }}>
+                      {!canDecide && (
+                        <div
+                          style={{
+                            fontSize: '0.72rem',
+                            color: '#f59e0b',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            padding: '6px 10px',
+                            borderRadius: 'var(--radius-sm)',
+                          }}
+                        >
+                          Notice: Requires &quot;{requiredRole}&quot; privilege or authorized approver access to decide this request.
+                        </div>
+                      )}
+
                       <input
                         type="text"
                         className="form-control"
-                        placeholder="Optional decision notes or comments..."
+                        placeholder={canDecide ? "Optional decision notes or comments..." : "Decision locked (insufficient role)"}
                         value={commentsMap[exec._id] || ''}
                         onChange={(e) => setCommentsMap({ ...commentsMap, [exec._id]: e.target.value })}
+                        disabled={!canDecide || isDeciding}
                         style={{ fontSize: '0.78rem' }}
                       />
 
@@ -285,7 +327,8 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => handleDecide(exec._id, 'rejected')}
-                          disabled={isDeciding}
+                          disabled={isDeciding || !canDecide}
+                          title={!canDecide ? `Requires ${requiredRole} role` : 'Reject request'}
                           style={{
                             background: 'rgba(239, 68, 68, 0.1)',
                             color: '#ef4444',
@@ -294,6 +337,8 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
                             display: 'flex',
                             alignItems: 'center',
                             gap: 4,
+                            opacity: !canDecide ? 0.5 : 1,
+                            cursor: !canDecide ? 'not-allowed' : 'pointer',
                           }}
                         >
                           <XCircle size={14} /> Reject
@@ -302,7 +347,8 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
                         <button
                           className="btn btn-primary btn-sm"
                           onClick={() => handleDecide(exec._id, 'approved')}
-                          disabled={isDeciding}
+                          disabled={isDeciding || !canDecide}
+                          title={!canDecide ? `Requires ${requiredRole} role` : 'Approve request'}
                           style={{
                             background: '#10b981',
                             borderColor: '#10b981',
@@ -310,6 +356,8 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
                             display: 'flex',
                             alignItems: 'center',
                             gap: 4,
+                            opacity: !canDecide ? 0.5 : 1,
+                            cursor: !canDecide ? 'not-allowed' : 'pointer',
                           }}
                         >
                           {isDeciding ? (

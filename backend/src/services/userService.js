@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
+const AuditLogger = require('./AuditLogger');
 
 // In-memory fallback for offline test environments
 const memoryRefreshTokens = new Map();
@@ -259,6 +260,16 @@ async function refreshUserToken({ refreshToken, ipAddress = null, userAgent = nu
             }
           }
 
+          AuditLogger.recordEvent({
+            eventType: AuditLogger.AuditEvents.AUTH_REFRESH_TOKEN_REUSE_DETECTED,
+            severity: 'critical',
+            actorId: existing?.userId ? String(existing.userId) : null,
+            ipAddress,
+            targetResource: `family:${compromisedFamily}`,
+            outcome: 'blocked',
+            details: { family: compromisedFamily, revokedReason: 'Token reuse detected' },
+          });
+
           const error = new Error('Security Alert: Compromised refresh token reuse detected. Session terminated.');
           error.statusCode = 401;
           throw error;
@@ -343,6 +354,18 @@ async function refreshUserToken({ refreshToken, ipAddress = null, userAgent = nu
     if (!isProd) {
       memoryRefreshTokens.set(newHash, newTokenRecord);
     }
+
+    AuditLogger.recordEvent({
+      eventType: AuditLogger.AuditEvents.AUTH_REFRESH_TOKEN_ROTATED,
+      severity: 'info',
+      actorId: String(user._id),
+      actorEmail: user.email,
+      actorRole: user.role,
+      ipAddress,
+      targetResource: `user:${user._id}`,
+      outcome: 'success',
+      details: { family },
+    });
 
     const newAccessToken = generateAccessToken(user);
     return {
@@ -535,6 +558,17 @@ async function updateUserRole(adminUser, targetUserId, newRole) {
   user.role = newRole;
   user.tokenVersion = (user.tokenVersion || 0) + 1;
   await user.save();
+
+  AuditLogger.recordEvent({
+    eventType: AuditLogger.AuditEvents.AUTH_ROLE_CHANGED,
+    severity: 'warn',
+    actorId: String(adminUser._id),
+    actorEmail: adminUser.email,
+    actorRole: adminUser.role,
+    targetResource: `user:${targetUserId}`,
+    outcome: 'success',
+    details: { targetUserId, newRole },
+  });
 
   return {
     _id: user._id,

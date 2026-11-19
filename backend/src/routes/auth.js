@@ -26,4 +26,7 @@ router.get('/me', protect, authController.getMe);
 // PATCH /api/auth/users/:id/role (Admin only role management)
 router.patch('/users/:id/role', protect, requireRole('admin'), authController.updateUserRole);
 
+// GET /api/auth/audit-logs (Admin only security audit log querying)
+router.get('/audit-logs', protect, requireRole('admin'), authController.getAuditLogs);
+
 module.exports = router;

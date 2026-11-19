@@ -18,6 +18,7 @@ const { ExecutionStatus, NodeTypes, ExecutionEvents, BranchTypes } = require('..
 const { ValidationError, ExecutionPauseSignal } = require('../errors');
 const BranchTraversal = require('./BranchTraversal');
 const { validateConditionBranches } = require('../validators/workflowValidator');
+const AuditLogger = require('./AuditLogger');
 
 const MAX_LOOP_DEPTH = 5;
 const WORKER_ID = generateWorkerId('engine');
@@ -731,6 +732,17 @@ async function resume(executionId, resumeOptions = {}, user = null) {
 
     // Reject unauthorized attempts IMMEDIATELY without claiming or modifying DB status
     if (!isAuthorized) {
+      AuditLogger.recordEvent({
+        eventType: AuditLogger.AuditEvents.AUTHORIZATION_FAILURE,
+        severity: 'warn',
+        actorId: userId,
+        actorEmail: userEmail,
+        actorRole: userRole,
+        targetResource: `execution:${executionId}:approval`,
+        outcome: 'blocked',
+        details: { reason: 'insufficient role or not in approvers list', approverRole: role },
+      });
+
       const authErr = new Error('Unauthorized to approve or reject this execution: insufficient role or not in approvers list');
       authErr.statusCode = 403;
       throw authErr;

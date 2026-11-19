@@ -3,6 +3,7 @@ const ConnectionService = require('../services/ConnectionService');
 const CredentialService = require('../services/CredentialService');
 const Connection = require('../models/Connection');
 const { success, error } = require('../utils/ResponseHelper');
+const AuditLogger = require('../services/AuditLogger');
 
 /**
  * GET /api/oauth/google?name=My+Gmail
@@ -88,6 +89,15 @@ const googleCallback = async (req, res, next) => {
       });
     }
 
+    AuditLogger.recordEvent({
+      eventType: AuditLogger.AuditEvents.OAUTH_CONNECTED,
+      severity: 'info',
+      actorId: userId,
+      targetResource: `oauth:${provider}`,
+      outcome: 'success',
+      details: { provider, connectionName, email: tokenPayload.email },
+    });
+
     return res.redirect(`${FRONTEND}/connections?oauth=success&provider=${provider}`);
   } catch (err) {
     const msg = encodeURIComponent(err.message || 'OAuth failed');
@@ -105,6 +115,16 @@ const disconnectGoogle = async (req, res, next) => {
     const { connectionId } = req.body;
     if (!connectionId) return error(res, 'connectionId is required', 422);
     const result = await ConnectionService.deleteConnection(connectionId, req.user._id);
+
+    AuditLogger.recordEvent({
+      eventType: AuditLogger.AuditEvents.OAUTH_DISCONNECTED,
+      severity: 'warn',
+      actorId: req.user._id,
+      targetResource: `connection:${connectionId}`,
+      outcome: 'success',
+      details: { connectionId },
+    });
+
     return success(res, result);
   } catch (err) {
     if (err.statusCode) return error(res, err.message, err.statusCode);

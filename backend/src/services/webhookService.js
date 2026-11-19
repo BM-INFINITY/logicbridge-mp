@@ -7,6 +7,7 @@ const workflowEngine = require('./workflowEngine');
 const CredentialService = require('./CredentialService');
 const { WebhookPayload, generateWorkerId } = require('../utils');
 const { NodeTypes, WorkflowStatus } = require('../constants');
+const AuditLogger = require('./AuditLogger');
 
 const WORKER_ID = generateWorkerId('webhook');
 const CLAIM_TIMEOUT_MS = parseInt(process.env.WEBHOOK_CLAIM_TIMEOUT_MS, 10) || 60 * 1000; // 60 seconds claim lease
@@ -540,6 +541,17 @@ async function processWebhook(workflow, req, rawBody = null) {
   // 4. Verify Authentication (None / Bearer / API Key / HMAC)
   const authResult = await verifyAuthentication(config, req, rawBody, workflow._id, workflow.owner);
   if (!authResult.valid) {
+    AuditLogger.recordEvent({
+      eventType: AuditLogger.AuditEvents.WEBHOOK_AUTH_FAILED,
+      severity: 'warn',
+      actorId: String(workflow.owner || 'unknown'),
+      ipAddress: req.ip || '127.0.0.1',
+      targetResource: `workflow:${workflow._id}:webhook`,
+      correlationId,
+      outcome: 'blocked',
+      details: { reason: authResult.error, endpointId },
+    });
+
     await recordEvent({
       workflow: workflow._id,
       endpointId,
@@ -565,6 +577,17 @@ async function processWebhook(workflow, req, rawBody = null) {
   // 5. Replay Protection (Timestamp Verification)
   const tsCheck = verifyTimestamp(config, req);
   if (!tsCheck.valid) {
+    AuditLogger.recordEvent({
+      eventType: AuditLogger.AuditEvents.WEBHOOK_REPLAY_ATTEMPT,
+      severity: 'warn',
+      actorId: String(workflow.owner || 'unknown'),
+      ipAddress: req.ip || '127.0.0.1',
+      targetResource: `workflow:${workflow._id}:webhook`,
+      correlationId,
+      outcome: 'blocked',
+      details: { reason: tsCheck.error, endpointId },
+    });
+
     await recordEvent({
       workflow: workflow._id,
       endpointId,

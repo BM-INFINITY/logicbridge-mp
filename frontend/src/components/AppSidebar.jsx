@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Zap, LayoutDashboard, Activity, Link2, LogOut, Sun, Moon, Menu, X } from 'lucide-react';
+import { Zap, LayoutDashboard, Activity, Link2, LogOut, Sun, Moon, Menu, X, ShieldCheck } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
 const NAV_ITEMS = [
@@ -100,7 +100,12 @@ export default function AppSidebar() {
 
         {/* ─── Nav ──────────────────────────────────────────────── */}
         <nav className="sidebar-nav" aria-label="Main navigation">
-          {NAV_ITEMS.map((item) => {
+          {[
+            ...NAV_ITEMS,
+            ...(user?.role === 'admin'
+              ? [{ icon: <ShieldCheck size={18} />, label: 'Admin Security', path: '/admin' }]
+              : []),
+          ].map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link
@@ -132,7 +137,7 @@ export default function AppSidebar() {
             </div>
           </button>
 
-          {/* User card */}
+          {/* User card with Role Badge */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
             marginBottom: 10, padding: '8px 12px',
@@ -149,10 +154,25 @@ export default function AppSidebar() {
             </div>
             <div style={{ overflow: 'hidden', flex: 1 }}>
               <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
                 fontSize: '0.8rem', fontWeight: 600,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                {user?.name || 'User'}
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.name || 'User'}
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.62rem',
+                    textTransform: 'uppercase',
+                    padding: '1px 5px',
+                    borderRadius: 4,
+                    fontWeight: 700,
+                    background: user?.role === 'admin' ? 'rgba(236, 72, 153, 0.2)' : user?.role === 'approver' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(100, 116, 139, 0.2)',
+                    color: user?.role === 'admin' ? '#ec4899' : user?.role === 'approver' ? '#f59e0b' : '#94a3b8',
+                  }}
+                >
+                  {user?.role || 'user'}
+                </span>
               </div>
               <div style={{
                 fontSize: '0.68rem', color: 'var(--text-muted)',

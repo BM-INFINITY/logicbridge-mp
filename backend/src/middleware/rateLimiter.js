@@ -11,6 +11,7 @@
 
 const ipAttemptStore = new Map();     // ip -> { count, firstAttempt, lockedUntil }
 const accountAttemptStore = new Map();  // email -> { count, firstAttempt, lockedUntil }
+const AuditLogger = require('../services/AuditLogger');
 
 function getClientIp(req) {
   // Only honor X-Forwarded-For if running behind an explicitly configured trusted proxy
@@ -92,6 +93,14 @@ function recordFailure(ip, email) {
     ipRec.count += 1;
     if (ipRec.count >= config.maxAttempts) {
       ipRec.lockedUntil = now + config.lockoutDurationMs;
+      AuditLogger.recordEvent({
+        eventType: AuditLogger.AuditEvents.AUTH_ACCOUNT_LOCKED,
+        severity: 'warn',
+        ipAddress: ip,
+        targetResource: `ip:${ip}`,
+        outcome: 'blocked',
+        details: { attempts: ipRec.count, lockedUntil: ipRec.lockedUntil },
+      });
     }
   }
 
@@ -106,6 +115,15 @@ function recordFailure(ip, email) {
       accRec.count += 1;
       if (accRec.count >= config.maxAttempts) {
         accRec.lockedUntil = now + config.lockoutDurationMs;
+        AuditLogger.recordEvent({
+          eventType: AuditLogger.AuditEvents.AUTH_ACCOUNT_LOCKED,
+          severity: 'warn',
+          ipAddress: ip,
+          actorEmail: cleanEmail,
+          targetResource: `account:${cleanEmail}`,
+          outcome: 'blocked',
+          details: { attempts: accRec.count, lockedUntil: accRec.lockedUntil },
+        });
       }
     }
   }
@@ -131,6 +149,13 @@ function loginRateLimiter(req, res, next) {
   const ipCheck = checkLimit(ipAttemptStore, ip, config.maxAttempts, config.windowMs, config.lockoutDurationMs);
   if (!ipCheck.allowed) {
     res.setHeader('Retry-After', String(ipCheck.retryAfterSec));
+    AuditLogger.recordEvent({
+      eventType: AuditLogger.AuditEvents.AUTH_RATE_LIMIT_EXCEEDED,
+      severity: 'warn',
+      ipAddress: ip,
+      outcome: 'blocked',
+      details: { type: 'ip', retryAfter: ipCheck.retryAfterSec },
+    });
     return res.status(429).json({
       message: 'Too many failed login attempts from this IP address. Please try again later.',
       retryAfter: ipCheck.retryAfterSec,
@@ -143,6 +168,15 @@ function loginRateLimiter(req, res, next) {
     const accCheck = checkLimit(accountAttemptStore, email, config.maxAttempts, config.windowMs, config.lockoutDurationMs);
     if (!accCheck.allowed) {
       res.setHeader('Retry-After', String(accCheck.retryAfterSec));
+      AuditLogger.recordEvent({
+        eventType: AuditLogger.AuditEvents.AUTH_RATE_LIMIT_EXCEEDED,
+        severity: 'warn',
+        ipAddress: ip,
+        actorEmail: email,
+        targetResource: `account:${email}`,
+        outcome: 'blocked',
+        details: { type: 'account', retryAfter: accCheck.retryAfterSec },
+      });
       return res.status(429).json({
         message: 'Too many failed login attempts for this account. Please try again later.',
         retryAfter: accCheck.retryAfterSec,

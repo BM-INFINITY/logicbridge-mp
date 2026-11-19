@@ -404,7 +404,7 @@ export default function LogsPage() {
               </span>
               <select
                 className="form-select"
-                style={{ height: 28, fontSize: '0.72rem', padding: '0 20px 0 6px', width: 'auto' }}
+                style={{ height: 28, fontSize: '0.72rem', padding: '0 24px 0 8px', backgroundPosition: 'right 6px center', width: 'auto' }}
                 value={pageSize}
                 onChange={(e) => setPageSize(Number(e.target.value))}
               >

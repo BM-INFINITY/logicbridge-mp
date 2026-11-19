@@ -1,0 +1,114 @@
+services:
+  # ─── Frontend Web Application ──────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: logicbridge-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - logicbridge-net
+
+  # ─── Backend API & Workflow Engine ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: logicbridge-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongodb:27017/logicbridge?replicaSet=rs0
+      - MONGO_MAX_POOL_SIZE=50
+      - MONGO_MIN_POOL_SIZE=5
+      - JWT_SECRET=${JWT_SECRET:-insecure_default_local_docker_jwt_secret_min_32_chars_long}
+      - JWT_ACCESS_EXPIRATION=15m
+      - JWT_REFRESH_EXPIRATION_DAYS=7
+      - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY:-insecure_default_local_docker_encryption_key_32_chars}
+      - OAUTH_STATE_SECRET=${OAUTH_STATE_SECRET:-insecure_default_local_docker_oauth_state_secret_min_32_chars}
+      - ALLOWED_ORIGINS=http://localhost:8080,http://localhost:3000,http://localhost:5173
+      - LOGICBRIDGE_STORAGE_PATH=/app/storage
+      - MAX_FILE_SIZE_BYTES=10485760
+      - TRUST_PROXY=1
+      - SHUTDOWN_TIMEOUT_MS=15000
+      - WORKER_ID=worker-docker-01
+      - STALE_EXECUTION_THRESHOLD_MS=300000
+      - WEBHOOK_CLAIM_TIMEOUT_MS=120000
+      - AUDIT_LOG_RETENTION_DAYS=90
+      - AUTH_RATE_LIMIT_WINDOW_MS=900000
+      - AUTH_RATE_LIMIT_MAX_ATTEMPTS=20
+      - AUTH_REGISTER_RATE_LIMIT_WINDOW_MS=3600000
+      - AUTH_REGISTER_RATE_LIMIT_MAX_ATTEMPTS=10
+      - AUTH_MAX_ACCOUNT_FAILED_ATTEMPTS=5
+      - AUTH_ACCOUNT_LOCK_WINDOW_MS=900000
+      - AUTH_LOCKOUT_DURATION_MS=1800000
+      # SMTP via local Mailpit
+      - SMTP_HOST=mailpit
+      - SMTP_PORT=1025
+      - SMTP_SECURE=false
+      - SMTP_FROM="LogicBridge Local <noreply@logicbridge.local>"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    volumes:
+      - backend_storage:/app/storage
+    networks:
+      - logicbridge-net
+
+  # ─── MongoDB (Single-Node Replica Set for Transaction Support) ────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: logicbridge-mongodb
+    restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    # MongoDB port 27017 is kept on the internal network only by default.
+    # Uncomment the ports section below if external GUI access (Compass) is required:
+    # ports:
+    #   - "127.0.0.1:27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - logicbridge-net
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'try { rs.status().ok } catch(e) { rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"mongodb:27017\"}]}).ok }' --quiet"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  # ─── Mailpit (Local SMTP Mock & Inbox Web UI) ──────────────────────────────
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: logicbridge-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025" # Mailpit Web UI
+    networks:
+      - logicbridge-net
+
+volumes:
+  mongodb_data:
+    name: logicbridge_mongodb_data
+  backend_storage:
+    name: logicbridge_backend_storage
+
+networks:
+  logicbridge-net:
+    name: logicbridge-net
+    driver: bridge

@@ -46,4 +46,12 @@ docs/
 *.spec.ts
 *.spec.tsx
 
+# Coverage & Testing Outputs
+coverage/
+*.lcov
+.nyc_output/
+
+# Docker Local Overrides
+docker-compose.override.yml
+
 

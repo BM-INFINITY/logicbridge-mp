@@ -10,12 +10,18 @@ const connectionRoutes = require('./routes/connections');
 const oauthRoutes = require('./routes/oauth');
 const scheduleRoutes = require('./routes/schedules');
 const webhookRoutes = require('./routes/webhooks');
+const healthRoutes = require('./routes/health');
 const { initScheduler } = require('./services/scheduler');
 const { mailProvider } = require('./providers');
 const { recoverInterruptedExecutions } = require('./services/workflowEngine');
 const { ensureWebhookIndexes, recoverAbandonedWebhookClaims } = require('./services/webhookService');
 const CredentialService = require('./services/CredentialService');
 const createSecurityHeadersMiddleware = require('./middleware/securityHeaders');
+const lifecycleManager = require('./services/lifecycleManager');
+const dataRetentionService = require('./services/dataRetentionService');
+
+// Register process exception handlers early
+lifecycleManager.setupProcessExceptionHandlers();
 
 // Validate encryption key configuration immediately on startup
 try {
@@ -117,8 +123,20 @@ app.use(
   })
 );
 
-// Health check
-app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'LogicBridge API' }));
+// Shutdown rejection middleware for keep-alive connections
+app.use((req, res, next) => {
+  if (lifecycleManager.isShuttingDown() && !req.path.startsWith('/api/health')) {
+    res.setHeader('Connection', 'close');
+    return res.status(503).json({
+      error: 'Service Unavailable',
+      message: 'Server is undergoing graceful shutdown',
+    });
+  }
+  next();
+});
+
+// Health check routes (Liveness, Readiness, and Backward-compatible Health)
+app.use('/api/health', healthRoutes);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -162,26 +180,61 @@ async function checkSmtpStatus() {
   }
 }
 
-mongoose
-  .connect(MONGO_URI)
-  .then(async () => {
-    console.log('✅ MongoDB connected');
-    try {
-      await ensureWebhookIndexes(); // safely reconcile historical duplicates & build unique indexes
-    } catch (idxErr) {
-      console.warn('⚠ Webhook index synchronization warning:', idxErr.message);
-    }
-    await recoverInterruptedExecutions(); // safely mark interrupted executions from server crashes
-    try {
-      await recoverAbandonedWebhookClaims(); // recover abandoned webhook processing claims
-    } catch (whErr) {
-      console.warn('⚠ Webhook claim recovery warning:', whErr.message);
-    }
-    app.listen(PORT, () => console.log(`🚀 LogicBridge API running on http://localhost:${PORT}`));
-    await initScheduler(); // start all active scheduled workflows
-    await checkSmtpStatus();
-  })
-  .catch((err) => {
-    console.error('❌ MongoDB connection failed:', err.message);
-    process.exit(1);
-  });
+/**
+ * Validates and sanitizes MongoDB connection options with safe production fallbacks
+ * @param {object} [env=process.env]
+ * @returns {object}
+ */
+function getSanitizedMongoOptions(env = process.env) {
+  const maxPool = parseInt(env.MONGO_MAX_POOL_SIZE, 10);
+  const minPool = parseInt(env.MONGO_MIN_POOL_SIZE, 10);
+  const socketTimeout = parseInt(env.MONGO_SOCKET_TIMEOUT_MS, 10);
+  const serverSelectionTimeout = parseInt(env.MONGO_SERVER_SELECTION_TIMEOUT_MS, 10);
+
+  const safeMaxPool = Number.isInteger(maxPool) && maxPool > 0 ? maxPool : 50;
+  const safeMinPool = Number.isInteger(minPool) && minPool >= 0 ? Math.min(minPool, safeMaxPool) : 5;
+  const safeSocketTimeout = Number.isInteger(socketTimeout) && socketTimeout > 0 ? socketTimeout : 45000;
+  const safeServerSelectionTimeout =
+    Number.isInteger(serverSelectionTimeout) && serverSelectionTimeout > 0 ? serverSelectionTimeout : 10000;
+
+  return {
+    maxPoolSize: safeMaxPool,
+    minPoolSize: safeMinPool,
+    socketTimeoutMS: safeSocketTimeout,
+    serverSelectionTimeoutMS: safeServerSelectionTimeout,
+    autoIndex: env.NODE_ENV !== 'production',
+  };
+}
+
+const mongoOptions = getSanitizedMongoOptions();
+
+if (require.main === module) {
+  mongoose
+    .connect(MONGO_URI, mongoOptions)
+    .then(async () => {
+      console.log('✅ MongoDB connected');
+      try {
+        await ensureWebhookIndexes(); // safely reconcile historical duplicates & build unique indexes
+      } catch (idxErr) {
+        console.warn('⚠ Webhook index synchronization warning:', idxErr.message);
+      }
+      await recoverInterruptedExecutions(); // safely mark interrupted executions from server crashes
+      try {
+        await recoverAbandonedWebhookClaims(); // recover abandoned webhook processing claims
+      } catch (whErr) {
+        console.warn('⚠ Webhook claim recovery warning:', whErr.message);
+      }
+      const server = app.listen(PORT, () => console.log(`🚀 LogicBridge API running on http://localhost:${PORT}`));
+      lifecycleManager.registerServer(server);
+      lifecycleManager.registerSignalHandlers();
+      await initScheduler(); // start all active scheduled workflows
+      await checkSmtpStatus();
+      dataRetentionService.startRetentionWorker(); // start periodic data lifecycle retention cleanup
+    })
+    .catch((err) => {
+      console.error('❌ MongoDB connection failed:', err.message);
+      process.exit(1);
+    });
+}
+
+module.exports = { app, getSanitizedMongoOptions };

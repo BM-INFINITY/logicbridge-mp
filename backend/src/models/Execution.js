@@ -101,6 +101,7 @@ const executionSchema = new mongoose.Schema(
     workerId: { type: String, default: null },
     heartbeatAt: { type: Date, default: null },
     leaseExpiresAt: { type: Date, default: null },
+    recovery: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   {
     timestamps: true,

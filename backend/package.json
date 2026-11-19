@@ -5,7 +5,11 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "npx nodemon src/index.js",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --audit-level=high",
+    "migrate:status": "node src/migrations/runner.js status",
+    "migrate:up": "node src/migrations/runner.js up",
+    "migrate:down": "node src/migrations/runner.js down",
+    "migrate:create": "node src/migrations/runner.js create"
   },
   "keywords": [],
   "author": "",

@@ -72,9 +72,21 @@ async function initScheduler() {
   }
 }
 
+/**
+ * Stops the durable schedule polling worker during graceful shutdown
+ */
+function stopScheduler() {
+  try {
+    scheduleManager.stop();
+  } catch (err) {
+    console.error('[Scheduler] Error stopping scheduler:', err.message);
+  }
+}
+
 module.exports = {
   scheduleWorkflow,
   unscheduleWorkflow,
   initScheduler,
+  stopScheduler,
   scheduleManager,
 };

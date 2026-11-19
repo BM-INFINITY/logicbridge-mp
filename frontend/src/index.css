@@ -282,6 +282,75 @@ h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; line-height: 1.25; }
 .form-input::placeholder { color: var(--text-muted); }
 .form-textarea { resize: vertical; min-height: 100px; }
 
+/* ─── Form Select Dropdown ───────────────────────────────── */
+.form-select {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 34px 8px 12px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  line-height: 1.4;
+  height: 36px;
+  box-sizing: border-box;
+  transition: all var(--transition);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px 14px;
+}
+
+.form-select:hover {
+  border-color: var(--border-hover, rgba(108, 99, 255, 0.4));
+}
+
+.form-select:focus,
+.form-select:focus-visible {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15);
+}
+
+.form-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  color: var(--text-disabled);
+  background-color: var(--bg-surface);
+}
+
+.form-select option {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  padding: 8px 12px;
+}
+
+.form-select option:disabled {
+  color: var(--text-disabled);
+}
+
+select.form-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px 14px;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+select.form-input option {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  padding: 8px 12px;
+}
+
 /* ─── Badges ─────────────────────────────────────────────── */
 .badge {
   display: inline-flex;

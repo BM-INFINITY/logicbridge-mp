@@ -4,8 +4,12 @@ const { NodeExecutionError } = require('../errors');
 const { resolveRawValue, resolveVariable } = require('../utils/VariableResolver');
 const { parseCsv } = require('../utils/FileSecurity');
 
-const DEFAULT_MAX_ITERATIONS = 500;
-const ABSOLUTE_MAX_ITERATIONS = 2000;
+function getLoopLimits() {
+  const envMax = parseInt(process.env.MAX_LOOP_ITERATIONS, 10);
+  const absoluteMax = !isNaN(envMax) && envMax > 0 ? envMax : 2000;
+  const defaultMax = Math.min(500, absoluteMax);
+  return { absoluteMax, defaultMax };
+}
 
 /**
  * LoopNode — Executes iterative and batch processing across collection items or ranges
@@ -78,7 +82,8 @@ class LoopNode extends BaseNode {
     if (op === 'loop_range') {
       const rawCount = data.count ?? data.times ?? data.stop;
       const resolvedCount = typeof rawCount === 'string' ? resolveVariable(rawCount, context) : rawCount;
-      const count = Math.min(Math.max(0, parseInt(resolvedCount, 10) || 0), ABSOLUTE_MAX_ITERATIONS);
+      const { absoluteMax } = getLoopLimits();
+      const count = Math.min(Math.max(0, parseInt(resolvedCount, 10) || 0), absoluteMax);
       const start = data.start !== undefined ? parseInt(resolveVariable(String(data.start), context), 10) || 0 : 0;
       const step = data.step !== undefined ? Math.max(1, parseInt(resolveVariable(String(data.step), context), 10) || 1) : 1;
 
@@ -202,9 +207,10 @@ class LoopNode extends BaseNode {
     const items = this.extractItems(data, context);
     const batchSize = Math.max(1, parseInt(data.batchSize, 10) || 1);
     const configuredLimit = parseInt(data.maxIterations, 10);
+    const { absoluteMax, defaultMax } = getLoopLimits();
     const maxIterations = !isNaN(configuredLimit) && configuredLimit > 0
-      ? Math.min(configuredLimit, ABSOLUTE_MAX_ITERATIONS)
-      : DEFAULT_MAX_ITERATIONS;
+      ? Math.min(configuredLimit, absoluteMax)
+      : defaultMax;
 
     const onError = String(data.onError || 'stop').toLowerCase().trim();
     const isContinueOnError = onError === 'continue' || onError === 'continue_on_error';

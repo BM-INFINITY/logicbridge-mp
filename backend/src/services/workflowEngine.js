@@ -25,6 +25,69 @@ const WORKER_ID = generateWorkerId('engine');
 const LEASE_DURATION_MS = 60 * 1000; // 60 seconds execution lease
 
 /**
+ * Node types with potential external side effects (emails, messages, database writes, external HTTP)
+ * which must NEVER be automatically replayed on crash recovery without manual operator verification.
+ */
+const EXTERNAL_SIDE_EFFECT_NODE_TYPES = new Set([
+  'action-http',
+  'action-email',
+  'action-slack',
+  'action-discord',
+  'action-google-sheets',
+  'action-postgres',
+  'action-mongo',
+  'action-file',
+  'action-storage',
+  'action-ai-generate',
+  'action-ai-chat',
+  'action-ai-agent',
+  'action-ai-structured-output',
+  'action-ai-classify',
+  'action-ai-embeddings',
+]);
+
+function hasExternalSideEffects(nodeType) {
+  if (!nodeType) return false;
+  const normalized = String(nodeType).toLowerCase().trim();
+  for (const t of EXTERNAL_SIDE_EFFECT_NODE_TYPES) {
+    if (normalized.includes(t) || t.includes(normalized)) return true;
+  }
+  return false;
+}
+
+/**
+ * Calculates byte size of a step output payload to enforce memory backpressure.
+ * Safely handles circular references, BigInts, Buffers, and unsupported serialization values.
+ */
+function calculatePayloadSize(payload) {
+  if (payload === null || payload === undefined) return 0;
+  if (typeof payload === 'string') return Buffer.byteLength(payload, 'utf8');
+  if (Buffer.isBuffer(payload)) return payload.length;
+  if (typeof payload === 'number' || typeof payload === 'boolean') return 8;
+  if (typeof payload === 'bigint') return 16;
+  if (typeof payload === 'symbol' || typeof payload === 'function') return 0;
+
+  try {
+    const seen = new WeakSet();
+    const str = JSON.stringify(payload, (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          return '[Circular]';
+        }
+        seen.add(value);
+      }
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      return value;
+    });
+    return str ? Buffer.byteLength(str, 'utf8') : 0;
+  } catch (err) {
+    throw new Error(`Failed to calculate step output size: serialization error (${err.message})`);
+  }
+}
+
+/**
  * Topological Sort via edges (Kahn's Algorithm with x-position fallback)
  * @param {Array} nodes - React Flow nodes array
  * @param {Array} edges - React Flow edges array
@@ -163,6 +226,16 @@ async function executeNodeStep(node, context, executionPath, steps, workflow, me
     }
 
     const output = await handler.execute(node, context);
+
+    // Validate step output size against configured memory limit (REL-01)
+    const maxStepOutputBytes = parseInt(process.env.MAX_STEP_OUTPUT_SIZE_BYTES, 10) || 5 * 1024 * 1024;
+    const outputSizeBytes = calculatePayloadSize(output);
+    if (outputSizeBytes > maxStepOutputBytes) {
+      throw new Error(
+        `Step output size (${(outputSizeBytes / (1024 * 1024)).toFixed(2)}MB) exceeds maximum limit (${(maxStepOutputBytes / (1024 * 1024)).toFixed(2)}MB) in node "${step.nodeName}"`
+      );
+    }
+
     step.output = redactSecrets(output);
     context.setResult(node.id, output);
 
@@ -275,6 +348,14 @@ async function executeLoopStep(node, context, executionPath, steps, workflow, ex
       const iterationOutputs = { ...executedOutputs };
       const iterationSkipped = new Set(executionPath.skippedNodes);
 
+      // Check duration timeout at the start of loop iteration (REL-01)
+      const maxLoopDurationMs = parseInt(process.env.MAX_EXECUTION_DURATION_MS, 10) || 300000;
+      if (context.startedAt && (Date.now() - context.startedAt > maxLoopDurationMs)) {
+        throw new Error(
+          `Workflow execution exceeded maximum duration limit of ${maxLoopDurationMs}ms inside loop "${node.data?.label || node.id}" (iteration ${iterationState.index})`
+        );
+      }
+
       executionPath.emitEvent(ExecutionEvents.LOOP_ITERATION_STARTED, {
         nodeId: node.id,
         iteration: iterationState.index,
@@ -338,6 +419,16 @@ async function executeLoopStep(node, context, executionPath, steps, workflow, ex
     };
 
     const loopOutput = await handler.execute(node, context, { executeBody });
+
+    // Validate aggregated loop output size against memory limit (REL-01)
+    const maxStepOutputBytes = parseInt(process.env.MAX_STEP_OUTPUT_SIZE_BYTES, 10) || 5 * 1024 * 1024;
+    const outputSizeBytes = calculatePayloadSize(loopOutput);
+    if (outputSizeBytes > maxStepOutputBytes) {
+      throw new Error(
+        `Aggregated loop output size (${(outputSizeBytes / (1024 * 1024)).toFixed(2)}MB) exceeds maximum limit (${(maxStepOutputBytes / (1024 * 1024)).toFixed(2)}MB) in loop node "${loopStep.nodeName}"`
+      );
+    }
+
     loopStep.output = redactSecrets(loopOutput);
     executedOutputs[node.id] = loopOutput;
     context.setResult(node.id, loopOutput);
@@ -375,6 +466,26 @@ async function executeLoopStep(node, context, executionPath, steps, workflow, ex
   }
 }
 
+let activeExecutionsCount = 0;
+
+function getActiveExecutionsCount() {
+  return activeExecutionsCount;
+}
+
+async function waitForActiveExecutions(timeoutMs = 10000) {
+  const startTime = Date.now();
+  while (activeExecutionsCount > 0) {
+    if (Date.now() - startTime >= timeoutMs) {
+      console.warn(
+        `[WorkflowEngine] Timeout (${timeoutMs}ms) reached waiting for ${activeExecutionsCount} active execution(s) to finish.`
+      );
+      return false;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return true;
+}
+
 /**
  * Executes a complete workflow graph sequentially with branch-aware pruning and loop orchestration
  * @param {object} workflow - Mongoose Workflow document or workflow object
@@ -396,7 +507,9 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
     }
   }
 
-  const startedAt = Date.now();
+  activeExecutionsCount++;
+  try {
+    const startedAt = Date.now();
   const steps = [];
   let executionStatus = ExecutionStatus.SUCCESS;
   let executionError = null;
@@ -468,6 +581,7 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
     });
     context.triggerPayload = triggerPayload;
     context.triggerContext = triggerContext;
+    context.startedAt = startedAt;
 
     const executionPath = new ExecutionPath();
     const executedOutputs = {};
@@ -477,8 +591,18 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
     let approvalData = null;
     let waitData = null;
 
+    const maxExecutionDurationMs = parseInt(process.env.MAX_EXECUTION_DURATION_MS, 10) || 300000;
+
     try {
       for (const node of orderedNodes) {
+        // Enforce maximum execution duration backpressure (REL-01)
+        const elapsed = Date.now() - startedAt;
+        if (elapsed > maxExecutionDurationMs) {
+          executionStatus = ExecutionStatus.FAILED;
+          executionError = `Workflow execution exceeded maximum duration limit of ${maxExecutionDurationMs}ms (elapsed: ${elapsed}ms)`;
+          break;
+        }
+
         // If node was already executed as part of an inner loop body, do not re-run in outer flow
         if (handledLoopBodyNodes.has(node.id)) {
           continue;
@@ -656,6 +780,9 @@ async function run(workflow, ownerId, trigger = 'manual', triggerPayload = null)
 
     return execution;
   });
+  } finally {
+    activeExecutionsCount = Math.max(0, activeExecutionsCount - 1);
+  }
 }
 
 /**
@@ -690,6 +817,9 @@ async function resume(executionId, resumeOptions = {}, user = null) {
 
   const isApproval = execution.status === ExecutionStatus.WAITING_APPROVAL;
   const isWait = execution.status === ExecutionStatus.PAUSED;
+
+  activeExecutionsCount++;
+  try {
 
   // 2. Pre-claim authorization and parameter validation for approvals
   if (isApproval) {
@@ -897,11 +1027,24 @@ async function resume(executionId, resumeOptions = {}, user = null) {
       }
     }, Math.min(LEASE_DURATION_MS / 2, 20000));
 
+    const resumeStartedAt = Date.now();
+    context.startedAt = resumeStartedAt;
+    const maxResumeDurationMs = parseInt(process.env.MAX_EXECUTION_DURATION_MS, 10) || 300000;
+
     try {
       for (const node of orderedNodes) {
         if (ownershipLost) {
           throw new Error(`Execution ${executionId} aborted: worker lease was lost or claimed by another worker.`);
         }
+
+        // Enforce maximum execution duration backpressure during resume (REL-01)
+        const elapsed = Date.now() - resumeStartedAt;
+        if (elapsed > maxResumeDurationMs) {
+          executionStatus = ExecutionStatus.FAILED;
+          executionError = `Workflow execution exceeded maximum duration limit of ${maxResumeDurationMs}ms during resume (elapsed: ${elapsed}ms)`;
+          break;
+        }
+
         if (!resumeStarted) {
           if (node.id === resumeNodeId) {
             resumeStarted = true;
@@ -1103,6 +1246,9 @@ async function resume(executionId, resumeOptions = {}, user = null) {
     Object.assign(execution, updateFields);
     return execution;
   });
+  } finally {
+    activeExecutionsCount = Math.max(0, activeExecutionsCount - 1);
+  }
 }
 
 /**
@@ -1166,8 +1312,9 @@ async function sweepTimeouts() {
 
 /**
  * Recovers interrupted executions after a server restart or crash.
- * Finds executions left in 'running' status whose lease has expired or have exceeded stale threshold,
- * safely marking them 'failed' without touching healthy runs on other active worker instances.
+ * Uses atomic findOneAndUpdate claiming to avoid race conditions across instances,
+ * checks for potential external side-effects before permitting safe resumption,
+ * and attaches structured diagnostic metadata.
  *
  * @param {object|number} [options={}] - Options or stale threshold in milliseconds
  * @returns {Promise<number>} Count of recovered executions
@@ -1194,38 +1341,130 @@ async function recoverInterruptedExecutions(options = {}) {
     ],
   };
 
-  const interruptedExecutions = await Execution.find(filter);
-  if (interruptedExecutions.length === 0) return 0;
+  const candidates = await Execution.find(filter, { _id: 1, steps: 1, startedAt: 1 }).lean();
+  if (candidates.length === 0) return 0;
 
-  for (const exec of interruptedExecutions) {
-    const finishedAt = new Date();
-    const duration = exec.startedAt ? finishedAt.getTime() - new Date(exec.startedAt).getTime() : 0;
+  let recoveredCount = 0;
 
-    // Mark last in-progress step as failed if applicable
-    if (Array.isArray(exec.steps) && exec.steps.length > 0) {
-      const lastStep = exec.steps[exec.steps.length - 1];
-      if (lastStep && (!lastStep.status || lastStep.status === 'running' || lastStep.status === 'waiting')) {
-        lastStep.status = 'failed';
-        lastStep.error = 'Execution interrupted by process termination or server restart';
-        lastStep.finishedAt = finishedAt;
-        if (lastStep.startedAt) {
-          lastStep.duration = finishedAt.getTime() - new Date(lastStep.startedAt).getTime();
+  for (const candidate of candidates) {
+    // Atomically claim the execution for recovery so only ONE worker instance processes it
+    const exec = await Execution.findOne({
+      _id: candidate._id,
+      status: ExecutionStatus.RUNNING,
+    });
+    if (!exec) continue;
+
+    // Check steps for external side effects
+    const steps = Array.isArray(exec.steps) ? exec.steps : [];
+    let hasSideEffects = false;
+    let uncertainStatus = false;
+    let lastStep = null;
+
+    if (steps.length > 0) {
+      lastStep = steps[steps.length - 1];
+      for (const step of steps) {
+        if (step && (step.status === 'running' || step.status === 'success' || step.status === 'waiting' || !step.status)) {
+          if (hasExternalSideEffects(step.nodeType)) {
+            hasSideEffects = true;
+            break;
+          }
         }
       }
     }
 
-    exec.status = ExecutionStatus.FAILED;
-    exec.error = 'Execution interrupted by process termination or server restart';
-    exec.finishedAt = finishedAt;
-    exec.duration = duration;
-    exec.workerId = null;
-    exec.leaseExpiresAt = null;
-    exec.heartbeatAt = null;
-    await exec.save();
+    // Inspect workflow definition to check if the next in-flight/unrecorded node had external side effects
+    if (!hasSideEffects && exec.workflow) {
+      try {
+        const wf = await Workflow.findById(exec.workflow).lean();
+        if (wf && Array.isArray(wf.nodes)) {
+          const completedNodeIds = new Set(
+            steps.filter((s) => s.status === 'success').map((s) => s.nodeId)
+          );
+          const pendingNodes = wf.nodes.filter((n) => !completedNodeIds.has(n.id));
+          for (const pendingNode of pendingNodes) {
+            if (hasExternalSideEffects(pendingNode.type)) {
+              hasSideEffects = true;
+              uncertainStatus = true;
+              break;
+            }
+          }
+        } else if (!wf) {
+          // If workflow cannot be loaded, side-effect status cannot be verified -> conservative manual review required
+          hasSideEffects = true;
+          uncertainStatus = true;
+        }
+      } catch {
+        hasSideEffects = true;
+        uncertainStatus = true;
+      }
+    }
+
+    const finishedAt = new Date();
+    const duration = exec.startedAt ? finishedAt.getTime() - new Date(exec.startedAt).getTime() : 0;
+
+    // Update in-progress steps
+    const updatedSteps = steps.map((s) => {
+      const stepObj = typeof s.toObject === 'function' ? s.toObject() : { ...s };
+      if (!stepObj.status || stepObj.status === 'running' || stepObj.status === 'waiting') {
+        stepObj.status = 'failed';
+        stepObj.error = 'Execution interrupted by process termination or server restart';
+        stepObj.finishedAt = finishedAt;
+        if (stepObj.startedAt) {
+          stepObj.duration = finishedAt.getTime() - new Date(stepObj.startedAt).getTime();
+        }
+      }
+      return stepObj;
+    });
+
+    const recoveryMetadata = {
+      recoveredAt: finishedAt,
+      recoveredBy: WORKER_ID,
+      reason: hasSideEffects
+        ? (uncertainStatus ? 'UNCERTAIN_EXTERNAL_SIDE_EFFECTS_OR_CRASH' : 'POTENTIAL_DUPLICATE_EXTERNAL_SIDE_EFFECTS')
+        : 'PROCESS_CRASH_OR_LEASE_EXPIRED',
+      safeToAutoResume: !hasSideEffects,
+      lastExecutedNodeType: lastStep?.nodeType || null,
+      lastExecutedNodeId: lastStep?.nodeId || null,
+      requiresManualIntervention: hasSideEffects,
+    };
+
+    const errorMessage = hasSideEffects
+      ? (uncertainStatus
+          ? 'Execution interrupted with in-flight or uncertain external operations. Automatic replay blocked to prevent duplicate real-world actions; manual operator review required.'
+          : 'Execution interrupted during external side-effect operations. Automatic replay blocked to prevent duplicate actions; manual review required.')
+      : 'Execution interrupted by process termination or server restart';
+
+    // Atomically transition status from RUNNING to FAILED with recovery metadata
+    const result = await Execution.findOneAndUpdate(
+      {
+        _id: candidate._id,
+        status: ExecutionStatus.RUNNING,
+      },
+      {
+        $set: {
+          status: ExecutionStatus.FAILED,
+          error: errorMessage,
+          finishedAt,
+          duration,
+          workerId: null,
+          leaseExpiresAt: null,
+          heartbeatAt: null,
+          steps: updatedSteps,
+          recovery: recoveryMetadata,
+        },
+      },
+      { new: true }
+    );
+
+    if (result) {
+      recoveredCount++;
+    }
   }
 
-  console.log(`[WorkflowEngine] Recovered ${interruptedExecutions.length} interrupted execution(s) after restart.`);
-  return interruptedExecutions.length;
+  if (recoveredCount > 0) {
+    console.log(`[WorkflowEngine] Atomically recovered ${recoveredCount} interrupted execution(s) after restart.`);
+  }
+  return recoveredCount;
 }
 
 module.exports = {
@@ -1237,4 +1476,9 @@ module.exports = {
   findLoopBodyNodeIds,
   executeLoopStep,
   executeNodeStep,
+  getActiveExecutionsCount,
+  waitForActiveExecutions,
+  hasExternalSideEffects,
+  EXTERNAL_SIDE_EFFECT_NODE_TYPES,
+  calculatePayloadSize,
 };

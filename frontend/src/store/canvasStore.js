@@ -237,12 +237,15 @@ const useCanvasStore = create((set, get) => ({
   showTemplates: false,
   showMinimap: true,
   showValidationDrawer: false,
+  showMobilePalette: false,
 
   setViewport: (viewport) => set({ viewport }),
   setShowAI: (showAI) => set({ showAI }),
   setShowTemplates: (showTemplates) => set({ showTemplates }),
   toggleMinimap: () => set((state) => ({ showMinimap: !state.showMinimap })),
   setShowValidationDrawer: (showValidationDrawer) => set({ showValidationDrawer }),
+  setShowMobilePalette: (showMobilePalette) => set({ showMobilePalette }),
+  toggleMobilePalette: () => set((state) => ({ showMobilePalette: !state.showMobilePalette })),
 
   // ─── 5. Execution State ───────────────────────────────────────────────────
   executionResult: null,

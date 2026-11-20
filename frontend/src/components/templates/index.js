@@ -3,6 +3,7 @@ import TemplateFilters from './TemplateFilters';
 import RecentlyUsedTemplates from './RecentlyUsedTemplates';
 import TemplateDetailsModal from './TemplateDetailsModal';
 import TemplateInstallModal from './TemplateInstallModal';
+import TemplateCustomizerModal from './TemplateCustomizerModal';
 
 export {
   TemplateCard,
@@ -10,5 +11,5 @@ export {
   RecentlyUsedTemplates,
   TemplateDetailsModal,
   TemplateInstallModal,
+  TemplateCustomizerModal,
 };
-

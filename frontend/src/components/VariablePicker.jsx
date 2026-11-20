@@ -7,10 +7,14 @@ import useWorkflowStore from '../store/workflowStore';
  * Displays output schema from upstream steps, workflow variables, and encrypted workflow secrets.
  * Clicking any item calls `onSelect('{{ expression }}')`.
  */
-export default function VariablePicker({ nodes, edges, currentNodeId, onSelect, onClose }) {
+export default function VariablePicker({ nodes, edges, currentNodeId, onSelect, onClose, customVariables }) {
   const [activeCategory, setActiveCategory] = useState('steps'); // 'steps' | 'variables' | 'secrets'
   const [searchTerm, setSearchTerm] = useState('');
-  const { variables = [], secrets = [] } = useWorkflowStore();
+  const storeState = useWorkflowStore();
+  const variables = (Array.isArray(customVariables) && customVariables.length > 0)
+    ? customVariables
+    : (storeState?.variables || []);
+  const secrets = storeState?.secrets || [];
 
   React.useEffect(() => {
     const handleKeyDown = (e) => {

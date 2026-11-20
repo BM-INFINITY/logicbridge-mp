@@ -28,6 +28,7 @@ Thumbs.db
 .idea/
 
 data/
+!frontend/src/data/
 
 scratch/
 

@@ -46,7 +46,7 @@ export default function SwitchConfig({ data, onChange, onOpenVariablePicker }) {
       {/* Cases List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
             <GitFork size={14} color="#8b5cf6" />
             Switch Cases ({cases.length})
           </label>
@@ -109,7 +109,7 @@ export default function SwitchConfig({ data, onChange, onOpenVariablePicker }) {
                     background: 'transparent',
                     border: 'none',
                     borderBottom: '1px dashed var(--border)',
-                    color: 'var(--text-base)',
+                    color: 'var(--text-primary)',
                     padding: '2px 4px',
                     width: 140,
                   }}
@@ -133,16 +133,18 @@ export default function SwitchConfig({ data, onChange, onOpenVariablePicker }) {
 
             <div style={{ display: 'flex', gap: 6 }}>
               <select
+                className="form-select"
                 value={c.operator || 'equals'}
                 onChange={(e) => updateCase(idx, { ...c, operator: e.target.value })}
                 style={{
                   width: '45%',
-                  padding: '6px 8px',
+                  padding: '6px 24px 6px 8px',
                   fontSize: '0.75rem',
+                  height: 32,
                   background: 'var(--bg-base)',
                   border: '1px solid var(--border)',
                   borderRadius: 6,
-                  color: 'var(--text-base)',
+                  color: 'var(--text-primary)',
                 }}
               >
                 {CONDITION_OPERATORS.map((op) => (
@@ -162,7 +164,7 @@ export default function SwitchConfig({ data, onChange, onOpenVariablePicker }) {
                   background: 'var(--bg-base)',
                   border: '1px solid var(--border)',
                   borderRadius: 6,
-                  color: 'var(--text-base)',
+                  color: 'var(--text-primary)',
                 }}
               />
             </div>

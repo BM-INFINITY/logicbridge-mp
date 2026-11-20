@@ -126,35 +126,26 @@ export default function Toolbar({
   return (
     <header className="builder-toolbar" role="toolbar" aria-label="Workflow Builder Toolbar">
       {/* ─── Left Section: Navigation, Workflow Title, Saved State ─────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      <div className="builder-toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
         <button
           className="btn btn-ghost btn-sm"
           onClick={onBack}
-          style={{ padding: '6px 10px', fontSize: '0.8rem', gap: 6 }}
+          style={{ padding: '6px 8px', fontSize: '0.8rem', gap: 4 }}
           aria-label="Back to Dashboard"
+          title="Back to Dashboard"
         >
           <ArrowLeft size={14} /> <span className="hide-on-mobile">Back</span>
         </button>
 
-        <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
+        <div style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />
 
         {/* Workflow Title input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           <input
             id="workflow-title-input"
+            className="builder-title-input"
             value={workflowName}
             onChange={(e) => setWorkflowName(e.target.value)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              color: 'var(--text-primary)',
-              fontWeight: 600,
-              fontSize: '0.92rem',
-              width: 175,
-              padding: '2px 4px',
-              borderRadius: 4,
-            }}
             aria-label="Workflow Name"
           />
 
@@ -166,23 +157,27 @@ export default function Toolbar({
               aria-label="Unsaved changes pending"
             />
           )}
-          <StatusIndicator
-            variant={isDirty ? 'warning' : 'success'}
-            label={isDirty ? 'Unsaved changes' : 'Saved'}
-            size="sm"
-          />
+          <span className="hide-on-mobile">
+            <StatusIndicator
+              variant={isDirty ? 'warning' : 'success'}
+              label={isDirty ? 'Unsaved changes' : 'Saved'}
+              size="sm"
+            />
+          </span>
         </div>
 
         {/* Node Count Pill */}
         {nodes.length > 0 && (
-          <Badge variant="neutral" size="sm">
-            {nodes.length} {nodes.length === 1 ? 'node' : 'nodes'}
-          </Badge>
+          <span className="hide-on-compact">
+            <Badge variant="neutral" size="sm">
+              {nodes.length} {nodes.length === 1 ? 'node' : 'nodes'}
+            </Badge>
+          </span>
         )}
       </div>
 
       {/* ─── Center Section: History & Canvas Navigation ──────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+      <div className="builder-toolbar-center hide-on-tablet" style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
         {/* Undo Button */}
         <Tooltip text="Undo (Ctrl+Z)">
           <IconButton
@@ -269,24 +264,79 @@ export default function Toolbar({
       />
 
       {/* ─── Right Section: Actions, Tools, Save, Run ──────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      <div className="builder-toolbar-right" style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         {/* Tools Menu Dropdown */}
         <div style={{ position: 'relative' }} ref={toolsMenuRef}>
           <button
             id="builder-tools-menu-btn"
             className="btn btn-secondary btn-sm"
             onClick={() => setShowToolsMenu(!showToolsMenu)}
-            style={{ fontSize: '0.78rem', padding: '6px 10px', gap: 6 }}
+            style={{ fontSize: '0.78rem', padding: '6px 8px', gap: 4 }}
             aria-expanded={showToolsMenu}
             aria-haspopup="true"
           >
             <Settings2 size={13} color="var(--accent-primary)" />
-            <span>Tools</span>
+            <span className="hide-on-compact">Tools</span>
             <ChevronDown size={12} color="var(--text-muted)" />
           </button>
 
           {showToolsMenu && (
-            <div className="dropdown-menu" style={{ width: 200, right: 0, zIndex: 110 }}>
+            <div className="dropdown-menu" style={{ width: 210, right: 0, zIndex: 110 }}>
+              {/* Responsive Center controls fallback for mobile/tablet */}
+              <div className="hide-on-desktop">
+                <button
+                  className="dropdown-item"
+                  onClick={() => { setShowToolsMenu(false); onFitView(); }}
+                >
+                  <Maximize2 size={14} color="var(--accent-secondary)" />
+                  Fit View to Screen
+                </button>
+
+                <button
+                  className="dropdown-item"
+                  onClick={() => { setShowToolsMenu(false); toggleMinimap(); }}
+                >
+                  <Map size={14} color="var(--accent-primary)" />
+                  {showMinimap ? 'Hide Minimap' : 'Show Minimap'}
+                </button>
+
+                {nodes.length > 0 && (
+                  <button
+                    className="dropdown-item"
+                    onClick={() => { setShowToolsMenu(false); setShowValidationDrawer(true); }}
+                  >
+                    {validation.valid ? <CheckCircle2 size={14} color="var(--color-success)" /> : <AlertTriangle size={14} color="var(--color-warning)" />}
+                    Validation ({validation.issues.length} issues)
+                  </button>
+                )}
+
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setShowToolsMenu(false);
+                    setShowTemplates(!showTemplates);
+                    setShowAI(false);
+                  }}
+                >
+                  <LayoutTemplate size={14} />
+                  Templates
+                </button>
+
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setShowToolsMenu(false);
+                    setShowAI(!showAI);
+                    setShowTemplates(false);
+                  }}
+                >
+                  <Sparkles size={14} color="#22d3ee" />
+                  AI Assist
+                </button>
+
+                <div className="dropdown-divider" />
+              </div>
+
               <button
                 className="dropdown-item"
                 onClick={() => { setShowToolsMenu(false); onOpenVariables(); }}
@@ -345,29 +395,29 @@ export default function Toolbar({
         {/* Templates Modal Button */}
         <button
           id="builder-templates-btn"
-          className="btn btn-secondary btn-sm"
+          className="btn btn-secondary btn-sm hide-on-tablet"
           onClick={() => {
             setShowTemplates(!showTemplates);
             setShowAI(false);
           }}
-          style={{ fontSize: '0.78rem', padding: '6px 10px', gap: 6 }}
+          style={{ fontSize: '0.78rem', padding: '6px 8px', gap: 4 }}
         >
           <LayoutTemplate size={13} />
-          <span>Templates</span>
+          <span className="hide-on-laptop">Templates</span>
         </button>
 
         {/* AI Generate Button */}
         <button
           id="builder-ai-btn"
-          className="btn btn-secondary btn-sm"
+          className="btn btn-secondary btn-sm hide-on-tablet"
           onClick={() => {
             setShowAI(!showAI);
             setShowTemplates(false);
           }}
-          style={{ fontSize: '0.78rem', padding: '6px 10px', gap: 6, color: '#22d3ee' }}
+          style={{ fontSize: '0.78rem', padding: '6px 8px', gap: 4, color: '#22d3ee' }}
         >
           <Sparkles size={13} color="#22d3ee" />
-          <span>AI Assist</span>
+          <span className="hide-on-laptop">AI Assist</span>
         </button>
 
         {/* Save Button */}
@@ -378,8 +428,9 @@ export default function Toolbar({
           onClick={onSave}
           loading={saving}
           icon={!saving ? <Save size={13} /> : undefined}
+          style={{ padding: '6px 10px', fontSize: '0.78rem' }}
         >
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? '...' : 'Save'}
         </Button>
 
         {/* Run Button (Primary) */}
@@ -391,8 +442,9 @@ export default function Toolbar({
           disabled={running || nodes.length === 0}
           loading={running}
           icon={!running ? <Play size={13} /> : undefined}
+          style={{ padding: '6px 12px', fontSize: '0.78rem' }}
         >
-          {running ? 'Running...' : 'Run'}
+          {running ? '...' : 'Run'}
         </Button>
       </div>
 

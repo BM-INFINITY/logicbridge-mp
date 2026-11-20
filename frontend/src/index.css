@@ -92,7 +92,35 @@
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.6);
   --shadow-glow: 0 0 30px rgba(108, 99, 255, 0.25);
+
+  /* Convenience Semantic Aliases */
+  --accent: var(--accent-primary);
+  --text-base: var(--text-primary);
+  --border-color: var(--border);
+  --border-light: var(--border-subtle);
+  --bg-canvas: var(--bg-base);
+
+  --success: var(--color-success);
+  --success-bg: var(--color-success-bg);
+  --success-border: var(--color-success-border);
+  --success-text: var(--color-success-text);
+
+  --warning: var(--color-warning);
+  --warning-bg: var(--color-warning-bg);
+  --warning-border: var(--color-warning-border);
+  --warning-text: var(--color-warning-text);
+
+  --danger: var(--color-danger);
+  --danger-bg: var(--color-danger-bg);
+  --danger-border: var(--color-danger-border);
+  --danger-text: var(--color-danger-text);
+
+  --info: var(--color-info);
+  --info-bg: var(--color-info-bg);
+  --info-border: var(--color-info-border);
+  --info-text: var(--color-info-text);
 
   /* Focus Indicator */
   --focus-ring: 0 0 0 2px var(--accent-primary);
@@ -148,7 +176,35 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.15);
   --shadow-glow: 0 0 25px rgba(108, 99, 255, 0.18);
+
+  /* Convenience Semantic Aliases */
+  --accent: var(--accent-primary);
+  --text-base: var(--text-primary);
+  --border-color: var(--border);
+  --border-light: var(--border-subtle);
+  --bg-canvas: var(--bg-base);
+
+  --success: var(--color-success);
+  --success-bg: var(--color-success-bg);
+  --success-border: var(--color-success-border);
+  --success-text: var(--color-success-text);
+
+  --warning: var(--color-warning);
+  --warning-bg: var(--color-warning-bg);
+  --warning-border: var(--color-warning-border);
+  --warning-text: var(--color-warning-text);
+
+  --danger: var(--color-danger);
+  --danger-bg: var(--color-danger-bg);
+  --danger-border: var(--color-danger-border);
+  --danger-text: var(--color-danger-text);
+
+  --info: var(--color-info);
+  --info-bg: var(--color-info-bg);
+  --info-border: var(--color-info-border);
+  --info-text: var(--color-info-text);
 }
 
 /* ─── Reset & Base ──────────────────────────────────────── */
@@ -264,7 +320,8 @@ h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; line-height: 1.25; }
 /* ─── Form Elements ──────────────────────────────────────── */
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-label { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); }
-.form-input {
+.form-input,
+.form-control {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -274,12 +331,15 @@ h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; line-height: 1.25; }
   transition: all var(--transition);
   outline: none;
   width: 100%;
+  box-sizing: border-box;
 }
-.form-input:focus {
+.form-input:focus,
+.form-control:focus {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15);
 }
-.form-input::placeholder { color: var(--text-muted); }
+.form-input::placeholder,
+.form-control::placeholder { color: var(--text-muted); }
 .form-textarea { resize: vertical; min-height: 100px; }
 
 /* ─── Form Select Dropdown ───────────────────────────────── */
@@ -333,7 +393,8 @@ h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; line-height: 1.25; }
   color: var(--text-disabled);
 }
 
-select.form-input {
+select.form-input,
+select.form-control {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -345,7 +406,8 @@ select.form-input {
   cursor: pointer;
 }
 
-select.form-input option {
+select.form-input option,
+select.form-control option {
   background-color: var(--bg-card);
   color: var(--text-primary);
   padding: 8px 12px;
@@ -753,12 +815,96 @@ select.form-input option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
+  padding: 10px 16px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 50;
+  gap: 8px;
+}
+
+.builder-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.builder-toolbar-center {
+  display: flex;
+  align-items: center;
+  gap: 4;
+  flex-shrink: 0;
+}
+
+.builder-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.builder-title-input {
+  background: transparent;
+  border: 1px solid transparent;
+  outline: none;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.92rem;
+  width: 175px;
+  max-width: 175px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  transition: border-color var(--transition);
+}
+
+.builder-title-input:hover,
+.builder-title-input:focus {
+  border-color: var(--border-hover);
+  background: var(--bg-card);
+}
+
+/* ─── Builder Drawer & Backdrop Overlays ─────────────────── */
+.builder-drawer-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 11, 15, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 85;
+}
+
+.builder-palette-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 11, 15, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 85;
+}
+
+.builder-mobile-palette-tab {
+  display: none;
+}
+
+/* Responsive Utilities */
+@media (max-width: 1024px) {
+  .hide-on-laptop { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .hide-on-mobile { display: none !important; }
+  .hide-on-tablet { display: none !important; }
+}
+
+@media (max-width: 480px) {
+  .hide-on-compact { display: none !important; }
 }
 
 /* ─── Execution Logs ─────────────────────────────────────── */
@@ -916,8 +1062,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 /* ─── Responsive Design ───────────────────────────────────────── */
 @media (max-width: 1024px) {
   .builder-toolbar {
-    padding: 10px 14px;
-    gap: 8px;
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .builder-title-input {
+    width: 140px;
+    max-width: 140px;
   }
 }
 
@@ -938,9 +1088,78 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
     padding: 24px 18px;
   }
 
-  .node-palette {
-    width: 180px;
+  .builder-toolbar {
+    padding: 6px 10px;
+    gap: 4px;
   }
+
+  .builder-title-input {
+    width: 110px;
+    max-width: 110px;
+    font-size: 0.85rem;
+  }
+
+  /* Node Palette Drawer on Tablet / Mobile */
+  .node-palette-mobile-drawer {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px !important;
+    min-width: 280px !important;
+    max-width: 85vw !important;
+    z-index: 95 !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6) !important;
+    animation: slideInLeft 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Node Palette Mobile Edge Trigger Tab (visible only when mobile drawer is closed) */
+  .builder-mobile-palette-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: 0;
+    top: 14px;
+    z-index: 25;
+    width: 24px;
+    height: 44px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    color: var(--text-muted);
+    cursor: pointer;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.35);
+    transition: all var(--transition);
+  }
+
+  .builder-mobile-palette-tab:hover,
+  .builder-mobile-palette-tab:active {
+    color: var(--accent-primary);
+    background: var(--bg-elevated);
+    width: 28px;
+  }
+
+  /* React Flow Controls repositioning on mobile */
+  .react-flow__controls {
+    bottom: 12px !important;
+    left: 12px !important;
+  }
+
+  .react-flow__minimap {
+    display: none !important;
+  }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
 @media (max-width: 600px) {
@@ -976,6 +1195,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .main-content { padding: 14px 10px; }
   .modal, .modal-content { padding: 20px 14px; border-radius: var(--radius-lg); }
   .stats-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 390px) {
+  .main-content { padding: 12px 8px; }
+  .modal, .modal-content { padding: 16px 12px; }
+  .btn { padding: 8px 14px; font-size: 0.82rem; }
+  .form-input, .form-control { padding: 10px 12px; font-size: 0.85rem; }
+  .page-header h1 { font-size: 1.25rem; }
 }
 
 /* ─── End of Styles ────────────────────────────────────────── */

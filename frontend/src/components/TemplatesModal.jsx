@@ -16,6 +16,7 @@ import {
   RecentlyUsedTemplates,
   TemplateDetailsModal,
   TemplateInstallModal,
+  TemplateCustomizerModal,
 } from './templates';
 import { X, Star, Filter, Search } from 'lucide-react';
 
@@ -310,9 +311,9 @@ export default function TemplatesModal({ onClose, onLoad }) {
         />
       )}
 
-      {/* Pre-installation Configuration & Naming Dialog */}
+      {/* Pre-installation Configuration & Customization Dialog */}
       {installingTemplate && (
-        <TemplateInstallModal
+        <TemplateCustomizerModal
           template={installingTemplate}
           onClose={() => setInstallingTemplate(null)}
           onConfirmInstall={handleConfirmInstall}

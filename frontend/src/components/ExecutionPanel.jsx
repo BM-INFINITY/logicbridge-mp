@@ -318,7 +318,7 @@ export default function ExecutionPanel({ execution: initialExecution, onClose, o
 
           <input
             type="text"
-            className="form-control"
+            className="form-input"
             placeholder="Decision notes..."
             value={comments}
             onChange={(e) => setComments(e.target.value)}

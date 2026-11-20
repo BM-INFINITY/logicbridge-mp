@@ -208,7 +208,7 @@ export default function ExecutionPreviewPage() {
       data-theme={theme}
       style={{
         minHeight: '100vh',
-        background: 'var(--bg-canvas)',
+        background: 'var(--bg-base)',
         color: 'var(--text-primary)',
         fontFamily: 'Inter, system-ui, sans-serif',
         padding: view === 'logs' ? 0 : 24,

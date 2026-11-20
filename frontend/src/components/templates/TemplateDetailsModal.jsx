@@ -90,6 +90,20 @@ export default function TemplateDetailsModal({
               }}>
                 {template.category?.replace('-', ' ')}
               </span>
+              {template.isDeveloperTemplate && (
+                <>
+                  <span style={{ color: 'var(--text-muted)' }}>•</span>
+                  <span style={{
+                    fontSize: '0.68rem', fontWeight: 600,
+                    padding: '2px 8px', borderRadius: 20,
+                    background: 'rgba(99,102,241,0.12)', color: '#818cf8',
+                    border: '1px solid rgba(99,102,241,0.3)',
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                  }}>
+                    <Code size={11} /> Dev Testing
+                  </span>
+                </>
+              )}
               <span style={{ color: 'var(--text-muted)' }}>•</span>
               {template.difficulty && <DifficultyBadge difficulty={template.difficulty} />}
               <span style={{ color: 'var(--text-muted)' }}>•</span>
@@ -159,6 +173,18 @@ export default function TemplateDetailsModal({
                 <Info size={16} style={{ color: 'var(--accent-primary)', flexShrink: 0, marginTop: 2 }} />
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   <strong style={{ color: 'var(--text-primary)' }}>Expected Result:</strong> {template.preview.expectedOutcome}
+                </div>
+              </div>
+            )}
+
+            {template.setupInstructions && (
+              <div style={{
+                borderTop: '1px solid var(--border)', paddingTop: 12,
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+              }}>
+                <ShieldCheck size={16} style={{ color: '#818cf8', flexShrink: 0, marginTop: 2 }} />
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  <strong style={{ color: '#818cf8' }}>Setup & Verification Notes:</strong> {template.setupInstructions}
                 </div>
               </div>
             )}

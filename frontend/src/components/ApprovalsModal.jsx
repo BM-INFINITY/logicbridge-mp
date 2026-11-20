@@ -93,7 +93,7 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
       <div
         style={{
           background: 'var(--bg-surface)',
-          border: '1px solid var(--border-color)',
+          border: '1px solid var(--border)',
           borderRadius: 'var(--radius-lg)',
           width: 'min(640px, 94vw)',
           maxWidth: 640,
@@ -109,7 +109,7 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
         <div
           style={{
             padding: '16px 20px',
-            borderBottom: '1px solid var(--border-color)',
+            borderBottom: '1px solid var(--border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -228,7 +228,7 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
                     key={exec._id}
                     style={{
                       background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-color)',
+                      border: '1px solid var(--border)',
                       borderRadius: 'var(--radius-md)',
                       padding: 16,
                       display: 'flex',
@@ -315,7 +315,7 @@ export default function ApprovalsModal({ isOpen, onClose, onDecisionMade }) {
 
                       <input
                         type="text"
-                        className="form-control"
+                        className="form-input"
                         placeholder={canDecide ? "Optional decision notes or comments..." : "Decision locked (insufficient role)"}
                         value={commentsMap[exec._id] || ''}
                         onChange={(e) => setCommentsMap({ ...commentsMap, [exec._id]: e.target.value })}

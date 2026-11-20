@@ -245,6 +245,7 @@ export default function AdminPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Filter size={14} color="var(--text-muted)" />
                 <select
+                  className="form-select"
                   value={filterSeverity}
                   onChange={(e) => setFilterSeverity(e.target.value)}
                   style={{
@@ -252,7 +253,8 @@ export default function AdminPage() {
                     border: '1px solid var(--border)',
                     color: 'var(--text-primary)',
                     borderRadius: 'var(--radius-sm)',
-                    padding: '4px 8px',
+                    padding: '4px 24px 4px 8px',
+                    height: 28,
                     fontSize: '0.78rem',
                   }}
                 >
@@ -264,6 +266,7 @@ export default function AdminPage() {
                 </select>
 
                 <select
+                  className="form-select"
                   value={filterEventType}
                   onChange={(e) => setFilterEventType(e.target.value)}
                   style={{
@@ -271,7 +274,8 @@ export default function AdminPage() {
                     border: '1px solid var(--border)',
                     color: 'var(--text-primary)',
                     borderRadius: 'var(--radius-sm)',
-                    padding: '4px 8px',
+                    padding: '4px 24px 4px 8px',
+                    height: 28,
                     fontSize: '0.78rem',
                   }}
                 >
@@ -392,7 +396,7 @@ export default function AdminPage() {
                   </label>
                   <input
                     type="text"
-                    className="form-control"
+                    className="form-input"
                     placeholder="e.g. 507f1f77bcf86cd799439011"
                     value={targetUserId}
                     onChange={(e) => setTargetUserId(e.target.value)}
@@ -408,8 +412,8 @@ export default function AdminPage() {
                   <select
                     value={targetRole}
                     onChange={(e) => setTargetRole(e.target.value)}
-                    className="form-control"
-                    style={{ fontSize: '0.82rem' }}
+                    className="form-select"
+                    style={{ fontSize: '0.82rem', width: '100%', height: 38 }}
                   >
                     <option value="user">User (Standard privilege)</option>
                     <option value="approver">Approver (Authorized for human review gates)</option>

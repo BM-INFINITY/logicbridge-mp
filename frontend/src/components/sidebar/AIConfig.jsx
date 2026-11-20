@@ -289,11 +289,13 @@ export default function AIConfig({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <select
+                      className="form-select"
                       value={msg.role || 'user'}
                       onChange={(e) => handleMessageChange(idx, 'role', e.target.value)}
                       style={{
                         fontSize: '0.72rem',
-                        padding: '3px 6px',
+                        padding: '3px 22px 3px 6px',
+                        height: 28,
                         borderRadius: 4,
                         background: 'var(--bg-card)',
                         color: 'var(--text-primary)',

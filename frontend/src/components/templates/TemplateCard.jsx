@@ -3,13 +3,15 @@ import { getNodeIcon } from '../../constants/Icons';
 import {
   Star, Eye, ArrowRight, Database, Table, Mail, Sparkles, Layers,
   Globe, Shuffle, GitBranch, Zap, FileText, Braces, Code2, Settings,
-  Clock, Type, Calculator, Calendar, Filter, Tag,
+  Clock, Type, Calculator, Calendar, Filter, Tag, Repeat, UserCheck,
+  MessageSquare, MessageCircle, Bot,
 } from 'lucide-react';
 
 const ICON_MAP = {
   Globe, Shuffle, GitBranch, Database, Table, Zap, FileText,
   Braces, Code2, Layers, Star, Settings,
   Mail, Clock, Type, Calculator, Calendar, Sparkles, Filter, Tag,
+  Repeat, UserCheck, MessageSquare, MessageCircle, Bot,
 };
 
 function TemplateIcon({ name, size = 20 }) {
@@ -59,6 +61,9 @@ function ConnectionRequirementBadge({ requiresConnection }) {
     mongodb:       { label: 'MongoDB',    icon: Database, color: '#10b981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.3)' },
     google_sheets: { label: 'Sheets',     icon: Table,    color: '#06b6d4', bg: 'rgba(6,182,212,0.12)',  border: 'rgba(6,182,212,0.3)' },
     email:         { label: 'Email/SMTP', icon: Mail,     color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.3)' },
+    slack:         { label: 'Slack',      icon: MessageSquare, color: '#e01e5a', bg: 'rgba(224,30,90,0.12)',  border: 'rgba(224,30,90,0.3)' },
+    discord:       { label: 'Discord',    icon: MessageCircle, color: '#5865f2', bg: 'rgba(88,101,242,0.12)', border: 'rgba(88,101,242,0.3)' },
+    openai:        { label: 'OpenAI / AI', icon: Sparkles,     color: '#10a37f', bg: 'rgba(16,163,127,0.12)', border: 'rgba(16,163,127,0.3)' },
   };
 
   const c = CONFIG[requiresConnection] || { label: 'Connection Required', icon: Layers, color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' };
@@ -154,6 +159,26 @@ export default function TemplateCard({
             {template.name}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            {template.isDeveloperTemplate && (
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.03em',
+                  padding: '2px 8px',
+                  borderRadius: 20,
+                  background: 'rgba(99,102,241,0.12)',
+                  color: '#818cf8',
+                  border: '1px solid rgba(99,102,241,0.3)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                }}
+                title="Developer testing and benchmarking workflow"
+              >
+                <Code2 size={10} /> Dev Testing
+              </span>
+            )}
             {template.difficulty && <DifficultyBadge difficulty={template.difficulty} />}
             <ConnectionRequirementBadge requiresConnection={template.requiresConnection} />
           </div>

@@ -162,7 +162,7 @@ export function instantiateTemplate(template, options = {}) {
   const idMap = {};
 
   // 1. Generate unique node IDs and clone data
-  const rawNodes = template.nodes || [];
+  const rawNodes = options.nodes || template.nodes || [];
   const instantiatedNodes = rawNodes.map((node, idx) => {
     const uniqueId = `node_${timestamp}_${idx + 1}`;
     idMap[node.id] = uniqueId;
@@ -182,7 +182,7 @@ export function instantiateTemplate(template, options = {}) {
   }));
 
   // 3. Generate unique edge IDs and remap source/target to new node IDs
-  const rawEdges = template.edges || [];
+  const rawEdges = options.edges || template.edges || [];
   const edges = rawEdges.map((edge, idx) => {
     const newSource = idMap[edge.source] || edge.source;
     const newTarget = idMap[edge.target] || edge.target;
@@ -228,6 +228,21 @@ export function instantiateTemplate(template, options = {}) {
       value: v.default !== undefined ? v.default : '',
       description: v.description || '',
     }));
+  }
+
+  // Define named non-enumerable properties on the array so dot-property access
+  // (e.g. variables.TAX_RATE) and array iteration both work seamlessly.
+  if (Array.isArray(normalizedVars)) {
+    normalizedVars.forEach((v) => {
+      if (v && v.name && !(v.name in normalizedVars)) {
+        Object.defineProperty(normalizedVars, v.name, {
+          value: v.value,
+          enumerable: false,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
   }
 
   return {
@@ -337,11 +352,13 @@ export function filterTemplates(templates, options = {}) {
     const nameMatch = (t.name || '').toLowerCase().includes(q);
     const descMatch = (t.description || '').toLowerCase().includes(q);
     const useCaseMatch = (t.useCase || '').toLowerCase().includes(q);
+    const categoryMatch = (t.category || '').toLowerCase().includes(q) || (t.category || '').replace(/-/g, ' ').toLowerCase().includes(q);
     const tagsMatch = Array.isArray(t.tags) && t.tags.some((tag) => tag.toLowerCase().includes(q));
     const nodeTypesMatch = Array.isArray(t.nodeTypes) && t.nodeTypes.some((nt) => nt.toLowerCase().includes(q));
     const authorMatch = t.author?.name ? t.author.name.toLowerCase().includes(q) : false;
+    const devMatch = (q === 'dev' || q === 'developer' || q === 'test' || q === 'testing') && Boolean(t.isDeveloperTemplate);
 
-    return nameMatch || descMatch || useCaseMatch || tagsMatch || nodeTypesMatch || authorMatch;
+    return nameMatch || descMatch || useCaseMatch || categoryMatch || tagsMatch || nodeTypesMatch || authorMatch || devMatch;
   });
 }
 

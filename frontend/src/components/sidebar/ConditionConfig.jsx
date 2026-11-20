@@ -92,7 +92,7 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
             borderRadius: 6,
             border: 'none',
             cursor: 'pointer',
-            background: mode === 'simple' ? 'var(--accent)' : 'transparent',
+            background: mode === 'simple' ? 'var(--accent-primary)' : 'transparent',
             color: mode === 'simple' ? '#fff' : 'var(--text-muted)',
             transition: 'all 0.15s ease',
           }}
@@ -110,7 +110,7 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
             borderRadius: 6,
             border: 'none',
             cursor: 'pointer',
-            background: mode === 'advanced' ? 'var(--accent)' : 'transparent',
+            background: mode === 'advanced' ? 'var(--accent-primary)' : 'transparent',
             color: mode === 'advanced' ? '#fff' : 'var(--text-muted)',
             transition: 'all 0.15s ease',
           }}
@@ -156,7 +156,7 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Combinator Toggle */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-base)' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               Logical Combinator
             </label>
             <div style={{ display: 'flex', gap: 4 }}>
@@ -172,9 +172,9 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
                       fontSize: '0.75rem',
                       fontWeight: 700,
                       borderRadius: 6,
-                      border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      border: active ? '1px solid var(--accent-primary)' : '1px solid var(--border)',
                       background: active ? 'rgba(108, 99, 255, 0.2)' : 'var(--bg-card)',
-                      color: active ? 'var(--accent)' : 'var(--text-muted)',
+                      color: active ? 'var(--accent-primary)' : 'var(--text-muted)',
                       cursor: 'pointer',
                     }}
                   >
@@ -244,10 +244,11 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
                             background: 'var(--bg-base)',
                             border: '1px solid var(--border)',
                             borderRadius: 4,
-                            color: 'var(--text-base)',
+                            color: 'var(--text-primary)',
                           }}
                         />
                         <select
+                          className="form-select"
                           value={subRule.operator || 'equals'}
                           onChange={(e) => {
                             const nextSub = [...item.conditions];
@@ -256,12 +257,13 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
                           }}
                           style={{
                             width: 90,
-                            padding: '4px 6px',
+                            padding: '4px 22px 4px 6px',
                             fontSize: '0.72rem',
+                            height: 28,
                             background: 'var(--bg-base)',
                             border: '1px solid var(--border)',
                             borderRadius: 4,
-                            color: 'var(--text-base)',
+                            color: 'var(--text-primary)',
                           }}
                         >
                           {CONDITION_OPERATORS.map((op) => (
@@ -285,7 +287,7 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
                               background: 'var(--bg-base)',
                               border: '1px solid var(--border)',
                               borderRadius: 4,
-                              color: 'var(--text-base)',
+                              color: 'var(--text-primary)',
                             }}
                           />
                         )}
@@ -366,23 +368,25 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
                         background: 'var(--bg-base)',
                         border: '1px solid var(--border)',
                         borderRadius: 6,
-                        color: 'var(--text-base)',
+                        color: 'var(--text-primary)',
                       }}
                     />
                   </div>
 
                   <div style={{ display: 'flex', gap: 6 }}>
                     <select
+                      className="form-select"
                       value={item.operator || 'equals'}
                       onChange={(e) => updateCondition(idx, { ...item, operator: e.target.value })}
                       style={{
                         width: '45%',
-                        padding: '6px 8px',
+                        padding: '6px 24px 6px 8px',
                         fontSize: '0.75rem',
+                        height: 32,
                         background: 'var(--bg-base)',
                         border: '1px solid var(--border)',
                         borderRadius: 6,
-                        color: 'var(--text-base)',
+                        color: 'var(--text-primary)',
                       }}
                     >
                       {CONDITION_OPERATORS.map((op) => (
@@ -403,7 +407,7 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
                           background: 'var(--bg-base)',
                           border: '1px solid var(--border)',
                           borderRadius: 6,
-                          color: 'var(--text-base)',
+                          color: 'var(--text-primary)',
                         }}
                       />
                     ) : (
@@ -429,7 +433,7 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
                 fontWeight: 600,
                 background: 'rgba(108, 99, 255, 0.1)',
                 border: '1px solid rgba(108, 99, 255, 0.3)',
-                color: 'var(--accent)',
+                color: 'var(--accent-primary)',
                 borderRadius: 6,
                 cursor: 'pointer',
                 display: 'flex',
@@ -467,7 +471,7 @@ export default function ConditionConfig({ data, onChange, onOpenVariablePicker }
 
       {/* Info Tip */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', background: 'var(--bg-card)', padding: 10, borderRadius: 8, border: '1px solid var(--border)' }}>
-        <Info size={14} color="var(--accent)" style={{ marginTop: 2, flexShrink: 0 }} />
+        <Info size={14} color="var(--accent-primary)" style={{ marginTop: 2, flexShrink: 0 }} />
         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
           Supports string, numeric, boolean, null, array, and regex comparisons with safe ReDoS bounds. True and False outputs route downstream flow.
         </div>

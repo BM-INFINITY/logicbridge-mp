@@ -28,7 +28,7 @@ export default function ValidationDrawer({
         position: 'absolute',
         top: 12,
         right: 12,
-        width: 340,
+        width: 'min(340px, calc(100vw - 24px))',
         maxHeight: 'calc(100% - 24px)',
         zIndex: 100,
         background: 'var(--bg-elevated)',

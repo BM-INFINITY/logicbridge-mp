@@ -102,10 +102,10 @@ export default function DiscordConfig({ data, onChange, onOpenVariablePicker }) 
           </div>
         ) : (
           <select
-            className="form-input"
+            className="form-select"
             value={data.connectionId || ''}
             onChange={(e) => updateField('connectionId', e.target.value)}
-            style={{ fontSize: '0.85rem' }}
+            style={{ fontSize: '0.85rem', width: '100%' }}
           >
             <option value="">— Select a saved Discord Connection —</option>
             {connections.map((c) => (
@@ -154,10 +154,10 @@ export default function DiscordConfig({ data, onChange, onOpenVariablePicker }) 
           <MessageCircle size={11} /> Operation
         </label>
         <select
-          className="form-input"
+          className="form-select"
           value={currentOp}
           onChange={(e) => updateField('operation', e.target.value)}
-          style={{ fontSize: '0.85rem' }}
+          style={{ fontSize: '0.85rem', width: '100%' }}
         >
           {DISCORD_OPERATIONS.map((op) => (
             <option key={op.value} value={op.value}>

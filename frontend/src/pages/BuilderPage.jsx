@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useWorkflowStore from '../store/workflowStore';
 import useCanvasStore from '../store/canvasStore';
@@ -55,6 +56,8 @@ function BuilderContent() {
     deleteSelectedNodes,
     showValidationDrawer,
     setShowValidationDrawer,
+    showMobilePalette,
+    setShowMobilePalette,
   } = useCanvasStore();
 
   const {
@@ -212,6 +215,25 @@ function BuilderContent() {
       setIsDirty(true);
     },
     [rfInstance, setNodes, setSelectedNode, takeSnapshot]
+  );
+
+  // Quick-add node from mobile palette tap
+  const handleQuickAddNode = useCallback(
+    (rawType) => {
+      takeSnapshot();
+      const type = normalizeNodeType(rawType);
+      const def = NODE_DEFS[type];
+      // Offset position based on current nodes count or canvas center
+      const offsetX = 100 + (nodes.length % 5) * 40;
+      const offsetY = 120 + (nodes.length % 5) * 50;
+      const pos = { x: offsetX, y: offsetY };
+      const newNode = ReactFlowAdapter.createNodePayload(type, pos, def?.label || type);
+      setNodes((nds) => [...nds, newNode]);
+      setSelectedNode(newNode);
+      setIsDirty(true);
+      toast.success(`Added ${def?.label || type} step`);
+    },
+    [nodes.length, setNodes, setSelectedNode, takeSnapshot]
   );
 
   const handleSave = async () => {
@@ -457,7 +479,37 @@ function BuilderContent() {
         </div>
       ) : (
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-          <NodePalette />
+          {/* Desktop / Tablet Persistent or Collapsible Node Palette */}
+          <NodePalette onAddNode={handleQuickAddNode} />
+
+          {/* Mobile Drawer Node Palette with Backdrop Overlay */}
+          {showMobilePalette && (
+            <>
+              <div
+                className="builder-palette-backdrop"
+                onClick={() => setShowMobilePalette(false)}
+                aria-label="Close palette overlay"
+              />
+              <NodePalette
+                isMobileDrawer={true}
+                onCloseMobile={() => setShowMobilePalette(false)}
+                onAddNode={handleQuickAddNode}
+              />
+            </>
+          )}
+
+          {/* Mobile Node Palette Edge Trigger (clean, intuitive left-edge tab on mobile when drawer is closed) */}
+          {!showMobilePalette && (
+            <button
+              type="button"
+              className="builder-mobile-palette-tab"
+              onClick={() => setShowMobilePalette(true)}
+              title="Open Node Palette"
+              aria-label="Open Node Palette"
+            >
+              <ChevronRight size={15} />
+            </button>
+          )}
 
           {/* Canvas displaying adapter-transformed nodes & edges */}
           <Canvas
@@ -486,15 +538,22 @@ function BuilderContent() {
           )}
 
           {selectedNode && !showAI && (
-            <StepEditorSidebar
-              node={nodes.find((n) => n.id === selectedNode.id)}
-              nodes={nodes}
-              edges={edges}
-              onUpdate={updateNodeData}
-              onDelete={deleteNode}
-              onClose={() => setSelectedNode(null)}
-              workflowId={id}
-            />
+            <>
+              <div
+                className="builder-drawer-backdrop hide-on-desktop"
+                onClick={() => setSelectedNode(null)}
+                aria-label="Close step configuration"
+              />
+              <StepEditorSidebar
+                node={nodes.find((n) => n.id === selectedNode.id)}
+                nodes={nodes}
+                edges={edges}
+                onUpdate={updateNodeData}
+                onDelete={deleteNode}
+                onClose={() => setSelectedNode(null)}
+                workflowId={id}
+              />
+            </>
           )}
 
           {/* Workflow Validation Drawer */}
@@ -507,15 +566,25 @@ function BuilderContent() {
           />
 
           {executionResult && !isReplayActive && (
-            <ExecutionPanel
-              execution={executionResult}
-              onClose={() => {
-                setExecutionResult(null);
-                setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })));
-              }}
-              onStartReplay={(exec) => startReplay(exec, nodes)}
-              onExecutionUpdate={(updated) => setExecutionResult(updated)}
-            />
+            <>
+              <div
+                className="builder-drawer-backdrop hide-on-desktop"
+                onClick={() => {
+                  setExecutionResult(null);
+                  setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })));
+                }}
+                aria-label="Close execution panel"
+              />
+              <ExecutionPanel
+                execution={executionResult}
+                onClose={() => {
+                  setExecutionResult(null);
+                  setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })));
+                }}
+                onStartReplay={(exec) => startReplay(exec, nodes)}
+                onExecutionUpdate={(updated) => setExecutionResult(updated)}
+              />
+            </>
           )}
 
           {/* Replay Timeline Overlay */}

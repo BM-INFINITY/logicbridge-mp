@@ -5,17 +5,25 @@
  * NODE_DEFS object: node type definitions used by the palette and builder.
  */
 
+import { DEVELOPER_TEMPLATES } from './developerTemplates.js';
+
 // ─── Template Categories ──────────────────────────────────────────────────────
 
 export const TEMPLATE_CATEGORIES = [
-  { id: 'all',             label: 'All Templates' },
-  { id: 'getting-started', label: 'Getting Started' },
-  { id: 'api',             label: 'API' },
-  { id: 'database',        label: 'Database' },
-  { id: 'automation',      label: 'Automation' },
-  { id: 'data-processing', label: 'Data Processing' },
-  { id: 'developer',       label: 'Developer' },
-  { id: 'ai',              label: 'AI & Agents' },
+  { id: 'all',                        label: 'All Templates' },
+  { id: 'basic-testing',              label: 'Basic Testing' },
+  { id: 'data-processing',            label: 'Data Processing' },
+  { id: 'logic-branching',            label: 'Logic & Branching' },
+  { id: 'execution-recovery',         label: 'Execution & Recovery' },
+  { id: 'database-integrations',       label: 'Database Integrations' },
+  { id: 'communication-integrations',  label: 'Communication Integrations' },
+  { id: 'ai-automation',              label: 'AI & Automation' },
+  { id: 'getting-started',            label: 'Getting Started' },
+  { id: 'api',                        label: 'API' },
+  { id: 'database',                   label: 'Database' },
+  { id: 'automation',                 label: 'Automation' },
+  { id: 'developer',                  label: 'Developer' },
+  { id: 'ai',                         label: 'AI & Agents' },
 ];
 
 // ─── Workflow Templates ───────────────────────────────────────────────────────
@@ -1585,6 +1593,9 @@ export const TEMPLATES = [
       { id: 'e6', source: 'n6', target: 'n7', animated: true },
     ],
   },
+
+  // ── Developer Testing Template Library (22 Scenarios) ───────────────────────
+  ...DEVELOPER_TEMPLATES,
 ];
 
 // ─── Node Palette Definitions ─────────────────────────────────────────────────

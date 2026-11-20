@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, X, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { NODE_DEFS } from '../../../data/templates';
 import { getNodeIcon } from '../../../constants/Icons';
 import { EmptyState } from '../../ui';
+import useCanvasStore from '../../../store/canvasStore';
 
 const CATEGORIES = [
   { id: 'all', label: 'All' },
@@ -12,14 +13,34 @@ const CATEGORIES = [
   { id: 'ai', label: 'AI' },
 ];
 
-export default function NodePalette() {
+export default function NodePalette({ isMobileDrawer = false, onCloseMobile, onAddNode }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { showMobilePalette, setShowMobilePalette } = useCanvasStore();
+
+  // Auto-collapse on tablet viewports upon mount (between 768px and 1100px)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !isMobileDrawer) {
+      if (window.innerWidth >= 768 && window.innerWidth < 1100) {
+        setIsCollapsed(true);
+      }
+    }
+  }, [isMobileDrawer]);
 
   const onDragStart = (e, type) => {
     e.dataTransfer.setData('application/reactflow', type);
     e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleNodeClick = (type) => {
+    if (onAddNode) {
+      onAddNode(type);
+      if (isMobileDrawer) {
+        if (onCloseMobile) onCloseMobile();
+        else setShowMobilePalette(false);
+      }
+    }
   };
 
   // Canonical nodes list from Object.entries(NODE_DEFS)
@@ -66,9 +87,10 @@ export default function NodePalette() {
     return groups;
   }, [filteredNodes]);
 
-  if (isCollapsed) {
+  if (isCollapsed && !isMobileDrawer) {
     return (
       <div
+        className="node-palette-collapsed hide-on-mobile"
         style={{
           width: 36,
           background: 'var(--bg-surface)',
@@ -93,14 +115,23 @@ export default function NodePalette() {
     );
   }
 
+  const handleClose = () => {
+    if (isMobileDrawer) {
+      if (onCloseMobile) onCloseMobile();
+      else setShowMobilePalette(false);
+    } else {
+      setIsCollapsed(true);
+    }
+  };
+
   return (
     <aside
-      className="node-palette"
+      className={`node-palette ${isMobileDrawer ? 'node-palette-mobile-drawer' : 'hide-on-mobile'}`}
       style={{
         width: 240,
         minWidth: 240,
         maxWidth: 240,
-        zIndex: 10,
+        zIndex: isMobileDrawer ? 95 : 10,
         display: 'flex',
         flexDirection: 'column',
         borderRight: '1px solid var(--border)',
@@ -123,13 +154,13 @@ export default function NodePalette() {
           Node Palette
         </div>
         <button
-          onClick={() => setIsCollapsed(true)}
+          onClick={handleClose}
           className="btn btn-ghost btn-sm"
           style={{ padding: '2px 4px', height: 'auto', color: 'var(--text-muted)' }}
-          title="Collapse Palette"
-          aria-label="Collapse Palette"
+          title={isMobileDrawer ? 'Close Palette' : 'Collapse Palette'}
+          aria-label={isMobileDrawer ? 'Close Palette' : 'Collapse Palette'}
         >
-          <ChevronLeft size={14} />
+          {isMobileDrawer ? <X size={16} /> : <ChevronLeft size={14} />}
         </button>
       </div>
 
@@ -259,6 +290,7 @@ export default function NodePalette() {
                           className="palette-node"
                           draggable
                           onDragStart={(e) => onDragStart(e, type)}
+                          onClick={() => handleNodeClick(type)}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -278,7 +310,7 @@ export default function NodePalette() {
                             e.currentTarget.style.borderColor = 'var(--border)';
                             e.currentTarget.style.transform = 'translateX(0)';
                           }}
-                          title={`Drag to add ${def.label}\n${def.description || ''}`}
+                          title={`Drag or tap to add ${def.label}\n${def.description || ''}`}
                         >
                           <GripVertical size={12} color="var(--text-muted)" style={{ opacity: 0.5, flexShrink: 0 }} />
 

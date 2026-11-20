@@ -35,11 +35,14 @@ const BLOCKED_HOSTNAME_SUFFIXES = [
   '.localdomain',
 ];
 
-// Offline & Test mock DNS table for deterministic offline test execution
-const MOCK_DNS_TABLE = new Map([
+// Explicitly registered mock DNS overrides (e.g. from registerMockDns for testing SSRF / rebinding)
+const CUSTOM_MOCK_DNS = new Map();
+
+// Offline fallback table for deterministic test execution when network/DNS is unreachable (e.g. offline sandbox)
+const OFFLINE_FALLBACK_DNS = new Map([
   ['example.com', [{ address: '93.184.216.34', family: 4 }]],
   ['api.example.com', [{ address: '93.184.216.34', family: 4 }]],
-  ['jsonplaceholder.typicode.com', [{ address: '93.184.216.34', family: 4 }]],
+  ['jsonplaceholder.typicode.com', [{ address: '104.21.59.19', family: 4 }, { address: '172.67.167.151', family: 4 }]],
   ['script.google.com', [{ address: '142.250.190.74', family: 4 }]],
   ['api.openai.com', [{ address: '104.18.7.192', family: 4 }]],
   ['api.anthropic.com', [{ address: '104.18.7.192', family: 4 }]],
@@ -59,7 +62,7 @@ function registerMockDns(hostname, ips) {
     address: ip,
     family: net.isIP(ip) || 4,
   }));
-  MOCK_DNS_TABLE.set(normHost, records);
+  CUSTOM_MOCK_DNS.set(normHost, records);
 }
 
 /**
@@ -68,37 +71,33 @@ function registerMockDns(hostname, ips) {
  */
 function clearMockDns(hostname) {
   if (hostname) {
-    MOCK_DNS_TABLE.delete(String(hostname).toLowerCase().trim());
+    CUSTOM_MOCK_DNS.delete(String(hostname).toLowerCase().trim());
   } else {
-    MOCK_DNS_TABLE.clear();
-    // Restore default public fixtures
-    MOCK_DNS_TABLE.set('example.com', [{ address: '93.184.216.34', family: 4 }]);
-    MOCK_DNS_TABLE.set('api.example.com', [{ address: '93.184.216.34', family: 4 }]);
-    MOCK_DNS_TABLE.set('jsonplaceholder.typicode.com', [{ address: '93.184.216.34', family: 4 }]);
-    MOCK_DNS_TABLE.set('script.google.com', [{ address: '142.250.190.74', family: 4 }]);
-    MOCK_DNS_TABLE.set('api.openai.com', [{ address: '104.18.7.192', family: 4 }]);
-    MOCK_DNS_TABLE.set('api.anthropic.com', [{ address: '104.18.7.192', family: 4 }]);
-    MOCK_DNS_TABLE.set('openrouter.ai', [{ address: '104.18.7.192', family: 4 }]);
-    MOCK_DNS_TABLE.set('generativelanguage.googleapis.com', [{ address: '142.250.190.74', family: 4 }]);
+    CUSTOM_MOCK_DNS.clear();
   }
 }
 
 /**
- * Resolves all addresses for a hostname, consulting mock table first if offline or mocked
+ * Resolves all addresses for a hostname, consulting custom mock table first if registered,
+ * then performing real DNS lookup, and falling back to offline table if network is unavailable.
  * @param {string} hostname
  * @returns {Promise<Array<{ address: string, family: number }>>}
  */
 async function resolveAllAddresses(hostname) {
   const normHost = String(hostname).toLowerCase().trim().replace(/^\[|\]$/g, '');
-  if (MOCK_DNS_TABLE.has(normHost)) {
-    return MOCK_DNS_TABLE.get(normHost);
+
+  // 1. Explicit mock DNS overrides registered by tests (e.g. registerMockDns for rebinding tests)
+  if (CUSTOM_MOCK_DNS.has(normHost)) {
+    return CUSTOM_MOCK_DNS.get(normHost);
   }
 
+  // 2. Real DNS lookup
   try {
     return await dns.promises.lookup(normHost, { all: true });
   } catch (err) {
-    if (MOCK_DNS_TABLE.has(normHost)) {
-      return MOCK_DNS_TABLE.get(normHost);
+    // 3. Fallback table for offline test environments when network is unavailable
+    if (OFFLINE_FALLBACK_DNS.has(normHost)) {
+      return OFFLINE_FALLBACK_DNS.get(normHost);
     }
     throw err;
   }
@@ -596,7 +595,12 @@ function createSafeLookup(options = {}) {
       if (check.blocked) {
         return cb(new Error(`SSRF blocked: Prohibited IP "${cleanHostname}" (${check.reason})`));
       }
-      return cb(null, cleanHostname, net.isIP(cleanHostname));
+      const ipFamily = net.isIP(cleanHostname);
+      const isAll = Boolean(lookupOptions && typeof lookupOptions === 'object' && lookupOptions.all);
+      if (isAll) {
+        return cb(null, [{ address: cleanHostname, family: ipFamily }]);
+      }
+      return cb(null, cleanHostname, ipFamily);
     }
 
     resolveAllAddresses(cleanHostname)
@@ -616,11 +620,23 @@ function createSafeLookup(options = {}) {
           }
         }
 
+        const reqFamily = typeof lookupOptions === 'number'
+          ? lookupOptions
+          : (lookupOptions && typeof lookupOptions === 'object' ? lookupOptions.family : undefined);
+
+        let matchedAddresses = addresses;
+        if (reqFamily === 4 || reqFamily === 6) {
+          const filtered = addresses.filter((r) => r.family === reqFamily);
+          if (filtered.length > 0) {
+            matchedAddresses = filtered;
+          }
+        }
+
         const isAll = Boolean(lookupOptions && typeof lookupOptions === 'object' && lookupOptions.all);
         if (isAll) {
-          cb(null, addresses);
+          cb(null, matchedAddresses);
         } else {
-          cb(null, addresses[0].address, addresses[0].family);
+          cb(null, matchedAddresses[0].address, matchedAddresses[0].family);
         }
       })
       .catch((err) => cb(err));
@@ -715,6 +731,18 @@ async function executeSafeRequest(requestConfig, options = {}) {
         delete currentHeaders['content-length'];
       }
 
+      // Strip sensitive credentials on cross-origin redirects (RFC 7235 / security best practice)
+      try {
+        if (new URL(nextUrl).origin !== new URL(currentUrl).origin) {
+          delete currentHeaders['authorization'];
+          delete currentHeaders['Authorization'];
+          delete currentHeaders['cookie'];
+          delete currentHeaders['Cookie'];
+        }
+      } catch {
+        // Ignored — URL parse error would have been thrown above
+      }
+
       currentUrl = nextUrl;
       continue;
     }
@@ -738,4 +766,5 @@ module.exports = {
   executeSafeRequest,
   registerMockDns,
   clearMockDns,
+  resolveAllAddresses,
 };

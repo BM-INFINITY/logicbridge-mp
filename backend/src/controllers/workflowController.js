@@ -49,10 +49,14 @@ const createWorkflow = async (req, res, next) => {
 
     const workflow = await workflowService.createWorkflow({
       ...req.body,
+      variables: validation.normalizedVariables !== undefined ? validation.normalizedVariables : req.body.variables,
       ownerId: req.user._id,
     });
     return success(res, workflow, 201);
   } catch (err) {
+    if (err.statusCode) {
+      return error(res, err.message, err.statusCode);
+    }
     return next(err);
   }
 };
@@ -84,7 +88,12 @@ const updateWorkflow = async (req, res, next) => {
       return error(res, validation.error, 400);
     }
 
-    const workflow = await workflowService.updateWorkflow(req.params.id, req.user._id, req.body);
+    const payload = { ...req.body };
+    if (validation.normalizedVariables !== undefined) {
+      payload.variables = validation.normalizedVariables;
+    }
+
+    const workflow = await workflowService.updateWorkflow(req.params.id, req.user._id, payload);
     return success(res, workflow);
   } catch (err) {
     if (err.statusCode) {

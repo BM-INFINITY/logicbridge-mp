@@ -200,16 +200,42 @@ export function instantiateTemplate(template, options = {}) {
   });
 
   // 4. Merge initial variables if supplied
-  const variables = options.variables
-    ? JSON.parse(JSON.stringify(options.variables))
-    : (template.initialVariables ? JSON.parse(JSON.stringify(template.initialVariables)) : undefined);
+  let normalizedVars = [];
+  const rawVars = options.variables !== undefined ? options.variables : template.initialVariables;
+  if (Array.isArray(rawVars)) {
+    normalizedVars = rawVars.map((v) => ({
+      name: v.name,
+      type: v.type || 'string',
+      value: v.value !== undefined ? v.value : '',
+      description: v.description || '',
+    }));
+  } else if (rawVars && typeof rawVars === 'object') {
+    const requiredDefs = template.requiredVariables || [];
+    const defMap = new Map(requiredDefs.map((d) => [d.name, d]));
+    normalizedVars = Object.entries(rawVars).map(([name, val]) => {
+      const def = defMap.get(name);
+      return {
+        name,
+        type: def?.type || (typeof val === 'number' ? 'number' : typeof val === 'boolean' ? 'boolean' : 'string'),
+        value: val !== undefined ? val : (def?.default ?? ''),
+        description: def?.description || '',
+      };
+    });
+  } else if (Array.isArray(template.requiredVariables) && template.requiredVariables.length > 0) {
+    normalizedVars = template.requiredVariables.map((v) => ({
+      name: v.name,
+      type: v.type || 'string',
+      value: v.default !== undefined ? v.default : '',
+      description: v.description || '',
+    }));
+  }
 
   return {
     name: options.name || template.name || 'Untitled Workflow',
     description: options.description !== undefined ? options.description : (template.description || ''),
     nodes,
     edges,
-    ...(variables ? { variables } : {}),
+    variables: normalizedVars,
   };
 }
 
@@ -348,7 +374,7 @@ export async function installTemplateWorkflow(template, options = {}) {
         description: instantiated.description,
         nodes: instantiated.nodes,
         edges: instantiated.edges,
-        variables: instantiated.variables || {},
+        variables: Array.isArray(instantiated.variables) ? instantiated.variables : [],
         status: 'draft',
       };
       const created = await options.createFn(payload);

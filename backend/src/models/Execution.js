@@ -155,10 +155,32 @@ executionSchema.index({ workflow: 1, startedAt: -1 });
 executionSchema.index({ owner: 1, startedAt: -1 });
 executionSchema.index({ status: 1 });
 executionSchema.index({ 'approval.status': 1 });
-executionSchema.index({ 'approval.resumeToken': 1 }, { sparse: true, unique: true });
+// Partial unique index restricted strictly to valid string tokens (prevents duplicate null collisions)
+executionSchema.index(
+  { 'approval.resumeToken': 1 },
+  {
+    name: 'idx_approval_resume_token_unique',
+    unique: true,
+    partialFilterExpression: { 'approval.resumeToken': { $type: 'string' } },
+  }
+);
 executionSchema.index({ 'wait.status': 1, 'wait.waitUntil': 1 });
-executionSchema.index({ 'wait.resumeToken': 1 }, { sparse: true, unique: true });
-executionSchema.index({ occurrenceId: 1 }, { sparse: true, unique: true });
+executionSchema.index(
+  { 'wait.resumeToken': 1 },
+  {
+    name: 'idx_wait_resume_token_unique',
+    unique: true,
+    partialFilterExpression: { 'wait.resumeToken': { $type: 'string' } },
+  }
+);
+executionSchema.index(
+  { occurrenceId: 1 },
+  {
+    name: 'idx_occurrence_id_unique',
+    unique: true,
+    partialFilterExpression: { occurrenceId: { $type: 'string' } },
+  }
+);
 executionSchema.index({ status: 1, leaseExpiresAt: 1 });
 
 module.exports = mongoose.model('Execution', executionSchema);

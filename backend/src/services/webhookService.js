@@ -668,7 +668,7 @@ async function processWebhook(workflow, req, rawBody = null) {
               heartbeatAt: now,
             },
           },
-          { new: true }
+          { returnDocument: 'after' }
         );
 
         if (!reclaimed) {

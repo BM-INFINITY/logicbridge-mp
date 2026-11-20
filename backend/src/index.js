@@ -15,6 +15,7 @@ const { initScheduler } = require('./services/scheduler');
 const { mailProvider } = require('./providers');
 const { recoverInterruptedExecutions } = require('./services/workflowEngine');
 const { ensureWebhookIndexes, recoverAbandonedWebhookClaims } = require('./services/webhookService');
+const { ensureExecutionIndexes } = require('./services/executionService');
 const CredentialService = require('./services/CredentialService');
 const createSecurityHeadersMiddleware = require('./middleware/securityHeaders');
 const lifecycleManager = require('./services/lifecycleManager');
@@ -217,6 +218,11 @@ if (require.main === module) {
         await ensureWebhookIndexes(); // safely reconcile historical duplicates & build unique indexes
       } catch (idxErr) {
         console.warn('⚠ Webhook index synchronization warning:', idxErr.message);
+      }
+      try {
+        await ensureExecutionIndexes(); // safely reconcile obsolete resumeToken indexes to partial unique indexes
+      } catch (execIdxErr) {
+        console.warn('⚠ Execution index synchronization warning:', execIdxErr.message);
       }
       await recoverInterruptedExecutions(); // safely mark interrupted executions from server crashes
       try {

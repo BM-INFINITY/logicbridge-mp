@@ -218,7 +218,7 @@ async function refreshUserToken({ refreshToken, ipAddress = null, userAgent = nu
             replacedByTokenHash: newHash,
           },
         },
-        { new: false }
+        { returnDocument: 'before' }
       );
     } catch (dbErr) {
       if (isProd) {

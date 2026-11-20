@@ -364,7 +364,7 @@ async function claimDueSchedules(workerId = WORKER_ID, limit = 10) {
           lockExpiresAt: new Date(now.getTime() + LOCK_TTL_MS),
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (claimedDoc) {

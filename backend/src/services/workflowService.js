@@ -5,7 +5,7 @@ const { scheduleWorkflow, unscheduleWorkflow } = require('./scheduler');
 const { NodeTypes, WorkflowStatus } = require('../constants');
 const WorkflowImportValidator = require('../validators/WorkflowImportValidator');
 const CredentialService = require('./CredentialService');
-const { validateVariable, validateSecret } = require('../validators/workflowVariableValidator');
+const { validateVariable, validateSecret, validateAndNormalizeWorkflowVariables } = require('../validators/workflowVariableValidator');
 
 /**
  * Fetch all workflows owned by a user
@@ -18,6 +18,14 @@ async function getWorkflowsByOwner(ownerId) {
  * Create a new workflow for a user
  */
 async function createWorkflow({ name, description, nodes, edges, variables, ownerId, status, label, changeReason }) {
+  const normalizedVarsResult = validateAndNormalizeWorkflowVariables(variables);
+  if (!normalizedVarsResult.valid) {
+    const err = new Error(normalizedVarsResult.error);
+    err.statusCode = 400;
+    throw err;
+  }
+  const safeVariables = normalizedVarsResult.normalized;
+
   const initialSnapshot = {
     version: 1,
     label: label || 'Initial',
@@ -26,7 +34,7 @@ async function createWorkflow({ name, description, nodes, edges, variables, owne
     description: description || '',
     nodes: nodes || [],
     edges: edges || [],
-    variables: variables || [],
+    variables: safeVariables,
     createdAt: new Date(),
     createdBy: String(ownerId),
   };
@@ -40,7 +48,7 @@ async function createWorkflow({ name, description, nodes, edges, variables, owne
     versionHistory: [initialSnapshot],
     nodes: nodes || [],
     edges: edges || [],
-    variables: variables || [],
+    variables: safeVariables,
   });
 }
 
@@ -73,6 +81,16 @@ async function updateWorkflow(workflowId, ownerId, updateBody, options = {}) {
     body.nodes = body.nodes.map(n => ({ ...n, data: { ...n.data, _execStatus: undefined } }));
   }
 
+  if (body.variables !== undefined) {
+    const normalizedVarsResult = validateAndNormalizeWorkflowVariables(body.variables);
+    if (!normalizedVarsResult.valid) {
+      const err = new Error(normalizedVarsResult.error);
+      err.statusCode = 400;
+      throw err;
+    }
+    body.variables = normalizedVarsResult.normalized;
+  }
+
   const hasStructuralChanges = body.nodes || body.edges || body.name || body.variables;
 
   if (hasStructuralChanges) {
@@ -101,7 +119,7 @@ async function updateWorkflow(workflowId, ownerId, updateBody, options = {}) {
   const workflow = await Workflow.findOneAndUpdate(
     { _id: workflowId, owner: ownerId },
     body,
-    { new: true }
+    { returnDocument: 'after' }
   );
 
   // Auto-schedule if active and contains trigger-schedule

@@ -818,104 +818,113 @@ async function resume(executionId, resumeOptions = {}, user = null) {
   const isApproval = execution.status === ExecutionStatus.WAITING_APPROVAL;
   const isWait = execution.status === ExecutionStatus.PAUSED;
 
+  const hadExistingApproval = execution.approval !== null && execution.approval !== undefined;
+  const hadExistingWait = execution.wait !== null && execution.wait !== undefined;
+
   activeExecutionsCount++;
   try {
 
   // 2. Pre-claim authorization and parameter validation for approvals
   if (isApproval) {
-    let { decision, comments } = resumeOptions;
-    if (decision === 'approve') decision = 'approved';
-    if (decision === 'reject') decision = 'rejected';
-    if (!['approved', 'rejected'].includes(decision)) {
-      throw new ValidationError('Approval decision must be either "approved" or "rejected"');
-    }
-    resumeOptions.decision = decision;
+    const existingDecision = execution.approval?.decision;
+    const isAlreadyDecided = existingDecision === 'approved' || existingDecision === 'rejected' || ['approved', 'rejected', 'timeout'].includes(execution.approval?.status);
 
-    const allowed = execution.approval?.allowedApprovers || [];
-    const role = execution.approval?.approverRole;
+    const comments = resumeOptions.comments;
     const userEmail = user?.email;
     const userId = user?._id ? String(user._id) : null;
     const ownerId = String(execution.owner);
     const userRole = user?.role || 'user';
     const isAdmin = userRole === 'admin';
 
-    const isEmailAllowed = userEmail && allowed.some((a) => a.toLowerCase() === userEmail.toLowerCase());
-    const isIdAllowed = userId && allowed.includes(userId);
-    const isRoleAllowed = role && (userRole === role || isAdmin);
-    const isOwner = userId && userId === ownerId;
-
-    let isAuthorized = false;
-    if (isAdmin) {
-      isAuthorized = true;
-    } else if (role && allowed.length > 0) {
-      isAuthorized = isRoleAllowed || isEmailAllowed || isIdAllowed;
-    } else if (role) {
-      // Role explicitly required — owner cannot approve unless they hold the role or are admin
-      isAuthorized = isRoleAllowed;
-    } else if (allowed.length > 0) {
-      // Specific approvers explicitly required
-      isAuthorized = isEmailAllowed || isIdAllowed;
+    let finalStatus;
+    if (isAlreadyDecided) {
+      // A decided approval can be safely resumed or recovered without repeating the decision.
+      // Do not automatically reset or overwrite an existing decision.
+      if (resumeOptions.decision) {
+        let reqDecision = resumeOptions.decision;
+        if (reqDecision === 'approve') reqDecision = 'approved';
+        if (reqDecision === 'reject') reqDecision = 'rejected';
+        if (reqDecision !== existingDecision && reqDecision !== execution.approval?.status) {
+          throw new ValidationError(
+            `Approval for execution ${executionId} has already been decided as "${existingDecision || execution.approval?.status}" and cannot be modified`
+          );
+        }
+      }
+      resumeOptions.decision = existingDecision || execution.approval?.status || 'approved';
+      finalStatus = execution.approval?.status || resumeOptions.decision;
     } else {
-      // Unrestricted: workflow owner or admin
-      isAuthorized = isOwner;
+      let { decision } = resumeOptions;
+      if (decision === 'approve') decision = 'approved';
+      if (decision === 'reject') decision = 'rejected';
+      if (!['approved', 'rejected'].includes(decision)) {
+        throw new ValidationError('Approval decision must be either "approved" or "rejected"');
+      }
+      resumeOptions.decision = decision;
+
+      const allowed = execution.approval?.allowedApprovers || [];
+      const role = execution.approval?.approverRole;
+
+      const isEmailAllowed = userEmail && allowed.some((a) => a.toLowerCase() === userEmail.toLowerCase());
+      const isIdAllowed = userId && allowed.includes(userId);
+      const isRoleAllowed = role && (userRole === role || isAdmin);
+      const isOwner = userId && userId === ownerId;
+
+      let isAuthorized = false;
+      if (isAdmin) {
+        isAuthorized = true;
+      } else if (role && allowed.length > 0) {
+        isAuthorized = isRoleAllowed || isEmailAllowed || isIdAllowed;
+      } else if (role) {
+        // Role explicitly required — owner cannot approve unless they hold the role or are admin
+        isAuthorized = isRoleAllowed;
+      } else if (allowed.length > 0) {
+        // Specific approvers explicitly required
+        isAuthorized = isEmailAllowed || isIdAllowed;
+      } else {
+        // Unrestricted: workflow owner or admin
+        isAuthorized = isOwner;
+      }
+
+      // Reject unauthorized attempts IMMEDIATELY without claiming or modifying DB status
+      if (!isAuthorized) {
+        AuditLogger.recordEvent({
+          eventType: AuditLogger.AuditEvents.AUTHORIZATION_FAILURE,
+          severity: 'warn',
+          actorId: userId,
+          actorEmail: userEmail,
+          actorRole: userRole,
+          targetResource: `execution:${executionId}:approval`,
+          outcome: 'blocked',
+          details: { reason: 'insufficient role or not in approvers list', approverRole: role },
+        });
+
+        const authErr = new Error('Unauthorized to approve or reject this execution: insufficient role or not in approvers list');
+        authErr.statusCode = 403;
+        throw authErr;
+      }
+
+      // Check timeout
+      finalStatus = decision;
+      if (execution.approval?.timeoutAt && new Date() > new Date(execution.approval.timeoutAt)) {
+        finalStatus = 'timeout';
+        resumeOptions.decision = execution.approval.timeoutAction || 'reject';
+      }
     }
 
-    // Reject unauthorized attempts IMMEDIATELY without claiming or modifying DB status
-    if (!isAuthorized) {
-      AuditLogger.recordEvent({
-        eventType: AuditLogger.AuditEvents.AUTHORIZATION_FAILURE,
-        severity: 'warn',
-        actorId: userId,
-        actorEmail: userEmail,
-        actorRole: userRole,
-        targetResource: `execution:${executionId}:approval`,
-        outcome: 'blocked',
-        details: { reason: 'insufficient role or not in approvers list', approverRole: role },
-      });
-
-      const authErr = new Error('Unauthorized to approve or reject this execution: insufficient role or not in approvers list');
-      authErr.statusCode = 403;
-      throw authErr;
+    if (!execution.approval) {
+      execution.approval = {};
     }
-
-    // Check timeout
-    let finalStatus = decision;
-    if (execution.approval?.timeoutAt && new Date() > new Date(execution.approval.timeoutAt)) {
-      finalStatus = 'timeout';
-      resumeOptions.decision = execution.approval.timeoutAction || 'reject';
-    }
-
     execution.approval.status = finalStatus;
     execution.approval.decision = resumeOptions.decision;
-    execution.approval.decidedBy = userEmail || userId || 'system';
-    execution.approval.decidedAt = new Date();
-    execution.approval.comments = comments || '';
+    execution.approval.decidedBy = execution.approval.decidedBy || userEmail || userId || 'system';
+    execution.approval.decidedAt = execution.approval.decidedAt || new Date();
+    execution.approval.comments = execution.approval.comments || comments || '';
   }
 
-  // 3. Atomically claim execution only after authorization check passes
-  const claim = await Execution.findOneAndUpdate(
-    {
-      _id: executionId,
-      status: execution.status,
-    },
-    {
-      $set: {
-        status: ExecutionStatus.RUNNING,
-        workerId: WORKER_ID,
-        heartbeatAt: new Date(),
-        leaseExpiresAt: new Date(Date.now() + LEASE_DURATION_MS),
-        'wait.resumeToken': null, // Single-use token immediately invalidated on claim
-      },
-    },
-    { new: true }
-  );
-
-  if (!claim) {
-    const current = await Execution.findById(executionId);
-    throw new ValidationError(
-      `Execution ${executionId} is in status "${current?.status || 'unknown'}" and cannot be resumed (must be "waiting_approval" or "paused")`
-    );
-  }
+  let waitStatus = null;
+  let waitResumedAt = null;
+  let waitResumedBy = null;
+  let waitPayload = null;
 
   if (isWait) {
     let isTimeout = false;
@@ -923,10 +932,106 @@ async function resume(executionId, resumeOptions = {}, user = null) {
       isTimeout = true;
     }
 
-    execution.wait.status = isTimeout ? 'timeout' : 'resumed';
-    execution.wait.resumedAt = new Date();
-    execution.wait.resumedBy = user?.email || resumeOptions.resumedBy || 'system';
-    execution.wait.resumePayload = resumeOptions.payload || {};
+    waitStatus = isTimeout ? 'timeout' : 'resumed';
+    waitResumedAt = new Date();
+    waitResumedBy = user?.email || resumeOptions.resumedBy || 'system';
+    waitPayload = resumeOptions.payload || {};
+
+    if (!execution.wait) {
+      execution.wait = {};
+    }
+    execution.wait.status = waitStatus;
+    execution.wait.resumedAt = waitResumedAt;
+    execution.wait.resumedBy = waitResumedBy;
+    execution.wait.resumePayload = waitPayload;
+  }
+
+  // 3. Atomically claim execution and persist decision/resumption metadata
+  const claimSet = {
+    status: ExecutionStatus.RUNNING,
+    workerId: WORKER_ID,
+    heartbeatAt: new Date(),
+    leaseExpiresAt: new Date(Date.now() + LEASE_DURATION_MS),
+  };
+
+  if (isApproval) {
+    // Ensure approval resume updates ONLY approval-related fields (never touch wait).
+    // If execution.approval was an existing non-null object, perform targeted atomic updates.
+    // If execution.approval was null/missing, safely initialize the entire parent object.
+    if (hadExistingApproval) {
+      claimSet['approval.status'] = execution.approval.status;
+      claimSet['approval.decision'] = execution.approval.decision;
+      claimSet['approval.decidedBy'] = execution.approval.decidedBy;
+      claimSet['approval.decidedAt'] = execution.approval.decidedAt;
+      claimSet['approval.comments'] = execution.approval.comments;
+      if (execution.approval.resumeToken) {
+        claimSet['approval.resumeToken'] = null; // Invalidate single-use token if present
+      }
+    } else {
+      claimSet.approval = {
+        approvalId: execution.checkpoint?.currentNodeId || 'appr_resumed',
+        nodeId: execution.checkpoint?.currentNodeId || null,
+        title: 'Approval Required',
+        message: '',
+        allowedApprovers: [],
+        approverRole: null,
+        status: execution.approval.status,
+        decision: execution.approval.decision,
+        decidedBy: execution.approval.decidedBy,
+        decidedAt: execution.approval.decidedAt,
+        comments: execution.approval.comments,
+        timeoutMinutes: null,
+        timeoutAt: null,
+        timeoutAction: 'reject',
+        resumeToken: null,
+      };
+    }
+  } else if (isWait) {
+    // Ensure wait resume updates ONLY wait-related fields (never touch approval).
+    // If execution.wait was an existing non-null object, perform targeted atomic updates.
+    // If execution.wait was null/missing, safely initialize the entire parent object.
+    if (hadExistingWait) {
+      claimSet['wait.status'] = waitStatus;
+      claimSet['wait.resumedAt'] = waitResumedAt;
+      claimSet['wait.resumedBy'] = waitResumedBy;
+      claimSet['wait.resumePayload'] = waitPayload;
+      if (execution.wait?.resumeToken) {
+        claimSet['wait.resumeToken'] = null; // Invalidate single-use token
+      }
+    } else {
+      claimSet.wait = {
+        waitId: execution.checkpoint?.currentNodeId || 'wait_resumed',
+        nodeId: execution.checkpoint?.currentNodeId || null,
+        type: 'duration',
+        durationSeconds: null,
+        waitUntil: null,
+        eventName: null,
+        resumeToken: null,
+        status: waitStatus,
+        timeoutAt: null,
+        resumedAt: waitResumedAt,
+        resumedBy: waitResumedBy,
+        resumePayload: waitPayload,
+      };
+    }
+  }
+
+  const claim = await Execution.findOneAndUpdate(
+    {
+      _id: executionId,
+      status: execution.status,
+    },
+    {
+      $set: claimSet,
+    },
+    { returnDocument: 'after' }
+  );
+
+  if (!claim) {
+    const current = await Execution.findById(executionId);
+    throw new ValidationError(
+      `Execution ${executionId} is in status "${current?.status || 'unknown'}" and cannot be resumed (must be "waiting_approval" or "paused")`
+    );
   }
 
   // Fetch and decrypt secrets securely for this workflow
@@ -968,27 +1073,32 @@ async function resume(executionId, resumeOptions = {}, user = null) {
 
     if (isApproval) {
       context.resumingApproval = {
-        approvalId: execution.approval.approvalId,
-        nodeId: execution.approval.nodeId,
-        status: execution.approval.status,
-        decision: execution.approval.decision,
-        decidedBy: execution.approval.decidedBy,
-        decidedAt: execution.approval.decidedAt,
-        comments: execution.approval.comments,
+        approvalId: execution.approval?.approvalId,
+        nodeId: execution.approval?.nodeId,
+        status: execution.approval?.status,
+        decision: execution.approval?.decision,
+        decidedBy: execution.approval?.decidedBy,
+        decidedAt: execution.approval?.decidedAt,
+        comments: execution.approval?.comments,
       };
+      if (execution.approval) {
+        execution.approval.resumeToken = null;
+      }
     }
 
     if (isWait) {
       context.resumingWait = {
-        waitId: execution.wait.waitId,
-        nodeId: execution.wait.nodeId,
-        status: execution.wait.status,
-        resumedAt: execution.wait.resumedAt,
-        resumedBy: execution.wait.resumedBy,
-        resumePayload: execution.wait.resumePayload,
+        waitId: execution.wait?.waitId,
+        nodeId: execution.wait?.nodeId,
+        status: execution.wait?.status,
+        resumedAt: execution.wait?.resumedAt,
+        resumedBy: execution.wait?.resumedBy,
+        resumePayload: execution.wait?.resumePayload,
       };
       // Enforce single-use token: invalidate resumeToken immediately upon resumption
-      execution.wait.resumeToken = null;
+      if (execution.wait) {
+        execution.wait.resumeToken = null;
+      }
     }
 
     const executionPath = new ExecutionPath();
@@ -1453,7 +1563,7 @@ async function recoverInterruptedExecutions(options = {}) {
           recovery: recoveryMetadata,
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (result) {

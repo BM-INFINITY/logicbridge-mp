@@ -167,7 +167,7 @@ export default function DashboardPage() {
         description: instantiated.description,
         nodes: instantiated.nodes,
         edges: instantiated.edges,
-        variables: instantiated.variables || {},
+        variables: Array.isArray(instantiated.variables) ? instantiated.variables : [],
         status: 'draft',
       });
       toast.success(`Template "${instantiated.name}" created!`);

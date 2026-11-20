@@ -1,19 +1,34 @@
 const { NodeTypes, BranchTypes } = require('../constants');
+const { validateAndNormalizeWorkflowVariables } = require('./workflowVariableValidator');
 
 /**
  * Validation rules for workflows
  */
 function validateCreateWorkflow(body) {
-  const { name } = body || {};
+  const { name, variables } = body || {};
   if (name !== undefined && typeof name !== 'string') {
     return { valid: false, error: 'Workflow name must be a string' };
   }
-  return { valid: true };
+  if (variables !== undefined) {
+    const varResult = validateAndNormalizeWorkflowVariables(variables);
+    if (!varResult.valid) {
+      return { valid: false, error: varResult.error };
+    }
+    return { valid: true, normalizedVariables: varResult.normalized };
+  }
+  return { valid: true, normalizedVariables: [] };
 }
 
 function validateUpdateWorkflow(body) {
   if (!body || typeof body !== 'object') {
     return { valid: false, error: 'Invalid update payload' };
+  }
+  if (body.variables !== undefined) {
+    const varResult = validateAndNormalizeWorkflowVariables(body.variables);
+    if (!varResult.valid) {
+      return { valid: false, error: varResult.error };
+    }
+    return { valid: true, normalizedVariables: varResult.normalized };
   }
   return { valid: true };
 }

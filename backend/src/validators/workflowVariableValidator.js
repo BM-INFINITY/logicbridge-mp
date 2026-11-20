@@ -152,10 +152,105 @@ function validateSecret(payload, isUpdate = false) {
   };
 }
 
+/**
+ * Validates and normalizes workflow variables from either an array or an object map.
+ * Enforces that variables have valid identifier names and types.
+ *
+ * @param {Array|object|undefined|null} variables
+ * @returns {{ valid: boolean, normalized?: Array<object>, error?: string }}
+ */
+function validateAndNormalizeWorkflowVariables(variables) {
+  // If undefined, null, or falsey -> safe empty array
+  if (variables === undefined || variables === null) {
+    return { valid: true, normalized: [] };
+  }
+
+  // If plain object (and not array)
+  if (typeof variables === 'object' && !Array.isArray(variables)) {
+    const keys = Object.keys(variables);
+    if (keys.length === 0) {
+      return { valid: true, normalized: [] };
+    }
+
+    const normalized = [];
+    const seenNames = new Set();
+
+    for (const [key, val] of Object.entries(variables)) {
+      const varPayload = {
+        name: key,
+        value: typeof val === 'object' && val !== null && val.value !== undefined ? val.value : val,
+        type:
+          typeof val === 'object' && val !== null && val.type
+            ? val.type
+            : typeof val === 'number'
+            ? 'number'
+            : typeof val === 'boolean'
+            ? 'boolean'
+            : typeof val === 'object' && val !== null
+            ? 'json'
+            : 'string',
+        description: typeof val === 'object' && val !== null && val.description ? val.description : '',
+      };
+
+      const check = validateVariable(varPayload);
+      if (!check.valid) {
+        return { valid: false, error: `Invalid variable "${key}": ${check.error}` };
+      }
+
+      const lower = check.sanitized.name.toLowerCase();
+      if (seenNames.has(lower)) {
+        return { valid: false, error: `Duplicate variable name "${check.sanitized.name}"` };
+      }
+      seenNames.add(lower);
+      normalized.push(check.sanitized);
+    }
+
+    return { valid: true, normalized };
+  }
+
+  // If array
+  if (Array.isArray(variables)) {
+    if (variables.length === 0) {
+      return { valid: true, normalized: [] };
+    }
+
+    const normalized = [];
+    const seenNames = new Set();
+
+    for (let i = 0; i < variables.length; i++) {
+      const item = variables[i];
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        return { valid: false, error: `Variable at index ${i} must be an object` };
+      }
+
+      if (item.name === undefined || item.name === null || typeof item.name !== 'string' || !item.name.trim()) {
+        return { valid: false, error: `Variable at index ${i} requires a valid name` };
+      }
+
+      const check = validateVariable(item);
+      if (!check.valid) {
+        return { valid: false, error: `Variable at index ${i} ("${item.name || ''}") is invalid: ${check.error}` };
+      }
+
+      const lower = check.sanitized.name.toLowerCase();
+      if (seenNames.has(lower)) {
+        return { valid: false, error: `Duplicate variable name "${check.sanitized.name}" at index ${i}` };
+      }
+      seenNames.add(lower);
+      normalized.push(check.sanitized);
+    }
+
+    return { valid: true, normalized };
+  }
+
+  return { valid: false, error: 'Variables must be an array or an object map' };
+}
+
 module.exports = {
   validateIdentifierName,
   validateVariable,
   validateSecret,
+  validateAndNormalizeWorkflowVariables,
   VALID_VARIABLE_TYPES,
 };
 

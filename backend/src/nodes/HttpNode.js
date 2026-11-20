@@ -237,7 +237,7 @@ class HttpNode extends BaseNode {
 
     // Validate destination URL before initiating request to prevent SSRF
     try {
-      await NetworkSecurity.validateUrl(resolvedUrl);
+      await NetworkSecurity.validateUrl(resolvedUrl, { allowPrivate: Boolean(context?.allowPrivate) });
     } catch (ssrfErr) {
       throw new NodeExecutionError(`SSRF Security Error: ${ssrfErr.message}`, {
         nodeId: node.id,
@@ -267,10 +267,18 @@ class HttpNode extends BaseNode {
           {
             client,
             maxRedirects: 5,
+            allowPrivate: Boolean(context?.allowPrivate),
           }
         );
 
-        // Break retry loop on successful completion (2xx, 3xx, 4xx)
+        // If server returns 5xx error and retries remain, wait and retry
+        if (response && response.status >= 500 && attempts < maxAttempts) {
+          const waitTime = backoffStrategy === 'exponential' ? delayMs * Math.pow(2, attempts - 1) : delayMs;
+          await new Promise((r) => setTimeout(r, waitTime));
+          continue;
+        }
+
+        // Break retry loop on completion (2xx, 3xx, 4xx, or exhausted 5xx)
         break;
       } catch (err) {
         lastError = err;

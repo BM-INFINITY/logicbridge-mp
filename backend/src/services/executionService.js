@@ -357,6 +357,146 @@ async function cancelExecution(executionId, user) {
   return sanitizeExecution(execution);
 }
 
+/**
+ * Ensures safe partial unique indexes for execution resume tokens and occurrence IDs,
+ * dropping legacy non-partial sparse unique indexes that collide on multiple nulls.
+ * Safe, idempotent, and non-destructive.
+ *
+ * @param {import('mongodb').Db} [customDb]
+ * @returns {Promise<{ dropped: string[], created: string[] }>}
+ */
+async function ensureExecutionIndexes(customDb = null) {
+  const mongoose = require('mongoose');
+  const db = customDb || (mongoose.connection && mongoose.connection.readyState === 1 ? mongoose.connection.db : null);
+  if (!db) {
+    return { dropped: [], created: [] };
+  }
+
+  const results = { dropped: [], created: [] };
+  const executions = db.collection('executions');
+
+  let existingIndexes = [];
+  try {
+    existingIndexes = await executions.indexes();
+  } catch (err) {
+    // If collection does not exist yet, it will be initialized on first write
+    return results;
+  }
+
+  // 1. Check & drop obsolete 'approval.resumeToken_1' if it lacks partialFilterExpression
+  const obsoleteApprovalIdx = existingIndexes.find(
+    (idx) => idx.name === 'approval.resumeToken_1' || (idx.key && idx.key['approval.resumeToken'])
+  );
+  if (obsoleteApprovalIdx && !obsoleteApprovalIdx.partialFilterExpression) {
+    try {
+      console.log(`[ExecutionService] Dropping obsolete sparse index: ${obsoleteApprovalIdx.name}...`);
+      await executions.dropIndex(obsoleteApprovalIdx.name);
+      results.dropped.push(obsoleteApprovalIdx.name);
+    } catch (dropErr) {
+      console.warn(`[ExecutionService] Failed to drop obsolete index ${obsoleteApprovalIdx.name}:`, dropErr.message);
+    }
+  }
+
+  // 2. Check & drop obsolete 'wait.resumeToken_1' if it lacks partialFilterExpression
+  const obsoleteWaitIdx = existingIndexes.find(
+    (idx) => idx.name === 'wait.resumeToken_1' || (idx.key && idx.key['wait.resumeToken'])
+  );
+  if (obsoleteWaitIdx && !obsoleteWaitIdx.partialFilterExpression) {
+    try {
+      console.log(`[ExecutionService] Dropping obsolete sparse index: ${obsoleteWaitIdx.name}...`);
+      await executions.dropIndex(obsoleteWaitIdx.name);
+      results.dropped.push(obsoleteWaitIdx.name);
+    } catch (dropErr) {
+      console.warn(`[ExecutionService] Failed to drop obsolete index ${obsoleteWaitIdx.name}:`, dropErr.message);
+    }
+  }
+
+  // 3. Check & drop obsolete 'occurrenceId_1' if it lacks partialFilterExpression
+  const obsoleteOccurrenceIdx = existingIndexes.find(
+    (idx) => idx.name === 'occurrenceId_1' || (idx.key && idx.key['occurrenceId'])
+  );
+  if (obsoleteOccurrenceIdx && !obsoleteOccurrenceIdx.partialFilterExpression) {
+    try {
+      console.log(`[ExecutionService] Dropping obsolete sparse index: ${obsoleteOccurrenceIdx.name}...`);
+      await executions.dropIndex(obsoleteOccurrenceIdx.name);
+      results.dropped.push(obsoleteOccurrenceIdx.name);
+    } catch (dropErr) {
+      console.warn(`[ExecutionService] Failed to drop obsolete index ${obsoleteOccurrenceIdx.name}:`, dropErr.message);
+    }
+  }
+
+  // 4. Verify no duplicate non-null string tokens exist before building unique index
+  try {
+    const dupApprovals = await executions
+      .aggregate([
+        { $match: { 'approval.resumeToken': { $type: 'string' } } },
+        { $group: { _id: '$approval.resumeToken', count: { $sum: 1 }, ids: { $push: '$_id' } } },
+        { $match: { count: { $gt: 1 } } },
+      ])
+      .toArray();
+
+    if (dupApprovals.length > 0) {
+      console.warn(`[ExecutionService] Detected ${dupApprovals.length} duplicate non-null approval resume tokens!`);
+    }
+
+    const dupWaits = await executions
+      .aggregate([
+        { $match: { 'wait.resumeToken': { $type: 'string' } } },
+        { $group: { _id: '$wait.resumeToken', count: { $sum: 1 }, ids: { $push: '$_id' } } },
+        { $match: { count: { $gt: 1 } } },
+      ])
+      .toArray();
+
+    if (dupWaits.length > 0) {
+      console.warn(`[ExecutionService] Detected ${dupWaits.length} duplicate non-null wait resume tokens!`);
+    }
+  } catch (aggErr) {
+    console.warn(`[ExecutionService] Duplicate token check warning:`, aggErr.message);
+  }
+
+  // 5. Create replacement partial unique indexes
+  try {
+    await executions.createIndex(
+      { 'approval.resumeToken': 1 },
+      {
+        name: 'idx_approval_resume_token_unique',
+        unique: true,
+        partialFilterExpression: { 'approval.resumeToken': { $type: 'string' } },
+        background: true,
+      }
+    );
+    results.created.push('idx_approval_resume_token_unique');
+
+    await executions.createIndex(
+      { 'wait.resumeToken': 1 },
+      {
+        name: 'idx_wait_resume_token_unique',
+        unique: true,
+        partialFilterExpression: { 'wait.resumeToken': { $type: 'string' } },
+        background: true,
+      }
+    );
+    results.created.push('idx_wait_resume_token_unique');
+
+    await executions.createIndex(
+      { occurrenceId: 1 },
+      {
+        name: 'idx_occurrence_id_unique',
+        unique: true,
+        partialFilterExpression: { occurrenceId: { $type: 'string' } },
+        background: true,
+      }
+    );
+    results.created.push('idx_occurrence_id_unique');
+
+    console.log('✅ [ExecutionService] Execution resume token partial unique indexes verified and synchronized');
+  } catch (createErr) {
+    console.warn(`[ExecutionService] Index creation warning:`, createErr.message);
+  }
+
+  return results;
+}
+
 module.exports = {
   getExecutionsByOwner,
   getExecutionsByWorkflow,
@@ -369,5 +509,6 @@ module.exports = {
   decideApproval,
   resumeByToken,
   cancelExecution,
+  ensureExecutionIndexes,
   sweepTimeouts: workflowEngine.sweepTimeouts,
 };

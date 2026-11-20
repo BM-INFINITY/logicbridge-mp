@@ -1,5 +1,5 @@
 const { toolRegistry } = require('./ToolRegistry');
-const { redactSecrets } = require('../utils/secretRedactor');
+const { redactSecrets } = require('../utils/SecretRedactor');
 
 const MAX_TOOL_OUTPUT_BYTES = 32 * 1024; // 32KB max output per tool call
 

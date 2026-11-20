@@ -1,6 +1,6 @@
 const BaseAINode = require('./BaseAINode');
 const { NodeTypes } = require('../constants');
-const { resolveVariable } = require('../utils/variableResolver');
+const { resolveVariable } = require('../utils/VariableResolver');
 const NodeExecutionError = require('../errors/NodeExecutionError');
 
 class AIChatNode extends BaseAINode {

@@ -1,4 +1,4 @@
-const { redactSecrets } = require('../utils/secretRedactor');
+const { redactSecrets } = require('../utils/SecretRedactor');
 
 /**
  * AgentContext — Maintains conversation state, tool calls, and iteration limits during an agent run

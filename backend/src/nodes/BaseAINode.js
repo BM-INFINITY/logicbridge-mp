@@ -1,6 +1,6 @@
 const BaseNode = require('./BaseNode');
-const { resolveVariable } = require('../utils/variableResolver');
-const { registerActiveSecrets } = require('../utils/secretRedactor');
+const { resolveVariable } = require('../utils/VariableResolver');
+const { registerActiveSecrets } = require('../utils/SecretRedactor');
 const { providerRegistry } = require('../providers/llm');
 const NetworkSecurity = require('../utils/NetworkSecurity');
 const ConnectionService = require('../services/ConnectionService');

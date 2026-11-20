@@ -8,24 +8,30 @@ const { ConfigurationError, ValidationError, NodeExecutionError } = require('../
 function sanitizeErrorMessage(msg) {
   if (!msg || typeof msg !== 'string') return 'An error occurred';
   let clean = msg;
-  // Mask Windows & POSIX filesystem paths
-  clean = clean.replace(/[A-Za-z]:\\[^"'\n\r\t<>]+/g, '[REDACTED_PATH]');
-  clean = clean.replace(/\/(?:[a-zA-Z0-9_.-]+\/)+[a-zA-Z0-9_.-]+/g, '[REDACTED_PATH]');
-  // Mask MongoDB & database connection strings
+  // Mask MongoDB & database connection strings first before path matching
   clean = clean.replace(/(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql):\/\/[^\s"']+/gi, '[REDACTED_URI]');
   // Mask API keys and bearer tokens
   clean = clean.replace(/(?:sk-[a-zA-Z0-9_-]{16,}|Bearer\s+[a-zA-Z0-9_.-]+)/gi, '[REDACTED_SECRET]');
+  // Mask Windows & POSIX filesystem paths
+  clean = clean.replace(/[A-Za-z]:\\[^"'\n\r\t<>\s]+/g, '[REDACTED_PATH]');
+  clean = clean.replace(/\/(?:[a-zA-Z0-9_.-]+\/)+[a-zA-Z0-9_.-]+/g, '[REDACTED_PATH]');
   return clean;
 }
 
 /**
- * Global Express Error Handling Middleware (SEC-12)
+ * Global Express Error Handling Middleware (UX & Production Standard)
  *
- * In production, strictly prevents internal error disclosure:
- *   - 5xx errors return generic, non-revealing messages with an error ID
- *   - Internal stack traces, database internals, and filesystem paths are withheld
- *   - Server-side console logs retain complete diagnostics for debugging
- *   - Validation and expected business errors (4xx) retain safe, sanitized messages
+ * Enforces standardized JSON error envelopes:
+ * {
+ *   success: false,
+ *   message: string,
+ *   error: {
+ *     code: string,
+ *     message: string,
+ *     details: Array<{ field?: string, message: string }>,
+ *     requestId?: string
+ *   }
+ * }
  */
 function errorHandler(err, req, res, next) {
   if (res.headersSent) {
@@ -33,62 +39,124 @@ function errorHandler(err, req, res, next) {
   }
 
   const isProd = process.env.NODE_ENV === 'production';
-  const errorId = crypto.randomBytes(8).toString('hex');
-  const statusCode = err.statusCode || (err instanceof ValidationError ? 400 : 500);
+  const requestId = req.id || req.headers?.['x-request-id'] || crypto.randomBytes(8).toString('hex');
+  res.setHeader('X-Request-Id', requestId);
 
-  // Preserve full detailed diagnostics in protected server logs
-  console.error(`[Express ErrorHandler] [${errorId}] ${req.method} ${req.originalUrl || req.url} -> ${err.name || 'Error'}: ${err.message}`);
+  // Diagnostic server logging (preserves full diagnostics, redacting auth headers)
+  const logPrefix = `[Express ErrorHandler] [${requestId}] ${req.method} ${req.originalUrl || req.url}`;
+  console.error(`${logPrefix} -> ${err.name || 'Error'}: ${err.message}`);
   if (err.stack) {
-    console.error(`[Express ErrorHandler] [${errorId}] Stack:\n${err.stack}`);
+    console.error(`${logPrefix} Stack:\n${err.stack}`);
   }
 
-  // 1. Validation Errors (Client input errors, 400 Bad Request)
-  if (err instanceof ValidationError || statusCode === 400) {
-    return res.status(400).json({
-      message: sanitizeErrorMessage(err.message || 'Validation failed'),
-      field: err.field || undefined,
-      code: 'VALIDATION_ERROR',
+  // Helper builder for uniform response envelope
+  const sendErrorResponse = (status, code, message, details = []) => {
+    const safeMessage = sanitizeErrorMessage(message);
+    return res.status(status).json({
+      success: false,
+      message: safeMessage,
+      error: {
+        code,
+        message: safeMessage,
+        details: Array.isArray(details) ? details : (details ? [details] : []),
+        requestId,
+      },
     });
+  };
+
+  // 1. JSON Body Parsing Syntax Error
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return sendErrorResponse(400, 'INVALID_JSON_BODY', 'Malformed JSON payload in request body');
   }
 
-  // 2. Client Authentication & Authorization Errors (401, 403, 404, 409, 429)
-  if (statusCode >= 400 && statusCode < 500) {
-    return res.status(statusCode).json({
-      message: sanitizeErrorMessage(err.message || 'Request failed'),
-      code: err.code || 'CLIENT_ERROR',
-    });
+  // 2. Mongoose Schema Validation Error
+  if (err.name === 'ValidationError' && err.errors) {
+    const details = Object.entries(err.errors).map(([field, errObj]) => ({
+      field,
+      message: sanitizeErrorMessage(errObj.message || `Validation failed on ${field}`),
+    }));
+    const summary = details.length > 0 ? details[0].message : 'Validation failed';
+    return sendErrorResponse(400, 'VALIDATION_ERROR', summary, details);
   }
 
-  // 3. Server-side Internal Errors (5xx)
-  if (isProd) {
-    // In production, NEVER expose internal error messages, system paths, or configuration details
-    return res.status(500).json({
-      message: 'An internal server error occurred',
-      code: 'INTERNAL_SERVER_ERROR',
-      errorId,
-    });
+  // 3. Mongoose CastError (e.g. invalid ObjectId format)
+  if (err.name === 'CastError') {
+    const field = err.path || 'id';
+    return sendErrorResponse(400, 'INVALID_IDENTIFIER', `Invalid format for ${field}`, [
+      { field, message: `Value "${err.value}" is not a valid identifier format` },
+    ]);
   }
 
-  // In development and testing, provide detailed messages for debugging
-  if (err instanceof ConfigurationError) {
-    return res.status(500).json({
-      message: `System Configuration Error: ${err.message}`,
-      errorId,
-    });
+  // 4. MongoDB Duplicate Key Error (E11000)
+  if (err.code === 11000 || (err.message && err.message.includes('E11000 duplicate key error'))) {
+    const keys = err.keyValue ? Object.keys(err.keyValue) : [];
+    const field = keys[0] || 'resource';
+    const msg = `An item with this ${field} already exists`;
+    return sendErrorResponse(409, 'RESOURCE_CONFLICT', msg, [
+      { field, message: msg },
+    ]);
   }
 
+  // 5. Custom App ValidationError
+  if (err instanceof ValidationError) {
+    const details = err.field ? [{ field: err.field, message: err.message }] : [];
+    return sendErrorResponse(400, 'VALIDATION_ERROR', err.message || 'Validation failed', details);
+  }
+
+  // 6. Custom App NodeExecutionError
   if (err instanceof NodeExecutionError) {
-    return res.status(500).json({
-      message: err.message,
-      nodeId: err.nodeId,
-      errorId,
-    });
+    return sendErrorResponse(
+      500,
+      'NODE_EXECUTION_ERROR',
+      isProd ? `Step execution failed. Reference: ${requestId}` : err.message,
+      err.nodeId ? [{ field: 'nodeId', message: err.nodeId }] : []
+    );
   }
 
-  return res.status(statusCode).json({
-    message: err.message || 'Internal server error',
-    errorId,
-  });
+  // 7. Custom App ConfigurationError
+  if (err instanceof ConfigurationError) {
+    return sendErrorResponse(
+      500,
+      'CONFIGURATION_ERROR',
+      isProd ? `System configuration issue. Reference: ${requestId}` : `System Configuration Error: ${err.message}`
+    );
+  }
+
+  // 8. Expected Client Errors (4xx)
+  const statusCode = err.statusCode || (err.status >= 400 && err.status < 600 ? err.status : 500);
+  if (statusCode >= 400 && statusCode < 500) {
+    const defaultCode =
+      statusCode === 400
+        ? 'VALIDATION_ERROR'
+        : statusCode === 401
+        ? 'AUTHENTICATION_REQUIRED'
+        : statusCode === 403
+        ? 'PERMISSION_DENIED'
+        : statusCode === 404
+        ? 'RESOURCE_NOT_FOUND'
+        : statusCode === 409
+        ? 'RESOURCE_CONFLICT'
+        : statusCode === 422
+        ? 'UNPROCESSABLE_ENTITY'
+        : statusCode === 429
+        ? 'RATE_LIMIT_EXCEEDED'
+        : 'CLIENT_ERROR';
+
+    const details = err.field ? [{ field: err.field, message: err.message }] : [];
+    return sendErrorResponse(statusCode, err.code || defaultCode, err.message || 'Request failed', details);
+  }
+
+  // 9. Internal Server Errors (5xx)
+  if (isProd) {
+    return sendErrorResponse(
+      500,
+      'INTERNAL_SERVER_ERROR',
+      `Something went wrong. Please try again. Reference: ${requestId}`
+    );
+  }
+
+  // In non-production, return detailed message for developer troubleshooting
+  return sendErrorResponse(statusCode, 'INTERNAL_SERVER_ERROR', err.message || 'Internal server error');
 }
 
 module.exports = errorHandler;

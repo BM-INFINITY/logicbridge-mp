@@ -6,6 +6,8 @@ import API from '../api/client';
 import { ConnectionList, ConnectionDialog } from '../components/connections';
 import AppSidebar from '../components/AppSidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { ErrorState } from '../components/ui';
+import { showErrorToast, parseApiError } from '../utils/errorHandler';
 
 /* ─── ConnectionsPage ────────────────────────────────────────────────────── */
 export default function ConnectionsPage() {
@@ -19,14 +21,18 @@ export default function ConnectionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [connectionToDelete, setConnectionToDelete] = useState(null);
   const [isDeleting, setIsDeleting]   = useState(false);
+  const [loadError, setLoadError]     = useState(null);
 
   const fetchConnections = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const { data } = await API.get('/api/connections');
       setConnections(data.data || data || []);
-    } catch {
-      toast.error('Failed to load connections');
+    } catch (err) {
+      const parsed = parseApiError(err, 'Failed to load connections');
+      setLoadError(parsed);
+      showErrorToast(err, 'Failed to load connections');
     } finally {
       setLoading(false);
     }
@@ -54,10 +60,14 @@ export default function ConnectionsPage() {
   useEffect(() => { fetchConnections(); }, [fetchConnections]);
 
   const handleCreate = async (payload) => {
-    const { data } = await API.post('/api/connections', payload);
-    const created = data.data || data;
-    toast.success(`"${created.name}" connected successfully`);
-    fetchConnections();
+    try {
+      const { data } = await API.post('/api/connections', payload);
+      const created = data.data || data;
+      toast.success(`"${created.name}" connected successfully`);
+      fetchConnections();
+    } catch (err) {
+      showErrorToast(err, 'Failed to create connection');
+    }
   };
 
   const handleVerify = async (id) => {
@@ -72,7 +82,7 @@ export default function ConnectionsPage() {
       }
       fetchConnections();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Verification failed');
+      showErrorToast(err, 'Verification failed');
     } finally {
       setVerifyingId(null);
     }
@@ -87,7 +97,7 @@ export default function ConnectionsPage() {
       setConnections((prev) => prev.filter((c) => c._id !== connectionToDelete._id));
       setConnectionToDelete(null);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to delete connection');
+      showErrorToast(err, 'Failed to delete connection');
     } finally {
       setIsDeleting(false);
     }
@@ -189,6 +199,13 @@ export default function ConnectionsPage() {
               <div key={i} className="skeleton" style={{ height: 140, borderRadius: 'var(--radius-lg)' }} />
             ))}
           </div>
+        ) : loadError ? (
+          <ErrorState
+            title="Unable to load connections"
+            message={loadError.message}
+            requestId={loadError.requestId}
+            onRetry={fetchConnections}
+          />
         ) : connections.length > 0 && filteredConnections.length === 0 ? (
           <div className="empty-state" style={{ padding: '60px 20px' }}>
             <div className="empty-icon"><Search size={32} /></div>

@@ -9,6 +9,7 @@ export default function SelectField({
   onChange,
   options = [],
   helperText,
+  error,
   required = false,
   disabled = false,
   style = {},
@@ -27,7 +28,7 @@ export default function SelectField({
             whiteSpace: 'nowrap',
             fontSize: '0.78rem',
             fontWeight: 600,
-            color: 'var(--text-secondary)',
+            color: error ? 'var(--accent-danger, #ef4444)' : 'var(--text-secondary)',
           }}
           title={typeof label === 'string' ? label : undefined}
         >
@@ -44,7 +45,7 @@ export default function SelectField({
           borderRadius: 'var(--radius-sm, 8px)',
           background: 'var(--bg-elevated)',
           color: 'var(--text-primary)',
-          border: '1px solid var(--border)',
+          border: error ? '1px solid var(--accent-danger, #ef4444)' : '1px solid var(--border)',
           outline: 'none',
           ...selectStyle,
         }}
@@ -62,11 +63,15 @@ export default function SelectField({
           );
         })}
       </select>
-      {helperText && (
+      {error ? (
+        <div role="alert" style={{ fontSize: '0.72rem', color: 'var(--accent-danger, #ef4444)', marginTop: 4, lineHeight: 1.4, fontWeight: 500 }}>
+          {error}
+        </div>
+      ) : helperText ? (
         <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
           {helperText}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

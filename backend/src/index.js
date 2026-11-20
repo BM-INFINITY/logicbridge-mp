@@ -18,6 +18,7 @@ const { ensureWebhookIndexes, recoverAbandonedWebhookClaims } = require('./servi
 const { ensureExecutionIndexes } = require('./services/executionService');
 const CredentialService = require('./services/CredentialService');
 const createSecurityHeadersMiddleware = require('./middleware/securityHeaders');
+const requestIdMiddleware = require('./middleware/requestId');
 const lifecycleManager = require('./services/lifecycleManager');
 const dataRetentionService = require('./services/dataRetentionService');
 
@@ -36,6 +37,7 @@ try {
 
 const app = express();
 app.disable('x-powered-by');
+app.use(requestIdMiddleware);
 app.use(createSecurityHeadersMiddleware());
 
 // ── Secure CORS Configuration ───────────────────────────────────────────────

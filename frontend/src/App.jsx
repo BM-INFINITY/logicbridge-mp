@@ -11,6 +11,7 @@ import LogsPage from './pages/LogsPage';
 import ConnectionsPage from './pages/ConnectionsPage';
 import AdminPage from './pages/AdminPage';
 import RoleGuard from './components/auth/RoleGuard';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 import SidebarPreviewPage from './pages/SidebarPreviewPage';
 import ExecutionPreviewPage from './pages/ExecutionPreviewPage';
 import './index.css';
@@ -38,31 +39,33 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: '#1e2332',
-            color: '#f1f5f9',
-            border: '1px solid rgba(255,255,255,0.07)',
-          },
-        }}
-      />
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
-        <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-        <Route path="/builder" element={<ProtectedRoute><BuilderPage /></ProtectedRoute>} />
-        <Route path="/builder/:id" element={<ProtectedRoute><BuilderPage /></ProtectedRoute>} />
-        <Route path="/logs" element={<ProtectedRoute><LogsPage /></ProtectedRoute>} />
-        <Route path="/connections" element={<ProtectedRoute><ConnectionsPage /></ProtectedRoute>} />
-        <Route path="/admin" element={<RoleGuard allowedRoles={['admin']}><AdminPage /></RoleGuard>} />
-        <Route path="/preview-sidebars" element={<SidebarPreviewPage />} />
-        <Route path="/preview-builder" element={<BuilderPage />} />
-        <Route path="/preview-executions" element={<ExecutionPreviewPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ErrorBoundary>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: '#1e2332',
+              color: '#f1f5f9',
+              border: '1px solid rgba(255,255,255,0.07)',
+            },
+          }}
+        />
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+          <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/builder" element={<ProtectedRoute><BuilderPage /></ProtectedRoute>} />
+          <Route path="/builder/:id" element={<ProtectedRoute><BuilderPage /></ProtectedRoute>} />
+          <Route path="/logs" element={<ProtectedRoute><LogsPage /></ProtectedRoute>} />
+          <Route path="/connections" element={<ProtectedRoute><ConnectionsPage /></ProtectedRoute>} />
+          <Route path="/admin" element={<RoleGuard allowedRoles={['admin']}><AdminPage /></RoleGuard>} />
+          <Route path="/preview-sidebars" element={<SidebarPreviewPage />} />
+          <Route path="/preview-builder" element={<BuilderPage />} />
+          <Route path="/preview-executions" element={<ExecutionPreviewPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

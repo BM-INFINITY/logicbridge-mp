@@ -11,7 +11,8 @@ import API from '../api/client';
 import toast from 'react-hot-toast';
 import AppSidebar from '../components/AppSidebar';
 import { ExecutionDetailModal, AgentToolCallViewer } from '../components/execution';
-import { Badge, StatusIndicator, Button, EmptyState } from '../components/ui';
+import { Badge, StatusIndicator, Button, EmptyState, ErrorState } from '../components/ui';
+import { showErrorToast, parseApiError } from '../utils/errorHandler';
 
 /* ─── Status Config ──────────────────────────────────────────────────────── */
 const STATUS_CONFIG = {
@@ -63,10 +64,14 @@ export default function LogsPage() {
 
   // Copied IDs tracker
   const [copiedId, setCopiedId] = useState(null);
+  const [loadError, setLoadError] = useState(null);
 
   // Fetch executions & workflows
   const loadLogs = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+    if (!silent) {
+      setLoading(true);
+      setLoadError(null);
+    }
     try {
       const [execRes, wfRes] = await Promise.all([
         API.get('/api/executions?limit=200'),
@@ -76,7 +81,11 @@ export default function LogsPage() {
       setExecutions(execRes.data || []);
       setWorkflows(wfRes.data || []);
     } catch (err) {
-      if (!silent) toast.error('Failed to load execution logs');
+      if (!silent) {
+        const parsed = parseApiError(err, 'Failed to load execution logs');
+        setLoadError(parsed);
+        showErrorToast(err, 'Failed to load execution logs');
+      }
     } finally {
       if (!silent) setLoading(false);
     }
@@ -423,6 +432,13 @@ export default function LogsPage() {
               <div key={i} className="skeleton" style={{ height: 60, borderRadius: 10 }} />
             ))}
           </div>
+        ) : loadError ? (
+          <ErrorState
+            title="Unable to load execution logs"
+            message={loadError.message}
+            requestId={loadError.requestId}
+            onRetry={() => loadLogs(false)}
+          />
         ) : executions.length === 0 ? (
           <EmptyState
             icon={<Activity size={32} />}

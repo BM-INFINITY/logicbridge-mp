@@ -9,6 +9,8 @@ import ConfirmDialog from './ConfirmDialog';
 import Tabs from './Tabs';
 import SkeletonLoader from './SkeletonLoader';
 import EmptyState from './EmptyState';
+import ErrorState from './ErrorState';
+import ErrorBoundary from './ErrorBoundary';
 import Alert from './Alert';
 import Tooltip from './Tooltip';
 import Popover from './Popover';
@@ -42,6 +44,8 @@ export {
   SkeletonLoader,
   SkeletonLoader as Skeleton,
   EmptyState,
+  ErrorState,
+  ErrorBoundary,
   Alert,
   Tooltip,
   Popover,

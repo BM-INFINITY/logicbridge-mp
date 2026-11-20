@@ -11,12 +11,15 @@ import API from '../api/client';
 import AppSidebar from '../components/AppSidebar';
 import TemplatesModal from '../components/TemplatesModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { ErrorState } from '../components/ui';
+import { showErrorToast, parseApiError } from '../utils/errorHandler';
 import { instantiateTemplate } from '../utils';
 
 /* ─── Create Workflow Modal ───────────────────────────────────────────────── */
 function CreateWorkflowModal({ onClose, onCreate }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
+  const [nameError, setNameError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -28,13 +31,22 @@ function CreateWorkflowModal({ onClose, onCreate }) {
   }, [onClose]);
 
   const handleCreate = async () => {
-    if (!name.trim()) return toast.error('Workflow name is required');
+    if (!name.trim()) {
+      setNameError('Workflow name is required');
+      return;
+    }
     setLoading(true);
+    setNameError('');
     try {
       await onCreate({ name: name.trim(), description: desc.trim() });
       onClose();
-    } catch {
-      toast.error('Failed to create workflow');
+    } catch (err) {
+      const parsed = parseApiError(err, 'Failed to create workflow');
+      if (parsed.fieldErrors?.name) {
+        setNameError(parsed.fieldErrors.name);
+      } else {
+        showErrorToast(err, 'Failed to create workflow');
+      }
     } finally {
       setLoading(false);
     }
@@ -57,15 +69,32 @@ function CreateWorkflowModal({ onClose, onCreate }) {
         </div>
 
         <div className="form-group" style={{ marginBottom: 14 }}>
-          <label className="form-label" htmlFor="new-wf-name">Workflow Name *</label>
+          <label
+            className="form-label"
+            htmlFor="new-wf-name"
+            style={{ color: nameError ? 'var(--accent-danger)' : undefined }}
+          >
+            Workflow Name *
+          </label>
           <input
             id="new-wf-name"
             className="form-input"
+            style={{
+              borderColor: nameError ? 'var(--accent-danger)' : undefined,
+            }}
             placeholder="e.g. Daily Report Automation"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (nameError) setNameError('');
+            }}
             autoFocus
           />
+          {nameError && (
+            <div role="alert" style={{ fontSize: '0.72rem', color: 'var(--accent-danger)', marginTop: 4 }}>
+              {nameError}
+            </div>
+          )}
         </div>
 
         <div className="form-group" style={{ marginBottom: 20 }}>
@@ -130,29 +159,40 @@ export default function DashboardPage() {
   const [execStats, setExecStats] = useState({ total: 0, success: 0, failed: 0 });
   const [workflowToDelete, setWorkflowToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'active' | 'draft'
   const [sortBy, setSortBy] = useState('recent'); // 'recent' | 'name' | 'runs'
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadData = React.useCallback(async () => {
     setLoading(true);
-    Promise.all([
-      fetchWorkflows(),
-      API.get('/api/executions').then(({ data }) => {
-        if (!isMounted) return;
-        const total = data.length;
-        const success = data.filter((e) => e.status === 'success').length;
-        const failed = data.filter((e) => e.status === 'failed').length;
-        setExecStats({ total, success, failed });
-      }).catch(() => {}),
-    ]).finally(() => {
-      if (isMounted) setLoading(false);
-    });
-    return () => { isMounted = false; };
+    setLoadError(null);
+    try {
+      await Promise.all([
+        fetchWorkflows(),
+        API.get('/api/executions')
+          .then(({ data }) => {
+            const total = data.length;
+            const success = data.filter((e) => e.status === 'success').length;
+            const failed = data.filter((e) => e.status === 'failed').length;
+            setExecStats({ total, success, failed });
+          })
+          .catch(() => {}),
+      ]);
+    } catch (err) {
+      const parsed = parseApiError(err, 'Failed to load workflows');
+      setLoadError(parsed);
+      showErrorToast(err, 'Failed to load workflows');
+    } finally {
+      setLoading(false);
+    }
   }, [fetchWorkflows]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleCreate = async (payload) => {
     const wf = await createWorkflow(payload);
@@ -172,8 +212,8 @@ export default function DashboardPage() {
       });
       toast.success(`Template "${instantiated.name}" created!`);
       navigate(`/builder/${wf._id}`);
-    } catch {
-      toast.error('Failed to create workflow from template');
+    } catch (err) {
+      showErrorToast(err, 'Failed to create workflow from template');
     }
   };
 
@@ -184,8 +224,8 @@ export default function DashboardPage() {
       await deleteWorkflow(workflowToDelete._id);
       toast.success(`Workflow "${workflowToDelete.name}" deleted`);
       setWorkflowToDelete(null);
-    } catch {
-      toast.error('Failed to delete workflow');
+    } catch (err) {
+      showErrorToast(err, 'Failed to delete workflow');
     } finally {
       setIsDeleting(false);
     }
@@ -198,8 +238,8 @@ export default function DashboardPage() {
       await runWorkflow(id);
       toast.success('Workflow completed!', { id: 'run' });
       fetchWorkflows();
-    } catch {
-      toast.error('Execution failed', { id: 'run' });
+    } catch (err) {
+      showErrorToast(err, 'Workflow execution failed', { id: 'run' });
     }
   };
 
@@ -347,6 +387,13 @@ export default function DashboardPage() {
               <div key={i} className="card skeleton-card skeleton" style={{ height: 170 }} />
             ))}
           </div>
+        ) : loadError ? (
+          <ErrorState
+            title="Unable to load workflows"
+            message={loadError.message}
+            requestId={loadError.requestId}
+            onRetry={loadData}
+          />
         ) : workflows.length === 0 ? (
           /* Empty state when user has no workflows at all */
           <div className="empty-state">

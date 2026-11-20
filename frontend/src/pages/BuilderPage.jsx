@@ -18,6 +18,8 @@ import ApprovalsModal from '../components/ApprovalsModal';
 import ScheduleModal from '../components/ScheduleModal';
 import WebhookEventsModal from '../components/WebhookEventsModal';
 import { ExecutionTimeline } from '../components/execution';
+import { ErrorState, Button } from '../components/ui';
+import { showErrorToast, parseApiError } from '../utils/errorHandler';
 import { instantiateTemplate } from '../utils';
 
 function BuilderContent() {
@@ -70,25 +72,36 @@ function BuilderContent() {
   const [showApprovals, setShowApprovals] = useState(false);
   const [showSchedules, setShowSchedules] = useState(false);
   const [showWebhookEvents, setShowWebhookEvents] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const wrapperRef = useRef(null);
   const [rfInstance, setRfInstance] = useState(null);
 
   // Load workflow from backend
+  const loadWorkflowData = useCallback(async (workflowId) => {
+    setLoadError(null);
+    try {
+      const wf = await fetchWorkflow(workflowId);
+      if (wf) {
+        setWorkflowName(wf.name);
+        setNodes(wf.nodes || []);
+        setEdges(wf.edges || []);
+        setIsDirty(false);
+
+        // If navigation requested a replay for a specific execution
+        if (location.state?.replayExecution) {
+          startReplay(location.state.replayExecution, wf.nodes || []);
+        }
+      }
+    } catch (err) {
+      const parsed = parseApiError(err, 'Failed to load workflow');
+      setLoadError(parsed);
+      showErrorToast(err, 'Failed to load workflow');
+    }
+  }, [fetchWorkflow, location.state, startReplay, setNodes, setEdges]);
+
   useEffect(() => {
     if (id) {
-      fetchWorkflow(id).then((wf) => {
-        if (wf) {
-          setWorkflowName(wf.name);
-          setNodes(wf.nodes || []);
-          setEdges(wf.edges || []);
-          setIsDirty(false);
-
-          // If navigation requested a replay for a specific execution
-          if (location.state?.replayExecution) {
-            startReplay(location.state.replayExecution, wf.nodes || []);
-          }
-        }
-      });
+      loadWorkflowData(id);
     } else {
       // Query parameters preview support for headless testbed & screenshots
       const params = new URLSearchParams(location.search);
@@ -137,7 +150,7 @@ function BuilderContent() {
         setShowValidationDrawer(true);
       }
     }
-  }, [id, location.state, location.search]);
+  }, [id, loadWorkflowData, location.state, location.search]);
 
   // Support selecting a node by type or ID from query params
   useEffect(() => {
@@ -214,8 +227,8 @@ function BuilderContent() {
         toast.success('Workflow created and saved!');
         navigate(`/builder/${newWf._id}`, { replace: true });
       }
-    } catch {
-      toast.error('Save failed');
+    } catch (err) {
+      showErrorToast(err, 'Failed to save workflow');
     } finally {
       setSaving(false);
     }
@@ -252,10 +265,16 @@ function BuilderContent() {
       const stepMap = {};
       (result.steps || []).forEach((s) => { stepMap[s.nodeId] = s.status; });
       setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: stepMap[n.id] || undefined } })));
-      toast.success(result.status === 'success' ? 'Workflow succeeded!' : 'Workflow failed', { id: 'run' });
-    } catch {
+
+      if (result.status === 'failed') {
+        const errorMsg = result.error || 'Workflow execution finished with errors';
+        showErrorToast(errorMsg, 'Workflow execution failed', { id: 'run' });
+      } else {
+        toast.success('Workflow succeeded!', { id: 'run' });
+      }
+    } catch (err) {
       setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })));
-      toast.error('Execution error', { id: 'run' });
+      showErrorToast(err, 'Workflow execution failed', { id: 'run' });
     } finally {
       setRunning(false);
     }
@@ -422,71 +441,87 @@ function BuilderContent() {
         onOpenWebhookEvents={() => setShowWebhookEvents(true)}
       />
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-        <NodePalette />
-
-        {/* Canvas displaying adapter-transformed nodes & edges */}
-        <Canvas
-          onInit={setRfInstance}
-          rfInstance={rfInstance}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
-          onConnect={onConnect}
-          onNodeClick={(_, node) => setSelectedNode(node)}
-          onPaneClick={() => setSelectedNode(null)}
-          onDrop={onDrop}
-          wrapperRef={wrapperRef}
-          displayNodes={displayNodes}
-          displayEdges={displayEdges}
-        />
-
-        {showAI && (
-          <AIPanel
-            onGenerate={(r) => {
-              takeSnapshot();
-              setNodes(r.nodes || []);
-              setEdges(r.edges || []);
-              if (r.name) setWorkflowName(r.name);
-            }}
+      {loadError ? (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <ErrorState
+            title={loadError.status === 404 ? 'Workflow Not Found' : 'Unable to load workflow'}
+            message={loadError.message}
+            requestId={loadError.requestId}
+            onRetry={id ? () => loadWorkflowData(id) : undefined}
+            secondaryAction={
+              <Button variant="secondary" onClick={() => navigate('/dashboard')}>
+                Back to Dashboard
+              </Button>
+            }
           />
-        )}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+          <NodePalette />
 
-        {selectedNode && !showAI && (
-          <StepEditorSidebar
-            node={nodes.find((n) => n.id === selectedNode.id)}
+          {/* Canvas displaying adapter-transformed nodes & edges */}
+          <Canvas
+            onInit={setRfInstance}
+            rfInstance={rfInstance}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
+            onConnect={onConnect}
+            onNodeClick={(_, node) => setSelectedNode(node)}
+            onPaneClick={() => setSelectedNode(null)}
+            onDrop={onDrop}
+            wrapperRef={wrapperRef}
+            displayNodes={displayNodes}
+            displayEdges={displayEdges}
+          />
+
+          {showAI && (
+            <AIPanel
+              onGenerate={(r) => {
+                takeSnapshot();
+                setNodes(r.nodes || []);
+                setEdges(r.edges || []);
+                if (r.name) setWorkflowName(r.name);
+              }}
+            />
+          )}
+
+          {selectedNode && !showAI && (
+            <StepEditorSidebar
+              node={nodes.find((n) => n.id === selectedNode.id)}
+              nodes={nodes}
+              edges={edges}
+              onUpdate={updateNodeData}
+              onDelete={deleteNode}
+              onClose={() => setSelectedNode(null)}
+              workflowId={id}
+            />
+          )}
+
+          {/* Workflow Validation Drawer */}
+          <ValidationDrawer
+            isOpen={showValidationDrawer}
+            onClose={() => setShowValidationDrawer(false)}
             nodes={nodes}
             edges={edges}
-            onUpdate={updateNodeData}
-            onDelete={deleteNode}
-            onClose={() => setSelectedNode(null)}
-            workflowId={id}
+            onNavigateToNode={handleNavigateToNode}
           />
-        )}
 
-        {/* Workflow Validation Drawer */}
-        <ValidationDrawer
-          isOpen={showValidationDrawer}
-          onClose={() => setShowValidationDrawer(false)}
-          nodes={nodes}
-          edges={edges}
-          onNavigateToNode={handleNavigateToNode}
-        />
+          {executionResult && !isReplayActive && (
+            <ExecutionPanel
+              execution={executionResult}
+              onClose={() => {
+                setExecutionResult(null);
+                setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })));
+              }}
+              onStartReplay={(exec) => startReplay(exec, nodes)}
+              onExecutionUpdate={(updated) => setExecutionResult(updated)}
+            />
+          )}
 
-        {executionResult && !isReplayActive && (
-          <ExecutionPanel
-            execution={executionResult}
-            onClose={() => {
-              setExecutionResult(null);
-              setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execStatus: undefined } })));
-            }}
-            onStartReplay={(exec) => startReplay(exec, nodes)}
-            onExecutionUpdate={(updated) => setExecutionResult(updated)}
-          />
-        )}
-
-        {/* Replay Timeline Overlay */}
-        <ExecutionTimeline />
-      </div>
+          {/* Replay Timeline Overlay */}
+          <ExecutionTimeline />
+        </div>
+      )}
 
       {showTemplates && <TemplatesModal onClose={() => setShowTemplates(false)} onLoad={loadTemplate} />}
       <VariablesModal

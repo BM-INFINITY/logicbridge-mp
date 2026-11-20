@@ -1,5 +1,5 @@
 import axios from 'axios';
-import toast from 'react-hot-toast';
+import { parseApiError, showErrorToast } from '../utils/errorHandler';
 
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
@@ -33,12 +33,12 @@ API.interceptors.response.use(
     const originalRequest = error.config;
     const status = error.response?.status;
 
+    // Attach parsed error metadata
+    error.parsed = parseApiError(error);
+
     // Handle 403 Forbidden (authorization failure)
     if (status === 403) {
-      const msg =
-        error.response?.data?.message ||
-        'Access Denied: You do not have permission to perform this action.';
-      toast.error(msg);
+      showErrorToast(error, 'Access Denied: You do not have permission to perform this action.');
       return Promise.reject(error);
     }
 
@@ -98,7 +98,7 @@ API.interceptors.response.use(
         processQueue(refreshErr, null);
         localStorage.removeItem('lb_token');
         localStorage.removeItem('lb_refresh_token');
-        toast.error('Session expired or revoked. Please log in again.');
+        showErrorToast('Session expired or revoked. Please log in again.');
         return Promise.reject(refreshErr);
       } finally {
         isRefreshing = false;

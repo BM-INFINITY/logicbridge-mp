@@ -11,20 +11,47 @@ import { DEVELOPER_TEMPLATES } from './developerTemplates.js';
 
 export const TEMPLATE_CATEGORIES = [
   { id: 'all',                        label: 'All Templates' },
-  { id: 'basic-testing',              label: 'Basic Testing' },
+  { id: 'getting-started',            label: 'Getting Started' },
   { id: 'data-processing',            label: 'Data Processing' },
   { id: 'logic-branching',            label: 'Logic & Branching' },
+  { id: 'database',                   label: 'Databases' },
+  { id: 'ai-automation',              label: 'AI & Automation' },
+  { id: 'developer-testing',          label: 'Developer Testing' },
+  // Granular / legacy categories preserved for backward compatibility & schema checks
+  { id: 'basic-testing',              label: 'Basic Testing' },
   { id: 'execution-recovery',         label: 'Execution & Recovery' },
   { id: 'database-integrations',       label: 'Database Integrations' },
   { id: 'communication-integrations',  label: 'Communication Integrations' },
-  { id: 'ai-automation',              label: 'AI & Automation' },
-  { id: 'getting-started',            label: 'Getting Started' },
   { id: 'api',                        label: 'API' },
-  { id: 'database',                   label: 'Database' },
   { id: 'automation',                 label: 'Automation' },
   { id: 'developer',                  label: 'Developer' },
   { id: 'ai',                         label: 'AI & Agents' },
 ];
+
+/**
+ * 7 consolidated marketplace discovery categories for optimal scanning and header layout.
+ */
+export const MARKETPLACE_CATEGORIES = [
+  { id: 'all',                label: 'All Templates' },
+  { id: 'getting-started',    label: 'Getting Started' },
+  { id: 'data-processing',    label: 'Data Processing' },
+  { id: 'logic-branching',    label: 'Logic & Branching' },
+  { id: 'database',           label: 'Databases' },
+  { id: 'ai-automation',      label: 'AI & Automation' },
+  { id: 'developer-testing',  label: 'Developer Testing' },
+];
+
+/**
+ * Semantic grouping alias mapping from consolidated marketplace categories to legacy/granular IDs.
+ */
+export const CATEGORY_ALIASES = {
+  'getting-started': ['getting-started', 'api'],
+  'data-processing': ['data-processing'],
+  'logic-branching': ['logic-branching', 'execution-recovery'],
+  'database': ['database', 'database-integrations'],
+  'ai-automation': ['ai-automation', 'ai', 'automation'],
+  'developer-testing': ['developer-testing', 'developer', 'basic-testing', 'communication-integrations'],
+};
 
 // ─── Workflow Templates ───────────────────────────────────────────────────────
 

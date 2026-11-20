@@ -3,7 +3,29 @@
  * and installing workflow templates.
  */
 
-import { NODE_DEFS } from '../data/templates.js';
+import { NODE_DEFS, MARKETPLACE_CATEGORIES, CATEGORY_ALIASES } from '../data/templates.js';
+
+export { MARKETPLACE_CATEGORIES, CATEGORY_ALIASES };
+
+/**
+ * Returns matching categories for a given category query, expanding aliases
+ * when the category represents a consolidated group.
+ *
+ * @param {string} category - Category ID
+ * @returns {Array<string>|null} List of matching category IDs, or null if all
+ */
+export function getCategoryAliases(category) {
+  if (!category || category === 'all') return null;
+  if (CATEGORY_ALIASES[category]) {
+    return CATEGORY_ALIASES[category];
+  }
+  for (const [, aliases] of Object.entries(CATEGORY_ALIASES)) {
+    if (aliases.includes(category)) {
+      return [category, ...aliases];
+    }
+  }
+  return [category];
+}
 
 let instantiationCounter = 0;
 
@@ -289,6 +311,15 @@ export function sortTemplates(templates, sortBy = 'popularity') {
       return list.sort((a, b) => (weight[a.difficulty] || 0) - (weight[b.difficulty] || 0));
     }
 
+    case 'steps-asc':
+    case 'fewest-steps':
+    case 'steps':
+      return list.sort((a, b) => (a.nodes?.length || 0) - (b.nodes?.length || 0));
+
+    case 'steps-desc':
+    case 'most-steps':
+      return list.sort((a, b) => (b.nodes?.length || 0) - (a.nodes?.length || 0));
+
     default:
       return list;
   }
@@ -316,11 +347,26 @@ export function filterTemplates(templates, options = {}) {
     difficulty = 'all',
     onlyFavorites = false,
     favorites = [],
+    readyToRun = false,
     hasConnections = 'all',
+    categoryAliases = null,
+    useCategoryAliases = false,
   } = options;
 
   const q = String(search).toLowerCase().trim();
   const favSet = new Set(Array.isArray(favorites) ? favorites : []);
+
+  // Determine allowed categories for filtering
+  let allowedCategories = null;
+  if (category && category !== 'all') {
+    if (Array.isArray(categoryAliases) && categoryAliases.length > 0) {
+      allowedCategories = categoryAliases;
+    } else if (useCategoryAliases || !templates.some((t) => t.category === category)) {
+      allowedCategories = getCategoryAliases(category);
+    } else {
+      allowedCategories = [category];
+    }
+  }
 
   return templates.filter((t) => {
     // Favorites filter
@@ -329,7 +375,7 @@ export function filterTemplates(templates, options = {}) {
     }
 
     // Category filter
-    if (category && category !== 'all' && t.category !== category) {
+    if (allowedCategories && !allowedCategories.includes(t.category)) {
       return false;
     }
 
@@ -338,11 +384,12 @@ export function filterTemplates(templates, options = {}) {
       return false;
     }
 
-    // Connection requirement filter
-    if (hasConnections === 'zero-creds' && Boolean(t.requiresConnection)) {
+    // Connection requirement filter (Ready to Run / credentials)
+    const hasCreds = Boolean(t.requiresConnection) || (Array.isArray(t.requiredConnections) && t.requiredConnections.length > 0);
+    if ((readyToRun || hasConnections === 'zero-creds') && hasCreds) {
       return false;
     }
-    if (hasConnections === 'requires-creds' && !t.requiresConnection) {
+    if (hasConnections === 'requires-creds' && !hasCreds) {
       return false;
     }
 

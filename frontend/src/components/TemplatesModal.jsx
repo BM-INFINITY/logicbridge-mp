@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { TEMPLATES, TEMPLATE_CATEGORIES } from '../data/templates';
+import { TEMPLATES, MARKETPLACE_CATEGORIES, CATEGORY_ALIASES } from '../data/templates';
 import { useTemplateFavorites, useRecentTemplates } from '../hooks';
 import { filterTemplates, sortTemplates } from '../utils/templateUtils';
 import {
@@ -15,7 +15,6 @@ import {
   TemplateFilters,
   RecentlyUsedTemplates,
   TemplateDetailsModal,
-  TemplateInstallModal,
   TemplateCustomizerModal,
 } from './templates';
 import { X, Star, Filter, Search } from 'lucide-react';
@@ -26,6 +25,7 @@ export default function TemplatesModal({ onClose, onLoad }) {
   const [difficulty, setDifficulty]       = useState('all');
   const [sortBy, setSortBy]               = useState('popularity');
   const [onlyFavorites, setOnlyFavorites] = useState(false);
+  const [onlyReadyToRun, setOnlyReadyToRun] = useState(false);
 
   // Modals for preview and install configuration
   const [previewTemplate, setPreviewTemplate]       = useState(null);
@@ -45,13 +45,21 @@ export default function TemplatesModal({ onClose, onLoad }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose, previewTemplate, installingTemplate]);
 
-  // Per-category counts for filter badges
+  // Per-category counts for consolidated filter badges
   const templateCounts = useMemo(() => {
     const counts = {};
-    TEMPLATE_CATEGORIES.forEach((cat) => {
-      counts[cat.id] = TEMPLATES.filter((t) => t.category === cat.id).length;
+    counts['all'] = TEMPLATES.length;
+    MARKETPLACE_CATEGORIES.forEach((cat) => {
+      if (cat.id === 'all') return;
+      const aliases = CATEGORY_ALIASES[cat.id] || [cat.id];
+      counts[cat.id] = TEMPLATES.filter((t) => aliases.includes(t.category)).length;
     });
     return counts;
+  }, []);
+
+  // Total ready-to-run zero-credential templates count
+  const readyToRunCount = useMemo(() => {
+    return TEMPLATES.filter((t) => !t.requiresConnection && (!Array.isArray(t.requiredConnections) || t.requiredConnections.length === 0)).length;
   }, []);
 
   // Filtered and sorted templates
@@ -62,9 +70,11 @@ export default function TemplatesModal({ onClose, onLoad }) {
       difficulty,
       onlyFavorites,
       favorites,
+      readyToRun: onlyReadyToRun,
+      categoryAliases: category === 'all' ? null : CATEGORY_ALIASES[category],
     });
     return sortTemplates(filtered, sortBy);
-  }, [search, category, difficulty, onlyFavorites, favorites, sortBy]);
+  }, [search, category, difficulty, onlyFavorites, favorites, onlyReadyToRun, sortBy]);
 
   // Direct trigger to start the install configuration flow
   const handleInitiateInstall = (template) => {
@@ -117,11 +127,11 @@ export default function TemplatesModal({ onClose, onLoad }) {
       >
         {/* ── Top Header ────────────────────────────────────────────────────── */}
         <div style={{
-          padding: '24px 32px 20px',
+          padding: '18px 24px 14px',
           borderBottom: '1px solid var(--border)',
           flexShrink: 0,
           background: 'var(--bg-surface)',
-          display: 'flex', flexDirection: 'column', gap: 16,
+          display: 'flex', flexDirection: 'column', gap: 12,
         }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
@@ -162,7 +172,7 @@ export default function TemplatesModal({ onClose, onLoad }) {
           <TemplateFilters
             search={search}
             onSearchChange={setSearch}
-            categories={TEMPLATE_CATEGORIES}
+            categories={MARKETPLACE_CATEGORIES}
             category={category}
             onCategoryChange={setCategory}
             difficulty={difficulty}
@@ -172,6 +182,9 @@ export default function TemplatesModal({ onClose, onLoad }) {
             onlyFavorites={onlyFavorites}
             onToggleFavorites={() => setOnlyFavorites((prev) => !prev)}
             favoritesCount={favorites.length}
+            onlyReadyToRun={onlyReadyToRun}
+            onToggleReadyToRun={() => setOnlyReadyToRun((prev) => !prev)}
+            readyToRunCount={readyToRunCount}
             templateCounts={templateCounts}
             totalCount={TEMPLATES.length}
           />
@@ -248,14 +261,15 @@ export default function TemplatesModal({ onClose, onLoad }) {
                 <div>
                   Showing <strong>{filteredAndSorted.length}</strong> template{filteredAndSorted.length !== 1 ? 's' : ''}
                   {onlyFavorites && ' in Favorites'}
-                  {category !== 'all' && ` • ${TEMPLATE_CATEGORIES.find((c) => c.id === category)?.label || category}`}
+                  {onlyReadyToRun && ' • Ready to Run (Zero Creds)'}
+                  {category !== 'all' && ` • ${MARKETPLACE_CATEGORIES.find((c) => c.id === category)?.label || category}`}
                   {difficulty !== 'all' && ` • ${difficulty}`}
                   {search && ` matching "${search}"`}
                 </div>
-                {onlyFavorites && (
+                {(onlyFavorites || onlyReadyToRun) && (
                   <button
                     type="button"
-                    onClick={() => setOnlyFavorites(false)}
+                    onClick={() => { setOnlyFavorites(false); setOnlyReadyToRun(false); }}
                     style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
                   >
                     View All Templates →
@@ -266,7 +280,7 @@ export default function TemplatesModal({ onClose, onLoad }) {
               {/* Template cards grid */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 290px), 1fr))',
                 gap: 16,
               }}>
                 {filteredAndSorted.map((t) => (

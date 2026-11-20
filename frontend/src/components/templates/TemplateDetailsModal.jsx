@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import API from '../../api/client';
 import { getNodeIcon } from '../../constants/Icons';
 import {
-  X, ArrowRight, ArrowDown, Sparkles,
+  X, ArrowRight, Sparkles,
   Layers, ShieldCheck, User, Code, Info,
 } from 'lucide-react';
 
@@ -24,11 +25,61 @@ function DifficultyBadge({ difficulty }) {
   );
 }
 
+function formatHandleBadge(handle) {
+  if (!handle) return { label: '→ Next', color: '#6366f1', bg: 'rgba(99,102,241,0.12)' };
+  switch (handle) {
+    case 'true':
+      return { label: '✓ True Branch', color: '#22c55e', bg: 'rgba(34,197,94,0.12)' };
+    case 'false':
+      return { label: '✗ False Branch', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' };
+    case 'loop':
+      return { label: '↻ Each Item', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' };
+    case 'done':
+      return { label: '✓ Loop Complete', color: '#10b981', bg: 'rgba(16,185,129,0.12)' };
+    case 'approved':
+      return { label: '✓ Approved', color: '#22c55e', bg: 'rgba(34,197,94,0.12)' };
+    case 'rejected':
+      return { label: '✗ Rejected', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' };
+    case 'default':
+      return { label: 'Default Case', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' };
+    default:
+      if (handle.startsWith('case_')) {
+        const caseName = handle.replace('case_', '').replace(/_/g, ' ');
+        return { label: `Case: ${caseName}`, color: '#a855f7', bg: 'rgba(168,85,247,0.12)' };
+      }
+      return { label: handle, color: 'var(--text-secondary)', bg: 'var(--bg-card)' };
+  }
+}
+
 export default function TemplateDetailsModal({
   template,
   onClose,
   onInstall,
 }) {
+  const [availableConnections, setAvailableConnections] = useState([]);
+  const [connectionsLoaded, setConnectionsLoaded]       = useState(false);
+  const [connectionsError, setConnectionsError]         = useState(false);
+
+  // Safe live connection lookup without credential exposure
+  useEffect(() => {
+    let isMounted = true;
+    API.get('/api/connections')
+      .then((res) => {
+        if (isMounted) {
+          const list = Array.isArray(res.data) ? res.data : (res.data?.connections || []);
+          setAvailableConnections(list);
+          setConnectionsLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setConnectionsError(true);
+          setConnectionsLoaded(true);
+        }
+      });
+    return () => { isMounted = false; };
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
@@ -47,8 +98,25 @@ export default function TemplateDetailsModal({
   const actions = nodes.filter((n) => (n.type || '').startsWith('action-'));
   const logic = nodes.filter((n) => (n.type || '').startsWith('logic-'));
 
-  const requiredConnections = template.requiredConnections || (template.requiresConnection ? [template.requiresConnection] : []);
+  const requiredConnections = Array.isArray(template.requiredConnections) && template.requiredConnections.length > 0
+    ? template.requiredConnections
+    : (template.requiresConnection ? [template.requiresConnection] : []);
   const requiredVariables = template.requiredVariables || [];
+
+  const isConnectionAvailable = (reqKey) => {
+    const norm = (reqKey || '').toLowerCase();
+    const matches = (p) => {
+      const prov = (p || '').toLowerCase();
+      if (prov === norm) return true;
+      if (norm === 'email' && (prov === 'smtp' || prov === 'gmail' || prov === 'outlook')) return true;
+      if (norm === 'postgres' && (prov === 'postgresql' || prov === 'postgres')) return true;
+      if (norm === 'google_sheets' && (prov === 'google_sheets' || prov === 'google')) return true;
+      return false;
+    };
+    return availableConnections.some(
+      (c) => (matches(c.provider) || matches(c.type)) && (c.status === 'active' || !c.status)
+    );
+  };
 
   return (
     <div
@@ -244,12 +312,35 @@ export default function TemplateDetailsModal({
                   <Sparkles size={14} /> Ready to run — zero credentials needed
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {requiredConnections.map((conn) => (
-                    <div key={conn} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: '#f59e0b' }}>
-                      <ShieldCheck size={14} /> Requires active connection: <strong style={{ textTransform: 'capitalize' }}>{conn.replace('_', ' ')}</strong>
-                    </div>
-                  ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {requiredConnections.map((conn) => {
+                    const isConfigured = connectionsLoaded && !connectionsError && isConnectionAvailable(conn);
+                    const isUnknown = connectionsError || !connectionsLoaded;
+
+                    return (
+                      <div key={conn} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: '0.8rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-primary)' }}>
+                          <ShieldCheck size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                          <span>Requires connection: <strong style={{ textTransform: 'capitalize' }}>{conn.replace(/_/g, ' ')}</strong></span>
+                        </div>
+                        <div>
+                          {isUnknown ? (
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', background: 'var(--bg-elevated)', padding: '2px 8px', borderRadius: 12, border: '1px solid var(--border)' }}>
+                              Status unavailable
+                            </span>
+                          ) : isConfigured ? (
+                            <span style={{ fontSize: '0.7rem', color: '#22c55e', background: 'rgba(34,197,94,0.12)', padding: '2px 8px', borderRadius: 12, border: '1px solid rgba(34,197,94,0.3)', fontWeight: 600 }}>
+                              ✓ Saved profile found
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.7rem', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 8px', borderRadius: 12, border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600 }}>
+                              ⚠ Not configured — setup needed
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -259,29 +350,35 @@ export default function TemplateDetailsModal({
           <div>
             <div style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Layers size={14} style={{ color: 'var(--accent-primary)' }} />
-              Step-by-Step Execution Sequence ({nodes.length} Steps)
+              Step-by-Step Execution Topology ({nodes.length} Steps, {edges.length} Routes)
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {nodes.map((node, idx) => {
                 const IconComp = getNodeIcon(node.type);
                 const isTrigger = (node.type || '').startsWith('trigger-');
                 const isLogic = (node.type || '').startsWith('logic-');
+                const outgoingEdges = edges.filter((e) => e.source === node.id);
 
                 return (
-                  <React.Fragment key={node.id}>
-                    <div
-                      style={{
-                        background: 'var(--bg-elevated)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-md)',
-                        padding: '12px 16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 12,
-                      }}
-                    >
+                  <div
+                    key={node.id}
+                    style={{
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                    }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                         <div style={{
                           width: 26, height: 26, borderRadius: '50%',
@@ -322,12 +419,54 @@ export default function TemplateDetailsModal({
                       </div>
                     </div>
 
-                    {idx < nodes.length - 1 && (
-                      <div style={{ display: 'flex', justifyContent: 'center', my: -2 }}>
-                        <ArrowDown size={14} style={{ color: 'var(--text-muted)', opacity: 0.6 }} />
+                    {/* Outgoing Edge Route Badges (true/false, cases, loop/done) */}
+                    {outgoingEdges.length > 0 ? (
+                      <div style={{
+                        paddingTop: 8,
+                        borderTop: '1px solid var(--border)',
+                        display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+                        fontSize: '0.72rem',
+                      }}>
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Routes to:</span>
+                        {outgoingEdges.map((edge) => {
+                          const targetNode = nodes.find((n) => n.id === edge.target);
+                          const badge = formatHandleBadge(edge.sourceHandle);
+                          return (
+                            <span
+                              key={edge.id || `${edge.source}-${edge.target}`}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                padding: '2px 8px', borderRadius: 6,
+                                background: badge.bg, border: `1px solid ${badge.color}35`,
+                                color: 'var(--text-primary)',
+                              }}
+                            >
+                              <span style={{ color: badge.color, fontWeight: 700 }}>{badge.label}</span>
+                              <span>→</span>
+                              <strong style={{ color: 'var(--text-primary)' }}>
+                                {targetNode?.data?.label || targetNode?.id || edge.target}
+                              </strong>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{
+                        paddingTop: 8,
+                        borderTop: '1px solid var(--border)',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        fontSize: '0.72rem', color: 'var(--text-muted)',
+                      }}>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '2px 8px', borderRadius: 6,
+                          background: 'var(--bg-card)', border: '1px solid var(--border)',
+                        }}>
+                          🏁 Terminal Step (Workflow concludes here)
+                        </span>
                       </div>
                     )}
-                  </React.Fragment>
+                  </div>
                 );
               })}
             </div>
@@ -386,12 +525,14 @@ export default function TemplateDetailsModal({
             id="template-details-install-btn"
             type="button"
             className="btn btn-primary btn-sm"
+            title="Customize parameters before importing into your workspace"
+            aria-label="Customize and install workflow"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             onClick={() => {
               onInstall(template);
             }}
           >
-            Use Template <ArrowRight size={14} />
+            <Sparkles size={14} /> Customize & Install Workflow <ArrowRight size={14} />
           </button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, X, Star, ArrowUpDown } from 'lucide-react';
+import { Search, X, Star, ArrowUpDown, Sparkles } from 'lucide-react';
 
 export default function TemplateFilters({
   search,
@@ -14,6 +14,9 @@ export default function TemplateFilters({
   onlyFavorites,
   onToggleFavorites,
   favoritesCount,
+  onlyReadyToRun,
+  onToggleReadyToRun,
+  readyToRunCount = 0,
   templateCounts = {},
   totalCount = 0,
 }) {
@@ -38,7 +41,6 @@ export default function TemplateFilters({
             onChange={(e) => onSearchChange(e.target.value)}
             className="form-input"
             style={{ paddingLeft: 36, fontSize: '0.88rem', width: '100%' }}
-            autoFocus
           />
           {search && (
             <button
@@ -108,13 +110,48 @@ export default function TemplateFilters({
               <option value="recent">Recently Added</option>
               <option value="name">Name (A–Z)</option>
               <option value="difficulty">Difficulty</option>
+              <option value="steps-asc">Fewest Steps</option>
+              <option value="steps-desc">Most Steps</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Category Pills + Favorites Toggle */}
+      {/* Category Navigation Bar + Quick Filter Toggles */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Ready to Run Quick Filter Toggle */}
+        <button
+          id="filter-ready-to-run-btn"
+          type="button"
+          onClick={onToggleReadyToRun}
+          aria-pressed={onlyReadyToRun}
+          title="Show templates requiring zero external credentials"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '5px 14px', borderRadius: 'var(--radius-full)',
+            fontSize: '0.8rem', fontWeight: onlyReadyToRun ? 600 : 500,
+            background: onlyReadyToRun ? '#22c55e' : 'var(--bg-elevated)',
+            color: onlyReadyToRun ? '#fff' : 'var(--text-secondary)',
+            border: `1px solid ${onlyReadyToRun ? '#22c55e' : 'var(--border)'}`,
+            cursor: 'pointer',
+            transition: 'all var(--transition)',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
+          <Sparkles size={13} color={onlyReadyToRun ? '#fff' : '#22c55e'} />
+          Ready to Run
+          <span style={{
+            fontSize: '0.65rem',
+            background: onlyReadyToRun ? 'rgba(0,0,0,0.2)' : 'var(--bg-card)',
+            borderRadius: 10, padding: '1px 6px',
+            color: onlyReadyToRun ? '#fff' : 'var(--text-muted)',
+            fontWeight: 700,
+          }}>
+            {readyToRunCount}
+          </span>
+        </button>
+
         {/* Favorites Toggle Button */}
         <button
           id="filter-favorites-btn"
@@ -131,6 +168,7 @@ export default function TemplateFilters({
             cursor: 'pointer',
             transition: 'all var(--transition)',
             whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           <Star size={13} fill={onlyFavorites ? '#000' : 'none'} color={onlyFavorites ? '#000' : '#f59e0b'} />
@@ -146,43 +184,53 @@ export default function TemplateFilters({
           </span>
         </button>
 
-        <div style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 2px' }} />
+        <div style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 2px', flexShrink: 0 }} />
 
-        {/* Category Pills */}
-        {categories.map((cat) => {
-          const count = cat.id === 'all' ? totalCount : (templateCounts[cat.id] ?? 0);
-          const isActive = !onlyFavorites && category === cat.id;
+        {/* Horizontal scrollable category pill container */}
+        <div
+          className="template-categories-scroll"
+          style={{
+            display: 'flex', gap: 8, alignItems: 'center',
+            maxWidth: '100%',
+          }}
+        >
+          {categories.map((cat) => {
+            const count = cat.id === 'all' ? totalCount : (templateCounts[cat.id] ?? 0);
+            const isActive = !onlyFavorites && !onlyReadyToRun && category === cat.id;
 
-          return (
-            <button
-              key={cat.id}
-              id={`filter-category-${cat.id}`}
-              type="button"
-              onClick={() => onCategoryChange(cat.id)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '5px 14px', borderRadius: 'var(--radius-full)',
-                fontSize: '0.8rem', fontWeight: isActive ? 600 : 500,
-                background: isActive ? 'var(--accent-primary)' : 'var(--bg-elevated)',
-                color: isActive ? '#fff' : 'var(--text-secondary)',
-                border: `1px solid ${isActive ? 'var(--accent-primary)' : 'var(--border)'}`,
-                cursor: 'pointer',
-                transition: 'all var(--transition)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {cat.label}
-              <span style={{
-                fontSize: '0.65rem',
-                background: isActive ? 'rgba(255,255,255,0.25)' : 'var(--bg-card)',
-                borderRadius: 10, padding: '1px 6px',
-                color: isActive ? '#fff' : 'var(--text-muted)',
-              }}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={cat.id}
+                id={`filter-category-${cat.id}`}
+                className="template-category-pill"
+                type="button"
+                onClick={() => onCategoryChange(cat.id)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '5px 14px', borderRadius: 'var(--radius-full)',
+                  fontSize: '0.8rem', fontWeight: isActive ? 600 : 500,
+                  background: isActive ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                  color: isActive ? '#fff' : 'var(--text-secondary)',
+                  border: `1px solid ${isActive ? 'var(--accent-primary)' : 'var(--border)'}`,
+                  cursor: 'pointer',
+                  transition: 'all var(--transition)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {cat.label}
+                <span style={{
+                  fontSize: '0.65rem',
+                  background: isActive ? 'rgba(255,255,255,0.25)' : 'var(--bg-card)',
+                  borderRadius: 10, padding: '1px 6px',
+                  color: isActive ? '#fff' : 'var(--text-muted)',
+                }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

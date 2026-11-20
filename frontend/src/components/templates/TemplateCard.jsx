@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { getNodeIcon } from '../../constants/Icons';
 import {
-  Star, Eye, ArrowRight, Database, Table, Mail, Sparkles, Layers,
+  Star, Eye, Database, Table, Mail, Sparkles, Layers,
   Globe, Shuffle, GitBranch, Zap, FileText, Braces, Code2, Settings,
   Clock, Type, Calculator, Calendar, Filter, Tag, Repeat, UserCheck,
   MessageSquare, MessageCircle, Bot,
@@ -38,8 +38,12 @@ function DifficultyBadge({ difficulty }) {
   );
 }
 
-function ConnectionRequirementBadge({ requiresConnection }) {
-  if (!requiresConnection) {
+function ConnectionRequirementBadge({ requiredConnections, requiresConnection }) {
+  const conns = Array.isArray(requiredConnections) && requiredConnections.length > 0
+    ? requiredConnections
+    : (requiresConnection ? [requiresConnection] : []);
+
+  if (conns.length === 0) {
     return (
       <span
         style={{
@@ -66,20 +70,38 @@ function ConnectionRequirementBadge({ requiresConnection }) {
     openai:        { label: 'OpenAI / AI', icon: Sparkles,     color: '#10a37f', bg: 'rgba(16,163,127,0.12)', border: 'rgba(16,163,127,0.3)' },
   };
 
-  const c = CONFIG[requiresConnection] || { label: 'Connection Required', icon: Layers, color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' };
-  const ReqIcon = c.icon;
+  if (conns.length === 1) {
+    const conn = conns[0];
+    const c = CONFIG[conn] || { label: conn.replace(/_/g, ' '), icon: Layers, color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' };
+    const ReqIcon = c.icon;
+    return (
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: '0.65rem', fontWeight: 600,
+          padding: '2px 8px', borderRadius: 20,
+          background: c.bg, color: c.color, border: `1px solid ${c.border}`,
+        }}
+        title={`Requires active ${c.label} connection`}
+      >
+        <ReqIcon size={10} /> {c.label}
+      </span>
+    );
+  }
 
+  const labels = conns.map((k) => CONFIG[k]?.label || k.replace(/_/g, ' ')).join(' + ');
   return (
     <span
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4,
         fontSize: '0.65rem', fontWeight: 600,
         padding: '2px 8px', borderRadius: 20,
-        background: c.bg, color: c.color, border: `1px solid ${c.border}`,
+        background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
+        border: '1px solid rgba(245,158,11,0.3)',
       }}
-      title={`Requires active ${c.label} connection`}
+      title={`Requires active connections: ${labels}`}
     >
-      <ReqIcon size={10} /> {c.label}
+      <Layers size={10} /> {labels}
     </span>
   );
 }
@@ -117,6 +139,7 @@ export default function TemplateCard({
 
   return (
     <div
+      className="template-card-container"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -126,7 +149,10 @@ export default function TemplateCard({
         padding: 20,
         display: 'flex',
         flexDirection: 'column',
+        justifyContent: 'space-between',
         gap: 12,
+        minHeight: 310,
+        height: '100%',
         cursor: 'default',
         transition: 'border-color var(--transition), box-shadow var(--transition), transform var(--transition)',
         transform: hovered ? 'translateY(-2px)' : 'none',
@@ -158,7 +184,7 @@ export default function TemplateCard({
           <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: 5, lineHeight: 1.3 }}>
             {template.name}
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', minHeight: 22 }}>
             {template.isDeveloperTemplate && (
               <span
                 style={{
@@ -180,7 +206,10 @@ export default function TemplateCard({
               </span>
             )}
             {template.difficulty && <DifficultyBadge difficulty={template.difficulty} />}
-            <ConnectionRequirementBadge requiresConnection={template.requiresConnection} />
+            <ConnectionRequirementBadge
+              requiredConnections={template.requiredConnections}
+              requiresConnection={template.requiresConnection}
+            />
           </div>
         </div>
 
@@ -238,15 +267,19 @@ export default function TemplateCard({
         )}
       </div>
 
-      {/* Footer: Node counts + Preview + Use Template */}
+      {/* Footer: Node counts + Variables + Preview + Customize & Use */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexWrap: 'wrap', gap: 8,
         paddingTop: 10, borderTop: '1px solid var(--border)',
       }}>
         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
           {template.nodes?.length || 0} nodes · {template.edges?.length || 0} edges
+          {Array.isArray(template.requiredVariables) && template.requiredVariables.length > 0 && (
+            <> · {template.requiredVariables.length} var{template.requiredVariables.length !== 1 ? 's' : ''}</>
+          )}
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {onPreview && (
             <button
               id={`preview-template-${template.id}`}
@@ -280,6 +313,8 @@ export default function TemplateCard({
             id={`use-template-${template.id}`}
             type="button"
             onClick={() => onUse(template)}
+            title="Customize parameters before importing into your workspace"
+            aria-label={`Customize and use ${template.name}`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               background: hovered ? 'var(--accent-primary)' : 'var(--bg-elevated)',
@@ -289,9 +324,11 @@ export default function TemplateCard({
               fontSize: '0.78rem', fontWeight: 600, padding: '6px 12px',
               cursor: 'pointer',
               transition: 'all var(--transition)',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
-            Use Template <ArrowRight size={13} />
+            <Sparkles size={13} /> Customize & Use
           </button>
         </div>
       </div>

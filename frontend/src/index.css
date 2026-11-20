@@ -1322,3 +1322,47 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .react-flow__edge:hover .react-flow__edge-path {
   stroke-width: 2.5px;
 }
+
+/* ─── Workflow Templates Marketplace Responsiveness ──────────────────────── */
+.template-categories-scroll {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.template-category-pill {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.template-card-container {
+  min-height: 310px;
+  height: 100%;
+}
+
+@media (max-width: 768px) {
+  .template-categories-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .template-categories-scroll::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  #templates-marketplace-modal {
+    max-height: 96vh !important;
+    border-radius: 16px !important;
+  }
+  #template-details-modal {
+    max-height: 96vh !important;
+    border-radius: 16px !important;
+  }
+}
+

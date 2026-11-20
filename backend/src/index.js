@@ -41,37 +41,54 @@ app.use(requestIdMiddleware);
 app.use(createSecurityHeadersMiddleware());
 
 // ── Secure CORS Configuration ───────────────────────────────────────────────
+const PRODUCTION_ORIGIN = 'https://logicbridge-mp.vercel.app';
+
 const DEFAULT_DEV_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:3001',
+  'http://localhost:8080',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
+  'http://127.0.0.1:8080',
 ];
 
 function getAllowedOrigins() {
-  const envOrigins = (
-    process.env.ALLOWED_ORIGINS ||
-    process.env.CLIENT_URL ||
-    process.env.FRONTEND_URL ||
-    ''
-  )
-    .split(',')
-    .map((o) => o.trim())
+  const envVars = [
+    process.env.ALLOWED_ORIGINS,
+    process.env.CLIENT_URL,
+    process.env.FRONTEND_URL,
+  ];
+
+  const envOrigins = envVars
+    .filter(Boolean)
+    .flatMap((val) => val.split(','))
+    .map((o) => o.trim().replace(/\/+$/, ''))
     .filter(Boolean);
 
-  const isProd = process.env.NODE_ENV === 'production';
-  if (isProd) {
-    return new Set(envOrigins);
-  }
-  return new Set([...DEFAULT_DEV_ORIGINS, ...envOrigins]);
+  return new Set([
+    PRODUCTION_ORIGIN,
+    ...DEFAULT_DEV_ORIGINS,
+    ...envOrigins,
+  ]);
 }
 
 const allowedOriginsSet = getAllowedOrigins();
 
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  const normalized = origin.trim().replace(/\/+$/, '').toLowerCase();
+  for (const allowed of allowedOriginsSet) {
+    if (allowed.trim().replace(/\/+$/, '').toLowerCase() === normalized) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const corsOptionsDelegate = (req, callback) => {
-  const origin = req.header('Origin');
+  const origin = req.header ? req.header('Origin') : req.headers?.origin;
 
   // External webhook routes are server-to-server and authenticated by HMAC/tokens,
   // so they are never blocked by browser CORS restrictions
@@ -90,11 +107,11 @@ const corsOptionsDelegate = (req, callback) => {
     return callback(null, { origin: true, credentials: true });
   }
 
-  if (allowedOriginsSet.has(origin)) {
+  if (isOriginAllowed(origin)) {
     return callback(null, {
       origin: true,
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
       allowedHeaders: [
         'Content-Type',
         'Authorization',
@@ -102,12 +119,16 @@ const corsOptionsDelegate = (req, callback) => {
         'X-Idempotency-Key',
         'Idempotency-Key',
         'X-Correlation-Id',
+        'X-Request-Id',
         'X-Hub-Signature-256',
         'X-Hub-Signature',
         'X-Timestamp',
         'X-Signature',
         'X-API-Key',
       ],
+      exposedHeaders: ['X-Request-Id', 'Content-Range', 'X-Total-Count'],
+      optionsSuccessStatus: 204,
+      maxAge: 86400,
     });
   }
 

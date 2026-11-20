@@ -42,6 +42,34 @@ function errorHandler(err, req, res, next) {
   const requestId = req.id || req.headers?.['x-request-id'] || crypto.randomBytes(8).toString('hex');
   res.setHeader('X-Request-Id', requestId);
 
+  // Ensure CORS headers are retained on error responses for allowed origins
+  if (!res.getHeader('Access-Control-Allow-Origin') && req.headers?.origin) {
+    const origin = req.headers.origin;
+    const PRODUCTION_ORIGIN = 'https://logicbridge-mp.vercel.app';
+    const allowed = [
+      PRODUCTION_ORIGIN,
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:8080',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:8080',
+      ...(process.env.ALLOWED_ORIGINS || '').split(',').map((o) => o.trim()),
+      ...(process.env.CLIENT_URL || '').split(',').map((o) => o.trim()),
+      ...(process.env.FRONTEND_URL || '').split(',').map((o) => o.trim()),
+    ].filter(Boolean);
+
+    const norm = origin.trim().replace(/\/+$/, '').toLowerCase();
+    const isAllowed = allowed.some((a) => a.trim().replace(/\/+$/, '').toLowerCase() === norm);
+    if (isAllowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+  }
+
   // Diagnostic server logging (preserves full diagnostics, redacting auth headers)
   const logPrefix = `[Express ErrorHandler] [${requestId}] ${req.method} ${req.originalUrl || req.url}`;
   console.error(`${logPrefix} -> ${err.name || 'Error'}: ${err.message}`);

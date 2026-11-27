@@ -894,6 +894,10 @@ select.form-control option {
 }
 
 /* Responsive Utilities */
+@media (min-width: 769px) {
+  .hide-on-desktop { display: none !important; }
+}
+
 @media (max-width: 1024px) {
   .hide-on-laptop { display: none !important; }
 }

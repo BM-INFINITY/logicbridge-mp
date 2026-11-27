@@ -29,6 +29,7 @@ module.exports = {
   NetworkSecurity,
   generateWorkerId,
   resolveVariable: VariableResolver.resolveVariable,
+  resolveVariableWithDetails: VariableResolver.resolveVariableWithDetails,
   resolveRawValue: VariableResolver.resolveRawValue,
   generateCsvFile: CsvGenerator.generateFile,
   transformTemplate: TemplateResolver.transformTemplate,

@@ -1,6 +1,7 @@
 const BaseNode = require('./BaseNode');
 const { NodeTypes } = require('../constants');
 const { logExecution } = require('../utils');
+const { resolveVariableWithDetails } = require('../utils/VariableResolver');
 
 class LogNode extends BaseNode {
   constructor() {
@@ -15,20 +16,50 @@ class LogNode extends BaseNode {
   }
 
   async execute(node, context) {
-    const message = node.data?.message || '';
+    const rawMessage = node.data?.message || '';
     const prevData = context.lastOutput;
 
     let logContent;
-    if (message.includes('{{prev}}') && prevData) {
-      logContent = message.replace('{{prev}}', JSON.stringify(prevData, null, 2));
-    } else if (!message && prevData) {
-      logContent = JSON.stringify(prevData, null, 2);
+    let unresolvedExpressions = [];
+
+    if (!rawMessage) {
+      // No message configured: dump the previous step output as pretty JSON
+      logContent =
+        prevData !== null && prevData !== undefined
+          ? JSON.stringify(prevData, null, 2)
+          : 'Step executed';
     } else {
-      logContent = message || 'Step executed';
+      const resolved = resolveVariableWithDetails(rawMessage, context);
+      logContent = resolved.value;
+      unresolvedExpressions = resolved.unresolved;
+
+      // If the entire message resolved to empty while containing template tokens,
+      // preserve the raw template so unresolved output is not silently swallowed.
+      if (logContent === '' && rawMessage.includes('{{')) {
+        logContent = rawMessage;
+      }
+
+      if (unresolvedExpressions.length > 0) {
+        console.warn(
+          `[LogNode] Unresolved template expression(s) in node "${node.id}": ${unresolvedExpressions.join(', ')}`
+        );
+      }
     }
 
     logExecution(logContent);
-    return { logged: true, message: logContent, timestamp: new Date().toISOString() };
+
+    const output = {
+      logged: true,
+      message: logContent,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (unresolvedExpressions.length > 0) {
+      output.hasUnresolvedExpressions = true;
+      output.unresolvedExpressions = unresolvedExpressions;
+    }
+
+    return output;
   }
 }
 

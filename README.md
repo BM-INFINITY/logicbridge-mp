@@ -131,3 +131,9 @@ npm run dev
 
 ## 📄 License
 Developed for Minor Project **MP_022**. All rights reserved.
+
+---
+
+## 📚 Documentation
+
+For a complete, beginner-friendly technical walkthrough of the architecture, workflow engine, node system, APIs, setup, deployment, and viva preparation, see the **[Project Guide Index](docs/project-guide/INDEX.md)**.

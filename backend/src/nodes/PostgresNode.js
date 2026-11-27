@@ -212,7 +212,8 @@ class PostgresNode extends BaseNode {
 
         queryParams.push(...initialParams);
       } else {
-        const safeTable = validateIdentifier(table, 'Table name');
+        const resolvedTable = table ? resolveVariable(String(table), context).trim() : '';
+      const safeTable = validateIdentifier(resolvedTable, 'Table name');
 
         if (operation === 'select') {
           // Columns

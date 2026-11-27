@@ -186,7 +186,30 @@ class MongoNode extends BaseNode {
       });
     }
 
-    const targetDbName = database || credentials.database || 'admin';
+    const rawDbName = database ? resolveVariable(String(database), context).trim() : '';
+    if (database && (!rawDbName || rawDbName.includes('{{') || rawDbName.includes('}}'))) {
+      throw new NodeExecutionError(
+        `Invalid or unresolved MongoDB database name: "${database}"`,
+        { nodeId: node.id, nodeType: this.type }
+      );
+    }
+
+    const targetDbName = rawDbName || credentials.database || 'admin';
+    if (!targetDbName || /[\s/\\."$*<>:|?]/.test(targetDbName)) {
+      throw new NodeExecutionError(
+        `Invalid MongoDB database name "${targetDbName}". Database names cannot be empty or contain invalid characters such as '.' or spaces.`,
+        { nodeId: node.id, nodeType: this.type }
+      );
+    }
+
+    const resolvedCollection = collection ? resolveVariable(String(collection), context).trim() : '';
+    if (!resolvedCollection || resolvedCollection.includes('{{') || resolvedCollection.includes('}}')) {
+      throw new NodeExecutionError(
+        `Invalid or unresolved MongoDB collection name: "${collection || ''}"`,
+        { nodeId: node.id, nodeType: this.type }
+      );
+    }
+
     const client = context?._mongoClient || this._clientOverride || this.createClient(credentials);
     const shouldClose = !context?._mongoClient && !this._clientOverride;
 
@@ -196,7 +219,7 @@ class MongoNode extends BaseNode {
       }
 
       const db = client.db(targetDbName);
-      const col = db.collection(collection);
+      const col = db.collection(resolvedCollection);
 
       // Parse and normalize filter
       const rawFilter = resolveJsonOrObject(filter, context) || {};

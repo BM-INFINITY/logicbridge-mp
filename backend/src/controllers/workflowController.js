@@ -2,6 +2,7 @@ const { workflowService, workflowEngine, aiGenerator, WorkflowSerializer, webhoo
 const { workflowValidator } = require('../validators');
 const { success, error } = require('../utils/ResponseHelper');
 const { WebhookPayload } = require('../utils');
+const { NodeTypes } = require('../constants');
 const Workflow = require('../models/Workflow');
 
 /**
